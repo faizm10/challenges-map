@@ -1,4 +1,5 @@
 import {
+  ACTIVE_TEAM_IDS,
   MAX_CHALLENGES,
   CHALLENGE_PROOF_BUCKET,
   CHALLENGE_SUBMISSION_RANK_POINTS,
@@ -80,6 +81,12 @@ type StatusRow = {
 type UploadRow = ChallengeUpload;
 
 type CheckinRow = TeamCheckin;
+
+const ACTIVE_TEAM_ID_SET = new Set(ACTIVE_TEAM_IDS);
+
+function isActiveTeamId(teamId: number) {
+  return ACTIVE_TEAM_ID_SET.has(teamId);
+}
 
 function getMilestones(entry: {
   completed_count: number;
@@ -780,6 +787,7 @@ export async function getLatestLocations(): Promise<TeamLatestLocation[]> {
       color: string;
       badge_label: string;
     }>)
+      .filter((team) => isActiveTeamId(Number(team.id)))
       .map((team) =>
         getLatestLocationForTeam(
           {
@@ -865,7 +873,9 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
       uploadsByKey.set(key, current);
     }
 
-    return checkins.map((checkin) => {
+    return checkins
+      .filter((checkin) => isActiveTeamId(checkin.team_id))
+      .map((checkin) => {
       const team = teamMap.get(checkin.team_id);
       const challenge =
         checkin.challenge_id !== null ? challengeMap.get(checkin.challenge_id) ?? null : null;
@@ -897,7 +907,7 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
         uploads,
         proof_note: challengeStatus?.proof_note ?? "",
       };
-    });
+      });
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       return getLocalRecentCheckins();
@@ -920,7 +930,7 @@ export async function getPublicMapData(): Promise<PublicMapResponse> {
 
     if (teamsResult.error) throw teamsResult.error;
 
-    const teams = ((teamsResult.data ?? []) as Team[]) ?? [];
+    const teams = (((teamsResult.data ?? []) as Team[]) ?? []).filter((team) => isActiveTeamId(team.id));
     const checkinsByTeam = new Map<number, TeamCheckin[]>();
     for (const checkin of allCheckins) {
       const current = checkinsByTeam.get(checkin.team_id) ?? [];
@@ -973,14 +983,14 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     if (teamsResult.error) throw teamsResult.error;
     if (statusResult.error) throw statusResult.error;
 
-    const teams = (teamsResult.data ?? []) as Array<{
+    const teams = ((teamsResult.data ?? []) as Array<{
       id: number;
       team_name: string;
       start_location_name: string;
       walk_time: string;
       color: string;
       badge_label: string;
-    }>;
+    }>).filter((team) => isActiveTeamId(Number(team.id)));
     const challenges = (challengesResult.data ?? []) as Array<{
       id: number;
       is_released: boolean;
@@ -1081,6 +1091,10 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
 }
 
 export async function getTeamDashboard(teamId: number): Promise<TeamDashboardResponse | null> {
+  if (!isActiveTeamId(teamId)) {
+    return null;
+  }
+
   try {
     const [teamResult, releasedChallenges, statusResult, uploads, checkins, leaderboard] =
       await Promise.all([
@@ -1199,7 +1213,9 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
     );
 
     const teams = await Promise.all(
-      ((teamsResult.data ?? []) as Array<{ id: number }>).map(async ({ id }) => {
+      ((teamsResult.data ?? []) as Array<{ id: number }>)
+        .filter(({ id }) => isActiveTeamId(Number(id)))
+        .map(async ({ id }) => {
         const team = await getTeamDashboard(id);
         if (!team) return null;
         return {
@@ -1232,7 +1248,8 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
       leaderboard,
       pins: {
         admin_hint: "Stored in Supabase access_credentials table",
-        team_pin_count: ((teamsResult.data ?? []) as Array<{ id: number }>).length,
+        team_pin_count: ((teamsResult.data ?? []) as Array<{ id: number }>)
+          .filter(({ id }) => isActiveTeamId(Number(id))).length,
       },
     };
   } catch (error) {

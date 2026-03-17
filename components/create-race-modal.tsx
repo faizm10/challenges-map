@@ -164,7 +164,7 @@ export function CreateRaceModal({
                           <label className="text-sm font-medium text-white/70">Team count</label>
                           <Input
                             className="border-white/10 bg-white/5 text-white placeholder:text-white/30"
-                            placeholder="5"
+                            placeholder="4"
                           />
                         </div>
                       </div>
@@ -176,7 +176,7 @@ export function CreateRaceModal({
                         <div className="mt-4 space-y-3">
                           <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-white/60">Starting points</span>
-                            <strong>5 across Toronto</strong>
+                            <strong>4 across Toronto</strong>
                           </div>
                           <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-white/60">Challenge cadence</span>

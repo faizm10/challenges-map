@@ -33,7 +33,7 @@ type LandingPageProps = {
 const steps = [
   {
     title: "Start across the city",
-    copy: "Five teams launch from different Toronto origins at the same time.",
+    copy: "Four teams launch from different Toronto origins at the same time.",
     icon: MapPinned,
   },
   {
@@ -203,7 +203,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 Converge on the city.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-white/54 sm:text-xl">
-                Five teams. Live HQ prompts. Checkpoints, proof, and cinematic
+                Four teams. Live HQ prompts. Checkpoints, proof, and cinematic
                 city movement built for a premium Toronto night out.
               </p>
             </motion.div>
@@ -246,7 +246,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               transition={{ duration: 0.7, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
             >
               {[
-                { label: "Team Origins", value: "5 across Toronto" },
+                { label: "Team Origins", value: "4 across Toronto" },
                 { label: "Challenge Style", value: "Live, social, cinematic" },
                 { label: "Finish Point", value: "Union Station" },
               ].map((item) => (
@@ -395,7 +395,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 Live map
               </p>
               <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-                Watch five teams move through Toronto toward one final convergence.
+                Watch four teams move through Toronto toward one final convergence.
               </h2>
             </div>
             <div className="flex flex-wrap gap-3">

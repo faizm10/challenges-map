@@ -124,8 +124,7 @@ values
   (1, 'Team 1', 'Krembil Research Institute', '60 Leonard Ave, Toronto, ON M5T 0S8', 'Head east toward Spadina or University, continue south through downtown, then east on Front Street to Union Station.', '35-45 min', '#d85f3a', 'Streetcar Spark'),
   (2, 'Team 2', 'John P. Robarts Research Library', '130 St George St, Toronto, ON M5S 0C2', 'Cut southeast through the U of T and Queen''s Park area, continue south on University Avenue, then east on Front Street to Union Station.', '40-50 min', '#2c7a7b', 'Stacks Sprint'),
   (3, 'Team 3', 'Coronation Park', '711 Lake Shore Blvd W, Toronto, ON M5V 1A7', 'Follow the waterfront east via Queens Quay or the waterfront trail, then head north into Union Station.', '30-40 min', '#2563eb', 'Harbour Heat'),
-  (4, 'Team 4', 'Regent Park', '620 Dundas St E, Toronto, ON M5A 3S4', 'Walk west along Dundas Street or Queen Street into downtown, then head south to Front Street and continue to Union Station.', '40-50 min', '#8b5cf6', 'East End Echo'),
-  (5, 'Team 5', 'Wellesley-Magill Park', '125 Homewood Ave, Toronto, ON M4Y 0A6', 'Head southwest toward Yonge Street or Bay Street, walk south through downtown, then continue along Front Street to Union Station.', '45-60 min', '#c0841a', 'Midtown Rush');
+  (4, 'Team 4', 'Regent Park', '620 Dundas St E, Toronto, ON M5A 3S4', 'Walk west along Dundas Street or Queen Street into downtown, then head south to Front Street and continue to Union Station.', '40-50 min', '#8b5cf6', 'East End Echo');
 
 insert into public.access_credentials (role, display_name, pin, team_id)
 values
@@ -133,16 +132,14 @@ values
   ('team', 'Team 1', 'TEAM1GO', 1),
   ('team', 'Team 2', 'TEAM2GO', 2),
   ('team', 'Team 3', 'TEAM3GO', 3),
-  ('team', 'Team 4', 'TEAM4GO', 4),
-  ('team', 'Team 5', 'TEAM5GO', 5);
+  ('team', 'Team 4', 'TEAM4GO', 4);
 
 insert into public.team_scores (team_id, arrival_rank, creativity_score)
 values
   (1, null, 0),
   (2, null, 0),
   (3, null, 0),
-  (4, null, 0),
-  (5, null, 0);
+  (4, null, 0);
 
 alter table public.teams enable row level security;
 alter table public.access_credentials enable row level security;

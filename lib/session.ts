@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 import { cookies } from "next/headers";
 
-import { COOKIE_NAME, SESSION_SECRET } from "@/lib/config";
+import { ACTIVE_TEAM_IDS, COOKIE_NAME, SESSION_SECRET } from "@/lib/config";
 import type { SessionRole } from "@/lib/types";
 
 type SessionPayload = {
@@ -65,5 +65,7 @@ export async function requireAdminSession() {
 
 export async function requireTeamSession() {
   const session = await getSession();
-  return session?.role === "team" && session.teamId ? session : null;
+  return session?.role === "team" && session.teamId && ACTIVE_TEAM_IDS.includes(session.teamId)
+    ? session
+    : null;
 }

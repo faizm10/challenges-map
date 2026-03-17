@@ -8,7 +8,6 @@ Fill this in during the event.
 | Team 2 | Robarts Research Library |  |  |  |  |  |  |
 | Team 3 | Coronation Park |  |  |  |  |  |  |
 | Team 4 | Regent Park |  |  |  |  |  |  |
-| Team 5 | Wellesley-Magill Park |  |  |  |  |  |  |
 
 ## Speed Points Reference
 

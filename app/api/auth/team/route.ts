@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { ACTIVE_TEAM_IDS } from "@/lib/config";
 import { isSupabaseUnavailable } from "@/lib/data-source";
 import { findLocalCredential } from "@/lib/local-store";
 import { supabase } from "@/lib/supabase";
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
 
     if (error) throw error;
     if (!data?.team_id) {
+      return NextResponse.json({ error: "Invalid team name or PIN." }, { status: 401 });
+    }
+    if (!ACTIVE_TEAM_IDS.includes(Number(data.team_id))) {
       return NextResponse.json({ error: "Invalid team name or PIN." }, { status: 401 });
     }
 

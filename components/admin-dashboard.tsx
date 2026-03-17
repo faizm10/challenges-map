@@ -1287,7 +1287,7 @@ export function AdminDashboard() {
               </div>
 
               <div className="mb-5 rounded-2xl border border-white/8 bg-white/[0.04] p-4 text-sm text-white/56">
-                Scoring is automatic: each challenge starts a 45-minute timer on the first submission, and points decay for later submissions.
+                Scoring is automatic: challenge points are awarded only when the challenge proof review is verified.
               </div>
 
               <div className="space-y-4">
@@ -1321,6 +1321,11 @@ export function AdminDashboard() {
                               {latestUploadAt
                                 ? ` · latest ${new Date(latestUploadAt).toLocaleString()}`
                                 : " · no media yet"}
+                            </p>
+                            <p className="mt-1 text-xs text-white/52">
+                              {challenge.review_status === "verified"
+                                ? `${challenge.awarded_points} pts awarded`
+                                : "Points award when this challenge review is verified"}
                             </p>
                           </div>
                           <Badge variant={badge.variant}>{badge.label}</Badge>

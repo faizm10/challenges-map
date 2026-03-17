@@ -90,23 +90,6 @@ export const TEAM_SEED: TeamSeed[] = [
       [-79.3807, 43.6453],
     ],
   },
-  {
-    id: 5,
-    teamName: "Team 5",
-    startLocationName: "Wellesley-Magill Park",
-    address: "125 Homewood Ave, Toronto, ON M4Y 0A6",
-    routeSummary:
-      "Head southwest toward Yonge Street or Bay Street, walk south through downtown, then continue along Front Street to Union Station.",
-    walkTime: "45-60 min",
-    color: "#c0841a",
-    badgeLabel: "Midtown Rush",
-    coordinates: [-79.3807, 43.6561],
-    routeLine: [
-      [-79.3807, 43.6561],
-      [-79.3784, 43.6608],
-      [-79.3812, 43.6542],
-      [-79.3816, 43.6487],
-      [-79.3807, 43.6453],
-    ],
-  },
 ];
+
+export const ACTIVE_TEAM_IDS = TEAM_SEED.map((team) => team.id);

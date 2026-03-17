@@ -35,9 +35,6 @@ Race to Union is a 5-team walking challenge in Toronto. Each team starts from a 
 - **Route**: Walk west along Dundas Street or Queen Street into downtown, then head south to Front Street and continue to Union Station.
 - **Approx walk**: 40-50 minutes
 
-### Team 5
-
-- **Start**: Wellesley-Magill Park, 125 Homewood Ave, Toronto, ON M4Y 0A6
 - **Route**: Head southwest toward Yonge Street or Bay Street, walk south through downtown, then continue along Front Street to Union Station.
 - **Approx walk**: 45-60 minutes
 
