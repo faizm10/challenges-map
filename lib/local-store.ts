@@ -456,9 +456,16 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
     const status = state.teamChallengeStatus.find(
       (item) => item.team_id === teamId && item.challenge_id === challenge.id
     );
+    const isUnlocked = state.teamCheckins.some(
+      (item) =>
+        item.team_id === teamId &&
+        item.checkin_type === "challenge" &&
+        item.challenge_id === challenge.id
+    );
 
     return {
       ...challenge,
+      is_unlocked: isUnlocked,
       status: status?.status ?? "not_started",
       proof_note: status?.proof_note ?? "",
       submitted_at: status?.submitted_at ?? null,

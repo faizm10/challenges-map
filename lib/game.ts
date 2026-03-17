@@ -438,6 +438,41 @@ async function getChallengeStatusRow(teamId: number, challengeId: number): Promi
   return (data as StatusRow | null) ?? null;
 }
 
+async function hasChallengeCheckin(teamId: number, challengeId: number) {
+  try {
+    const { data, error } = await supabase
+      .from("team_checkins")
+      .select("id")
+      .eq("team_id", teamId)
+      .eq("checkin_type", "challenge")
+      .eq("challenge_id", challengeId)
+      .limit(1)
+      .maybeSingle<{ id: number }>();
+
+    if (error) throw error;
+    return Boolean(data?.id);
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      const localCheckins = getLocalCheckins(teamId);
+      return localCheckins.some(
+        (checkin) =>
+          checkin.checkin_type === "challenge" && checkin.challenge_id === challengeId
+      );
+    }
+    throw error;
+  }
+}
+
+async function requireChallengeCheckin(teamId: number, challengeId: number) {
+  const unlocked = await hasChallengeCheckin(teamId, challengeId);
+  if (!unlocked) {
+    throw new GameError(
+      "Complete the challenge check-in first to unlock proof uploads and submission.",
+      409
+    );
+  }
+}
+
 async function getTeamUploads(teamId: number) {
   const { data, error } = await supabase
     .from("challenge_media")
@@ -773,10 +808,13 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
     const uploadsByChallenge = buildUploadsByChallenge(uploads);
     const latestLocation = getLatestLocationForTeam(team, checkins, releasedChallenges);
 
-    const challenges = releasedChallenges.map((challenge) => {
+    const challenges = await Promise.all(
+      releasedChallenges.map(async (challenge) => {
       const status = statuses.get(challenge.id);
+      const isUnlocked = await hasChallengeCheckin(teamId, challenge.id);
       return {
         ...challenge,
+        is_unlocked: isUnlocked,
         status: status?.status ?? "not_started",
         proof_note: status?.proof_note ?? "",
         submitted_at: status?.submitted_at ?? null,
@@ -786,7 +824,8 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
         reviewed_by: status?.reviewed_by ?? null,
         uploads: uploadsByChallenge.get(challenge.id) ?? [],
       };
-    });
+      })
+    );
 
     const teamStats = leaderboard.find((entry) => entry.id === teamId);
     if (!teamStats) return null;
@@ -1015,6 +1054,7 @@ export async function updateTeamChallengeSubmission(
   status: "submitted" | "not_started"
 ) {
   try {
+    await requireChallengeCheckin(teamId, challengeId);
     const current = await getChallengeStatusRow(teamId, challengeId);
     if (!current) {
       throw new GameError("Challenge submission was not found.", 404);
@@ -1053,6 +1093,7 @@ export async function updateTeamChallengeSubmission(
 
 export async function uploadTeamChallengeMedia(teamId: number, challengeId: number, file: File) {
   try {
+    await requireChallengeCheckin(teamId, challengeId);
     const statusRow = await getChallengeStatusRow(teamId, challengeId);
     if (!statusRow) {
       throw new GameError("Challenge submission was not found.", 404);

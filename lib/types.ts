@@ -40,6 +40,7 @@ export type TeamChallengeStatus = {
   text: string;
   expected_location: string;
   is_released: number;
+  is_unlocked: boolean;
   status: "not_started" | "submitted";
   proof_note: string;
   submitted_at: string | null;

@@ -682,6 +682,7 @@ export function TeamDashboard() {
           {dashboard.challenges.length ? (
             dashboard.challenges.map((challenge) => {
               const isLocked = challenge.review_status === "verified";
+              const isCheckinLocked = !challenge.is_unlocked;
               const latestUploadAt = challenge.uploads[0]?.uploaded_at;
 
               return (
@@ -703,6 +704,15 @@ export function TeamDashboard() {
 
                   <p className="mb-4 text-sm leading-7 text-white/58">{challenge.text}</p>
 
+                  {isCheckinLocked ? (
+                    <div className="mb-4 rounded-[20px] border border-orange-400/14 bg-orange-500/[0.07] p-4">
+                      <p className="text-sm font-semibold text-white">Check-in required first</p>
+                      <p className="mt-1 text-sm leading-6 text-white/62">
+                        Check in for this challenge first to unlock proof uploads and submission.
+                      </p>
+                    </div>
+                  ) : null}
+
                   <div className="mb-4 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -718,7 +728,7 @@ export function TeamDashboard() {
                         <input
                           accept="image/*,video/*"
                           className="hidden"
-                          disabled={isLocked || uploadingId === challenge.id}
+                          disabled={isLocked || isCheckinLocked || uploadingId === challenge.id}
                           multiple
                           type="file"
                           onChange={(event) => {
@@ -728,7 +738,7 @@ export function TeamDashboard() {
                         />
                         <span
                           className={`inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-white transition ${
-                            isLocked || uploadingId === challenge.id
+                            isLocked || isCheckinLocked || uploadingId === challenge.id
                               ? "cursor-not-allowed bg-white/[0.03] text-white/40"
                               : "cursor-pointer bg-white/5 hover:bg-white/10"
                           }`}
@@ -825,13 +835,13 @@ export function TeamDashboard() {
                     <Textarea
                       className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
                       defaultValue={challenge.proof_note}
-                      disabled={isLocked}
+                      disabled={isLocked || isCheckinLocked}
                       name="proofNote"
                       placeholder="Add optional context for HQ: what was captured, who appeared, and anything they should notice."
                     />
                     <Button
                       className="bg-orange-500 text-black hover:bg-orange-400"
-                      disabled={savingId === challenge.id || isLocked}
+                      disabled={savingId === challenge.id || isLocked || isCheckinLocked}
                       type="submit"
                     >
                       {savingId === challenge.id ? (
