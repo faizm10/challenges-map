@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { isSupabaseUnavailable } from "@/lib/data-source";
+import { findLocalCredential } from "@/lib/local-store";
 import { supabase } from "@/lib/supabase";
 import { setSession } from "@/lib/session";
 
@@ -17,22 +19,36 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await supabase
-    .from("access_credentials")
-    .select("id")
-    .eq("role", "admin")
-    .eq("display_name", name)
-    .eq("pin", pin)
-    .maybeSingle<{ id: number }>();
+  try {
+    const { data, error } = await supabase
+      .from("access_credentials")
+      .select("id")
+      .eq("role", "admin")
+      .eq("display_name", name)
+      .eq("pin", pin)
+      .maybeSingle<{ id: number }>();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) throw error;
+    if (!data?.id) {
+      return NextResponse.json({ error: "Invalid admin name or PIN." }, { status: 401 });
+    }
+
+    await setSession({ role: "admin" });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (!isSupabaseUnavailable(error)) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Request failed." },
+        { status: 500 }
+      );
+    }
+
+    const localCredential = findLocalCredential("admin", name, pin);
+    if (!localCredential) {
+      return NextResponse.json({ error: "Invalid admin name or PIN." }, { status: 401 });
+    }
+
+    await setSession({ role: "admin" });
+    return NextResponse.json({ ok: true, fallback: true });
   }
-
-  if (!data?.id) {
-    return NextResponse.json({ error: "Invalid admin name or PIN." }, { status: 401 });
-  }
-
-  await setSession({ role: "admin" });
-  return NextResponse.json({ ok: true });
 }

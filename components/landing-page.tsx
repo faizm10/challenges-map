@@ -119,6 +119,7 @@ function SectionReveal({
 
 export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
   const [data, setData] = useState(initialData);
+  const [isCreateRaceOpen, setIsCreateRaceOpen] = useState(false);
 
   useEffect(() => {
     const poll = window.setInterval(async () => {
@@ -174,7 +175,12 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
               <Link href="/team">Team Login</Link>
             </Button>
-            <CreateRaceModal />
+            <Button
+              className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
+              onClick={() => setIsCreateRaceOpen(true)}
+            >
+              Start a Race
+            </Button>
           </div>
         </div>
       </header>
@@ -201,11 +207,16 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
 
             <motion.div
               animate={{ opacity: 1, y: 0 }}
-              className="mt-10 flex flex-wrap gap-4"
+              className="mt-10 flex flex-col gap-4 sm:flex-row sm:flex-wrap"
               initial={{ opacity: 0, y: 24 }}
               transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
             >
-              <CreateRaceModal />
+              <Button
+                className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
+                onClick={() => setIsCreateRaceOpen(true)}
+              >
+                Start a Race
+              </Button>
               <Button
                 asChild
                 className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
@@ -516,7 +527,12 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               social challenge drops, and a finish that feels earned.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-              <CreateRaceModal />
+              <Button
+                className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
+                onClick={() => setIsCreateRaceOpen(true)}
+              >
+                Start a Race
+              </Button>
               <Button
                 asChild
                 className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
@@ -528,6 +544,11 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
           </div>
         </SectionReveal>
       </div>
+
+      <CreateRaceModal
+        open={isCreateRaceOpen}
+        onOpenChange={setIsCreateRaceOpen}
+      />
     </main>
   );
 }
