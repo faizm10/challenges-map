@@ -69,7 +69,7 @@ function cloneState(): LocalState {
     nextChallengeId: 1,
     teamScores: TEAM_SCORE_ROWS.map((score) => ({ ...score })),
     accessCredentials: ACCESS_SEED.map((credential) => ({
-      role: credential.role,
+      role: credential.role as AccessCredential["role"],
       display_name: credential.display_name,
       pin: credential.pin,
       team_id: credential.team_id,
