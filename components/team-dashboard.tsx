@@ -102,6 +102,16 @@ export function TeamDashboard() {
     return () => window.clearInterval(poll);
   }, [dashboard]);
 
+  const startCheckpoint =
+    dashboard?.checkpoints.find((checkpoint) => checkpoint.checkin_type === "start") ?? null;
+  const hasStartedRace = Boolean(startCheckpoint?.latest_checkin);
+  const visibleCheckpoints = dashboard
+    ? dashboard.checkpoints.filter((checkpoint) => {
+        if (checkpoint.checkin_type === "start") return true;
+        return hasStartedRace;
+      })
+    : [];
+
   async function onLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -567,7 +577,7 @@ export function TeamDashboard() {
             </div>
           </div>
 
-          {dashboard.checkpoints.map((checkpoint) => (
+          {visibleCheckpoints.map((checkpoint) => (
             <Card
               key={checkpoint.key}
               className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
@@ -668,6 +678,16 @@ export function TeamDashboard() {
               ) : null}
             </Card>
           ))}
+
+          {!hasStartedRace ? (
+            <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4 text-white">
+              <p className="text-sm font-semibold text-white">Challenges unlock after the start check-in</p>
+              <p className="mt-1 text-sm leading-6 text-white/58">
+                Complete your start check-in first. Once the race has started, challenge check-ins
+                and challenge proof cards will appear automatically.
+              </p>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -679,7 +699,11 @@ export function TeamDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          {dashboard.challenges.length ? (
+          {!hasStartedRace ? (
+            <p className="text-sm text-white/46">
+              Start the race with your first check-in to reveal challenge cards.
+            </p>
+          ) : dashboard.challenges.length ? (
             dashboard.challenges.map((challenge) => {
               const isLocked = challenge.review_status === "verified";
               const isCheckinLocked = !challenge.is_unlocked;
