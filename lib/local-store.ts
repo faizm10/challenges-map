@@ -20,7 +20,12 @@ import {
   TEAM_SCORE_ROWS,
 } from "@/lib/seed";
 
-type AccessCredential = (typeof ACCESS_SEED)[number];
+type AccessCredential = {
+  role: "admin" | "team";
+  display_name: string;
+  pin: string;
+  team_id: number | null;
+};
 
 type LocalState = {
   teams: Team[];
@@ -63,7 +68,12 @@ function cloneState(): LocalState {
     nextCheckinId: 1,
     nextChallengeId: 1,
     teamScores: TEAM_SCORE_ROWS.map((score) => ({ ...score })),
-    accessCredentials: ACCESS_SEED.map((credential) => ({ ...credential })),
+    accessCredentials: ACCESS_SEED.map((credential) => ({
+      role: credential.role,
+      display_name: credential.display_name,
+      pin: credential.pin,
+      team_id: credential.team_id,
+    })),
   };
 }
 
@@ -370,6 +380,17 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
     latestLocation: deriveTeamLatestLocation(teamId),
     teamStats,
     leaderboard,
+    adminAccess: (() => {
+      const credential = state.accessCredentials.find(
+        (entry) => entry.role === "team" && entry.team_id === teamId
+      );
+      return credential
+        ? {
+            display_name: credential.display_name,
+            pin: credential.pin,
+          }
+        : undefined;
+    })(),
   };
 }
 
@@ -531,6 +552,36 @@ export function updateLocalTeamScore(teamId: number, arrivalRank: number | null,
   if (!item) return;
   item.arrival_rank = arrivalRank;
   item.creativity_score = Math.max(0, Math.min(20, creativityScore));
+}
+
+export function updateLocalTeamCredentials(teamId: number, teamName: string, pin: string) {
+  const state = getState();
+  const cleanTeamName = teamName.trim();
+  const cleanPin = pin.trim();
+
+  if (!cleanTeamName || !cleanPin) {
+    throw new Error("Team name and PIN are required.");
+  }
+
+  const duplicateTeam = state.teams.find(
+    (entry) => entry.id !== teamId && entry.team_name.toLowerCase() === cleanTeamName.toLowerCase()
+  );
+  if (duplicateTeam) {
+    throw new Error("A team with that name already exists.");
+  }
+
+  const team = state.teams.find((entry) => entry.id === teamId);
+  const credential = state.accessCredentials.find(
+    (entry) => entry.role === "team" && entry.team_id === teamId
+  );
+
+  if (!team || !credential) {
+    throw new Error("Team credentials were not found.");
+  }
+
+  team.team_name = cleanTeamName.slice(0, 120);
+  credential.display_name = cleanTeamName.slice(0, 120);
+  credential.pin = cleanPin.slice(0, 120);
 }
 
 export function isLocalChallengeReleased(challengeId: number) {

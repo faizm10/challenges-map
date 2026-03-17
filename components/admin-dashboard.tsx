@@ -639,6 +639,75 @@ export function AdminDashboard() {
                 </div>
               </div>
 
+              <form
+                className="mb-5 grid gap-3 rounded-[22px] border border-white/8 bg-white/[0.04] p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const formData = new FormData(event.currentTarget);
+                  await runAdminAction(
+                    `save-credentials:${teamView.team.id}`,
+                    async () => {
+                      const response = await api<{ game?: AdminGameResponse }>(
+                        `/api/admin/teams/${teamView.team.id}/credentials`,
+                        {
+                          method: "PATCH",
+                          body: JSON.stringify({
+                            teamName: formData.get("teamName"),
+                            pin: formData.get("pin"),
+                          }),
+                        }
+                      );
+                      if (response.game) {
+                        setGame(response.game);
+                      } else {
+                        await loadGame();
+                      }
+                    },
+                    "Team access updated",
+                    `${teamView.team.team_name} login details were updated.`
+                  );
+                }}
+              >
+                <div className="space-y-2">
+                  <label className="text-xs font-medium uppercase tracking-[0.14em] text-white/46">
+                    Team name
+                  </label>
+                  <Input
+                    className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                    defaultValue={teamView.adminAccess?.display_name ?? teamView.team.team_name}
+                    name="teamName"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium uppercase tracking-[0.14em] text-white/46">
+                    Team PIN
+                  </label>
+                  <Input
+                    className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                    defaultValue={teamView.adminAccess?.pin ?? ""}
+                    name="pin"
+                    required
+                    type="text"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    className="w-full bg-orange-500 text-black hover:bg-orange-400 lg:w-auto"
+                    type="submit"
+                  >
+                    {pendingAction === `save-credentials:${teamView.team.id}` ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Team Access"
+                    )}
+                  </Button>
+                </div>
+              </form>
+
               <div className="mb-5 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div>

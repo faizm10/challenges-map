@@ -25,6 +25,7 @@ import {
   updateLocalChallengeRelease,
   updateLocalChallengeReview,
   updateLocalChallengeSubmission,
+  updateLocalTeamCredentials,
   updateLocalTeamScore,
 } from "@/lib/local-store";
 import {
@@ -711,7 +712,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
 
 export async function getAdminGame(): Promise<AdminGameResponse> {
   try {
-    const [teamsResult, challenges, scoresResult, leaderboard, latestLocations, recentCheckins] =
+    const [teamsResult, challenges, scoresResult, leaderboard, latestLocations, recentCheckins, credentialsResult] =
       await Promise.all([
         supabase.from("teams").select("id").order("id", { ascending: true }),
         getChallenges(true),
@@ -722,13 +723,41 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
         getLeaderboard(),
         getLatestLocations(),
         getRecentCheckins(),
+        supabase
+          .from("access_credentials")
+          .select("team_id, display_name, pin")
+          .eq("role", "team"),
       ]);
 
     if (teamsResult.error) throw teamsResult.error;
     if (scoresResult.error) throw scoresResult.error;
+    if (credentialsResult.error) throw credentialsResult.error;
+
+    const credentialMap = new Map(
+      ((credentialsResult.data ?? []) as Array<{
+        team_id: number | null;
+        display_name: string;
+        pin: string;
+      }>)
+        .filter((entry) => entry.team_id !== null)
+        .map((entry) => [
+          Number(entry.team_id),
+          {
+            display_name: entry.display_name,
+            pin: entry.pin,
+          },
+        ])
+    );
 
     const teams = await Promise.all(
-      ((teamsResult.data ?? []) as Array<{ id: number }>).map(async ({ id }) => getTeamDashboard(id))
+      ((teamsResult.data ?? []) as Array<{ id: number }>).map(async ({ id }) => {
+        const team = await getTeamDashboard(id);
+        if (!team) return null;
+        return {
+          ...team,
+          adminAccess: credentialMap.get(id),
+        };
+      })
     );
 
     return {
@@ -1163,6 +1192,77 @@ export async function updateTeamScore(
     if (isSupabaseUnavailable(error)) {
       updateLocalTeamScore(teamId, arrivalRank, creativityScore);
       return;
+    }
+    throw error;
+  }
+}
+
+export async function updateTeamCredentials(teamId: number, teamName: string, pin: string) {
+  const cleanTeamName = teamName.trim();
+  const cleanPin = pin.trim();
+
+  if (!cleanTeamName || !cleanPin) {
+    throw new GameError("Team name and PIN are required.", 400);
+  }
+
+  try {
+    const { data: team, error: teamLookupError } = await supabase
+      .from("teams")
+      .select("id")
+      .eq("id", teamId)
+      .maybeSingle<{ id: number }>();
+
+    if (teamLookupError) throw teamLookupError;
+    if (!team?.id) {
+      throw new GameError("Team was not found.", 404);
+    }
+
+    const { data: duplicateTeam, error: duplicateError } = await supabase
+      .from("teams")
+      .select("id")
+      .eq("team_name", cleanTeamName)
+      .neq("id", teamId)
+      .maybeSingle<{ id: number }>();
+
+    if (duplicateError) throw duplicateError;
+    if (duplicateTeam?.id) {
+      throw new GameError("A team with that name already exists.", 409);
+    }
+
+    const { error: teamUpdateError } = await supabase
+      .from("teams")
+      .update({ team_name: cleanTeamName.slice(0, 120) })
+      .eq("id", teamId);
+
+    if (teamUpdateError) throw teamUpdateError;
+
+    const { error: credentialUpdateError } = await supabase
+      .from("access_credentials")
+      .update({
+        display_name: cleanTeamName.slice(0, 120),
+        pin: cleanPin.slice(0, 120),
+      })
+      .eq("role", "team")
+      .eq("team_id", teamId);
+
+    if (credentialUpdateError) throw credentialUpdateError;
+  } catch (error) {
+    if (isGameError(error)) {
+      throw error;
+    }
+    if (isSupabaseUnavailable(error)) {
+      try {
+        updateLocalTeamCredentials(teamId, cleanTeamName, cleanPin);
+        return;
+      } catch (localError) {
+        throw new GameError(
+          localError instanceof Error ? localError.message : "Could not update team credentials.",
+          400
+        );
+      }
+    }
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+      throw new GameError("A team with that name already exists.", 409);
     }
     throw error;
   }

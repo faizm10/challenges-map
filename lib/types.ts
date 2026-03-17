@@ -157,6 +157,10 @@ export type TeamDashboardResponse = {
   latestLocation: TeamLatestLocation | null;
   teamStats: LeaderboardEntry;
   leaderboard: LeaderboardEntry[];
+  adminAccess?: {
+    display_name: string;
+    pin: string;
+  };
 };
 
 export type AdminGameResponse = {
