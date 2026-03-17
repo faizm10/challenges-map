@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toaster";
 import { Textarea } from "@/components/ui/textarea";
 import type { AdminGameResponse } from "@/lib/types";
 
@@ -29,6 +30,7 @@ export function AdminDashboard() {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const { toast } = useToast();
 
   const loadGame = async () => {
     const next = await api<AdminGameResponse>("/api/admin/game");
@@ -66,6 +68,28 @@ export function AdminDashboard() {
   async function onLogout() {
     await api("/api/auth/logout", { method: "POST" });
     setGame(null);
+  }
+
+  async function runAdminAction(
+    action: () => Promise<void>,
+    successTitle: string,
+    successDescription?: string
+  ) {
+    try {
+      await action();
+      toast({
+        title: successTitle,
+        description: successDescription,
+        variant: "success",
+      });
+    } catch (nextError) {
+      toast({
+        title: "Action failed",
+        description:
+          nextError instanceof Error ? nextError.message : "Something went wrong.",
+        variant: "error",
+      });
+    }
   }
 
   if (!game) {
@@ -137,10 +161,16 @@ export function AdminDashboard() {
             </Button>
             <Button
               variant="destructive"
-              onClick={async () => {
-                await api("/api/admin/reset", { method: "POST" });
-                await loadGame();
-              }}
+              onClick={() =>
+                runAdminAction(
+                  async () => {
+                    await api("/api/admin/reset", { method: "POST" });
+                    await loadGame();
+                  },
+                  "Game reset",
+                  "Challenges, submissions, and scores are back to the initial state."
+                )
+              }
             >
               Reset Game
             </Button>
@@ -207,14 +237,20 @@ export function AdminDashboard() {
                 onSubmit={async (event) => {
                   event.preventDefault();
                   const formData = new FormData(event.currentTarget);
-                  await api(`/api/admin/challenges/${challenge.id}`, {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                      title: formData.get("title"),
-                      text: formData.get("text"),
-                    }),
-                  });
-                  await loadGame();
+                  await runAdminAction(
+                    async () => {
+                      await api(`/api/admin/challenges/${challenge.id}`, {
+                        method: "PATCH",
+                        body: JSON.stringify({
+                          title: formData.get("title"),
+                          text: formData.get("text"),
+                        }),
+                      });
+                      await loadGame();
+                    },
+                    "Challenge saved",
+                    `Challenge ${challenge.challenge_order} was updated.`
+                  );
                 }}
               >
                 <Input name="title" defaultValue={challenge.title} />
@@ -224,13 +260,21 @@ export function AdminDashboard() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={async () => {
-                      await api(`/api/admin/challenges/${challenge.id}/release`, {
-                        method: "PATCH",
-                        body: JSON.stringify({ isReleased: !challenge.is_released }),
-                      });
-                      await loadGame();
-                    }}
+                    onClick={() =>
+                      runAdminAction(
+                        async () => {
+                          await api(`/api/admin/challenges/${challenge.id}/release`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ isReleased: !challenge.is_released }),
+                          });
+                          await loadGame();
+                        },
+                        challenge.is_released ? "Challenge hidden" : "Challenge released",
+                        `Challenge ${challenge.challenge_order} is now ${
+                          challenge.is_released ? "hidden from" : "visible to"
+                        } teams.`
+                      )
+                    }
                   >
                     {challenge.is_released ? "Hide" : "Release"}
                   </Button>
@@ -273,14 +317,20 @@ export function AdminDashboard() {
                 onSubmit={async (event) => {
                   event.preventDefault();
                   const formData = new FormData(event.currentTarget);
-                  await api(`/api/admin/teams/${teamView.team.id}/score`, {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                      arrivalRank: formData.get("arrivalRank"),
-                      creativityScore: formData.get("creativityScore"),
-                    }),
-                  });
-                  await loadGame();
+                  await runAdminAction(
+                    async () => {
+                      await api(`/api/admin/teams/${teamView.team.id}/score`, {
+                        method: "PATCH",
+                        body: JSON.stringify({
+                          arrivalRank: formData.get("arrivalRank"),
+                          creativityScore: formData.get("creativityScore"),
+                        }),
+                      });
+                      await loadGame();
+                    },
+                    "Score saved",
+                    `${teamView.team.team_name} scoring was updated.`
+                  );
                 }}
               >
                 <select

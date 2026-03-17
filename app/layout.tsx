@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Space_Grotesk } from "next/font/google";
 
 import "@/app/globals.css";
+import { ToasterProvider } from "@/components/ui/toaster";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -26,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${spaceGrotesk.variable} ${fraunces.variable} font-sans antialiased`}>
-        {children}
+        <ToasterProvider>{children}</ToasterProvider>
       </body>
     </html>
   );
