@@ -24,11 +24,15 @@ create table if not exists public.challenges (
   title text not null,
   text text not null,
   expected_location text not null default '',
+  allow_media_upload boolean not null default true,
   is_released boolean not null default false
 );
 
 alter table public.challenges
   add column if not exists expected_location text not null default '';
+
+alter table public.challenges
+  add column if not exists allow_media_upload boolean not null default true;
 
 create table if not exists public.team_challenge_status (
   team_id bigint not null references public.teams(id) on delete cascade,

@@ -637,6 +637,7 @@ export function AdminDashboard() {
                         title: formData.get("title"),
                         text: formData.get("text"),
                         expectedLocation: formData.get("expectedLocation"),
+                        allowMediaUpload: formData.get("allowMediaUpload") === "on",
                       }),
                     });
                     form.reset();
@@ -668,6 +669,10 @@ export function AdminDashboard() {
                 placeholder="Challenge prompt"
                 required
               />
+              <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-white">
+                <input defaultChecked name="allowMediaUpload" type="checkbox" />
+                Allow media upload
+              </label>
               <Button
                 className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
                 disabled={game.challenges.length >= 5 || pendingAction === "create-challenge"}
@@ -719,6 +724,7 @@ export function AdminDashboard() {
                           title: formData.get("title"),
                           text: formData.get("text"),
                           expectedLocation: formData.get("expectedLocation"),
+                          allowMediaUpload: formData.get("allowMediaUpload") === "on",
                         }),
                       });
                       await loadGame();
@@ -744,6 +750,14 @@ export function AdminDashboard() {
                   defaultValue={challenge.text}
                   name="text"
                 />
+                <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-white">
+                  <input
+                    defaultChecked={Boolean(challenge.allow_media_upload)}
+                    name="allowMediaUpload"
+                    type="checkbox"
+                  />
+                  Allow media upload
+                </label>
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
                     {pendingAction === `save-challenge:${challenge.id}` ? (

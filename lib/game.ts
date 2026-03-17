@@ -22,6 +22,7 @@ import {
   reviewLocalCheckin,
   updateLocalChallenge,
   updateLocalChallengeExpectedLocation,
+  updateLocalChallengeMediaToggle,
   updateLocalChallengeRelease,
   updateLocalChallengeReview,
   updateLocalChallengeSubmission,
@@ -113,6 +114,22 @@ function normalizeUploadRow(row: UploadRow): ChallengeUpload {
     file_size_bytes: Number(row.file_size_bytes),
     uploaded_at: row.uploaded_at,
   };
+}
+
+async function getChallengeById(challengeId: number): Promise<Challenge | null> {
+  const challenges = await getChallenges(true);
+  return challenges.find((challenge) => challenge.id === challengeId) ?? null;
+}
+
+async function requireChallengeMediaEnabled(challengeId: number) {
+  const challenge = await getChallengeById(challengeId);
+  if (!challenge) {
+    throw new GameError("Challenge was not found.", 404);
+  }
+
+  if (!challenge.allow_media_upload) {
+    throw new GameError("Media upload is disabled for this challenge.", 409);
+  }
 }
 
 function normalizeCheckinRow(row: CheckinRow): TeamCheckin {
@@ -572,7 +589,7 @@ export async function getChallenges(includeHidden = true): Promise<Challenge[]> 
   try {
     let query = supabase
       .from("challenges")
-      .select("id, challenge_order, title, text, expected_location, is_released")
+      .select("id, challenge_order, title, text, expected_location, allow_media_upload, is_released")
       .order("challenge_order", { ascending: true });
 
     if (!includeHidden) {
@@ -1015,7 +1032,8 @@ export async function updateChallenge(
   challengeId: number,
   title: string,
   text: string,
-  expectedLocation: string
+  expectedLocation: string,
+  allowMediaUpload: boolean
 ) {
   const cleanTitle = title.trim();
   const cleanText = text.trim();
@@ -1031,6 +1049,7 @@ export async function updateChallenge(
         title: cleanTitle.slice(0, 120),
         text: cleanText.slice(0, 500),
         expected_location: cleanExpectedLocation.slice(0, 160),
+        allow_media_upload: allowMediaUpload,
       })
       .eq("id", challengeId);
 
@@ -1041,13 +1060,19 @@ export async function updateChallenge(
     if (isSupabaseUnavailable(error)) {
       updateLocalChallenge(challengeId, cleanTitle, cleanText);
       updateLocalChallengeExpectedLocation(challengeId, cleanExpectedLocation);
+      updateLocalChallengeMediaToggle(challengeId, allowMediaUpload);
       return getLocalChallenges(true);
     }
     throw error;
   }
 }
 
-export async function createChallenge(title: string, text: string, expectedLocation: string) {
+export async function createChallenge(
+  title: string,
+  text: string,
+  expectedLocation: string,
+  allowMediaUpload: boolean
+) {
   const cleanTitle = title.trim();
   const cleanText = text.trim();
   const cleanExpectedLocation = expectedLocation.trim();
@@ -1071,6 +1096,7 @@ export async function createChallenge(title: string, text: string, expectedLocat
       title: cleanTitle.slice(0, 120),
       text: cleanText.slice(0, 500),
       expected_location: cleanExpectedLocation.slice(0, 160),
+      allow_media_upload: allowMediaUpload,
       is_released: false,
     };
 
@@ -1100,7 +1126,7 @@ export async function createChallenge(title: string, text: string, expectedLocat
       if (existing.length >= MAX_CHALLENGES) {
         throw new GameError(`You can create up to ${MAX_CHALLENGES} challenges.`, 409);
       }
-      createLocalChallenge(cleanTitle, cleanText, cleanExpectedLocation);
+      createLocalChallenge(cleanTitle, cleanText, cleanExpectedLocation, allowMediaUpload);
       return getLocalChallenges(true);
     }
     throw error;
@@ -1172,6 +1198,7 @@ export async function updateTeamChallengeSubmission(
 export async function uploadTeamChallengeMedia(teamId: number, challengeId: number, file: File) {
   try {
     await requireChallengeCheckin(teamId, challengeId);
+    await requireChallengeMediaEnabled(challengeId);
     const statusRow = await getChallengeStatusRow(teamId, challengeId);
     if (!statusRow) {
       throw new GameError("Challenge submission was not found.", 404);

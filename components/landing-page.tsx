@@ -175,12 +175,12 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
               <Link href="/team">Team Login</Link>
             </Button>
-            <Button
+            {/* <Button
               className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
               onClick={() => setIsCreateRaceOpen(true)}
             >
               Start Converge
-            </Button>
+            </Button> */}
           </div>
         </div>
       </header>

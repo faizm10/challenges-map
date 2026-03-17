@@ -10,14 +10,15 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { title?: string; text?: string; expectedLocation?: string }
+    | { title?: string; text?: string; expectedLocation?: string; allowMediaUpload?: boolean }
     | null;
 
   try {
     await createChallenge(
       body?.title ?? "",
       body?.text ?? "",
-      body?.expectedLocation ?? ""
+      body?.expectedLocation ?? "",
+      body?.allowMediaUpload ?? true
     );
     return NextResponse.json({ ok: true, challenges: await getChallenges(true) });
   } catch (error) {

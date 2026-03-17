@@ -14,7 +14,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = (await request.json().catch(() => null)) as
-    | { title?: string; text?: string; expectedLocation?: string }
+    | { title?: string; text?: string; expectedLocation?: string; allowMediaUpload?: boolean }
     | null;
 
   try {
@@ -22,7 +22,8 @@ export async function PATCH(
       Number(id),
       body?.title ?? "",
       body?.text ?? "",
-      body?.expectedLocation ?? ""
+      body?.expectedLocation ?? "",
+      body?.allowMediaUpload ?? true
     );
   } catch (error) {
     if (isGameError(error)) {

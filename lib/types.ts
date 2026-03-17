@@ -30,6 +30,7 @@ export type Challenge = {
   title: string;
   text: string;
   expected_location: string;
+  allow_media_upload: number;
   is_released: number;
 };
 
@@ -39,6 +40,7 @@ export type TeamChallengeStatus = {
   title: string;
   text: string;
   expected_location: string;
+  allow_media_upload: number;
   is_released: number;
   is_unlocked: boolean;
   status: "not_started" | "submitted";

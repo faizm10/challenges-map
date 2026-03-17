@@ -1129,6 +1129,8 @@ export function TeamDashboard() {
               const isLocked = challenge.review_status === "verified";
               const isCheckinLocked = !challenge.is_unlocked;
               const latestUploadAt = challenge.uploads[0]?.uploaded_at;
+              const showMediaSection =
+                Boolean(challenge.allow_media_upload) || challenge.uploads.length > 0;
 
               return (
                 <Card
@@ -1158,116 +1160,125 @@ export function TeamDashboard() {
                     </div>
                   ) : null}
 
-                  <div className="mb-4 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-white">Proof media</p>
-                        <p className="text-xs text-white/46">
-                          {challenge.uploads.length} file{challenge.uploads.length === 1 ? "" : "s"}
-                          {latestUploadAt
-                            ? ` · latest ${new Date(latestUploadAt).toLocaleString()}`
-                            : " · nothing uploaded yet"}
+                  {showMediaSection ? (
+                    <div className="mb-4 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-white">Proof media</p>
+                          <p className="text-xs text-white/46">
+                            {challenge.uploads.length} file{challenge.uploads.length === 1 ? "" : "s"}
+                            {latestUploadAt
+                              ? ` · latest ${new Date(latestUploadAt).toLocaleString()}`
+                              : " · nothing uploaded yet"}
+                          </p>
+                        </div>
+                        {Boolean(challenge.allow_media_upload) ? (
+                          <label className="inline-flex">
+                            <input
+                              accept="image/*,video/*"
+                              className="hidden"
+                              disabled={isLocked || isCheckinLocked || uploadingId === challenge.id}
+                              multiple
+                              type="file"
+                              onChange={(event) => {
+                                void onUploadFiles(challenge.id, event.currentTarget.files);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            <span
+                              className={`inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-white transition ${
+                                isLocked || isCheckinLocked || uploadingId === challenge.id
+                                  ? "cursor-not-allowed bg-white/[0.03] text-white/40"
+                                  : "cursor-pointer bg-white/5 hover:bg-white/10"
+                              }`}
+                            >
+                              <ImagePlus className="h-4 w-4" />
+                              {uploadingId === challenge.id ? "Uploading media..." : "Add media"}
+                            </span>
+                          </label>
+                        ) : null}
+                      </div>
+
+                      {!Boolean(challenge.allow_media_upload) ? (
+                        <p className="mt-3 text-xs text-white/52">
+                          Media upload is turned off for this challenge.
                         </p>
-                      </div>
-                      <label className="inline-flex">
-                        <input
-                          accept="image/*,video/*"
-                          className="hidden"
-                          disabled={isLocked || isCheckinLocked || uploadingId === challenge.id}
-                          multiple
-                          type="file"
-                          onChange={(event) => {
-                            void onUploadFiles(challenge.id, event.currentTarget.files);
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                        <span
-                          className={`inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-white transition ${
-                            isLocked || isCheckinLocked || uploadingId === challenge.id
-                              ? "cursor-not-allowed bg-white/[0.03] text-white/40"
-                              : "cursor-pointer bg-white/5 hover:bg-white/10"
-                          }`}
-                        >
-                          <ImagePlus className="h-4 w-4" />
-                          {uploadingId === challenge.id ? "Uploading media..." : "Add media"}
-                        </span>
-                      </label>
-                    </div>
+                      ) : null}
+                      {isLocked ? (
+                        <p className="mt-3 text-xs text-emerald-300/80">
+                          HQ verified this challenge. Uploads are locked.
+                        </p>
+                      ) : null}
+                      {challenge.review_status === "rejected" && challenge.review_note ? (
+                        <p className="mt-3 text-xs text-amber-200/80">
+                          HQ note: {challenge.review_note}
+                        </p>
+                      ) : null}
 
-                    {isLocked ? (
-                      <p className="mt-3 text-xs text-emerald-300/80">
-                        HQ verified this challenge. Uploads are locked.
-                      </p>
-                    ) : null}
-                    {challenge.review_status === "rejected" && challenge.review_note ? (
-                      <p className="mt-3 text-xs text-amber-200/80">
-                        HQ note: {challenge.review_note}
-                      </p>
-                    ) : null}
-
-                    {challenge.uploads.length ? (
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {challenge.uploads.map((upload) => (
-                          <div
-                            key={upload.id}
-                            className="overflow-hidden rounded-[20px] border border-white/8 bg-black/20"
-                          >
-                            <div className="aspect-[4/3] bg-black/30">
-                              {upload.media_type === "image" ? (
-                                <img
-                                  alt={upload.file_name}
-                                  className="h-full w-full object-cover"
-                                  src={upload.signed_url}
-                                />
-                              ) : (
-                                <video
-                                  className="h-full w-full object-cover"
-                                  controls
-                                  preload="metadata"
-                                  src={upload.signed_url}
-                                />
-                              )}
-                            </div>
-                            <div className="space-y-2 p-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-white">{upload.file_name}</p>
-                                  <p className="text-xs text-white/44">
-                                    {upload.media_type === "video" ? "Video" : "Image"} ·{" "}
-                                    {Math.max(1, Math.round(upload.file_size_bytes / 1024 / 1024))}MB
-                                  </p>
+                      {challenge.uploads.length ? (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {challenge.uploads.map((upload) => (
+                            <div
+                              key={upload.id}
+                              className="overflow-hidden rounded-[20px] border border-white/8 bg-black/20"
+                            >
+                              <div className="aspect-[4/3] bg-black/30">
+                                {upload.media_type === "image" ? (
+                                  <img
+                                    alt={upload.file_name}
+                                    className="h-full w-full object-cover"
+                                    src={upload.signed_url}
+                                  />
+                                ) : (
+                                  <video
+                                    className="h-full w-full object-cover"
+                                    controls
+                                    preload="metadata"
+                                    src={upload.signed_url}
+                                  />
+                                )}
+                              </div>
+                              <div className="space-y-2 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium text-white">{upload.file_name}</p>
+                                    <p className="text-xs text-white/44">
+                                      {upload.media_type === "video" ? "Video" : "Image"} ·{" "}
+                                      {Math.max(1, Math.round(upload.file_size_bytes / 1024 / 1024))}MB
+                                    </p>
+                                  </div>
+                                  {upload.media_type === "video" ? (
+                                    <Video className="mt-0.5 h-4 w-4 shrink-0 text-white/40" />
+                                  ) : null}
                                 </div>
-                                {upload.media_type === "video" ? (
-                                  <Video className="mt-0.5 h-4 w-4 shrink-0 text-white/40" />
-                                ) : null}
-                              </div>
-                              <div className="flex items-center justify-between gap-3">
-                                <a
-                                  className="text-xs text-orange-300 hover:text-orange-200"
-                                  href={upload.signed_url}
-                                  rel="noreferrer"
-                                  target="_blank"
-                                >
-                                  Open
-                                </a>
-                                {!isLocked ? (
-                                  <button
-                                    className="inline-flex items-center gap-1 text-xs text-white/52 transition hover:text-red-300"
-                                    disabled={removingUploadId === upload.id}
-                                    type="button"
-                                    onClick={() => void onDeleteUpload(challenge.id, upload.id)}
+                                <div className="flex items-center justify-between gap-3">
+                                  <a
+                                    className="text-xs text-orange-300 hover:text-orange-200"
+                                    href={upload.signed_url}
+                                    rel="noreferrer"
+                                    target="_blank"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    {removingUploadId === upload.id ? "Removing file..." : "Remove"}
-                                  </button>
-                                ) : null}
+                                    Open
+                                  </a>
+                                  {!isLocked ? (
+                                    <button
+                                      className="inline-flex items-center gap-1 text-xs text-white/52 transition hover:text-red-300"
+                                      disabled={removingUploadId === upload.id}
+                                      type="button"
+                                      onClick={() => void onDeleteUpload(challenge.id, upload.id)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      {removingUploadId === upload.id ? "Removing file..." : "Remove"}
+                                    </button>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <form
                     className="space-y-3"

@@ -568,7 +568,12 @@ export function updateLocalChallenge(challengeId: number, title: string, text: s
   challenge.text = text.slice(0, 500);
 }
 
-export function createLocalChallenge(title: string, text: string, expectedLocation: string) {
+export function createLocalChallenge(
+  title: string,
+  text: string,
+  expectedLocation: string,
+  allowMediaUpload: boolean
+) {
   const state = getState();
   const id = state.nextChallengeId++;
   const challenge = {
@@ -577,6 +582,7 @@ export function createLocalChallenge(title: string, text: string, expectedLocati
     title: title.slice(0, 120),
     text: text.slice(0, 500),
     expected_location: expectedLocation.slice(0, 160),
+    allow_media_upload: allowMediaUpload ? 1 : 0,
     is_released: 0,
   };
 
@@ -602,6 +608,12 @@ export function updateLocalChallengeExpectedLocation(challengeId: number, expect
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.expected_location = expectedLocation.slice(0, 160);
+}
+
+export function updateLocalChallengeMediaToggle(challengeId: number, allowMediaUpload: boolean) {
+  const challenge = getState().challenges.find((item) => item.id === challengeId);
+  if (!challenge) return;
+  challenge.allow_media_upload = allowMediaUpload ? 1 : 0;
 }
 
 export function updateLocalChallengeRelease(challengeId: number, isReleased: boolean) {
