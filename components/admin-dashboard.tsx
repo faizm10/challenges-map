@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Clock3, Image as ImageIcon, LoaderCircle, MapPin, Video } from "lucide-react";
+import {
+  ChevronDown,
+  Clock3,
+  Image as ImageIcon,
+  LoaderCircle,
+  MapPin,
+  Video,
+} from "lucide-react";
 
 import { CheckinMap } from "@/components/checkin-map";
 import { Badge } from "@/components/ui/badge";
@@ -54,17 +61,51 @@ function feedBadge(item: AdminCheckinFeedItem) {
   return "secondary" as const;
 }
 
+function getDefaultOpenCheckpointKey(checkpoints: TeamCheckpoint[]) {
+  const submittedCandidate = checkpoints.find(
+    (checkpoint) =>
+      checkpoint.status !== "verified" && checkpoint.latest_checkin
+  );
+  if (submittedCandidate) return submittedCandidate.key;
+
+  const unresolvedCandidate = checkpoints.find(
+    (checkpoint) => checkpoint.status !== "verified"
+  );
+  return unresolvedCandidate?.key ?? null;
+}
+
+function getNextOpenCheckpointKey(checkpoints: TeamCheckpoint[], currentKey: string) {
+  const currentIndex = checkpoints.findIndex((checkpoint) => checkpoint.key === currentKey);
+  if (currentIndex === -1) return getDefaultOpenCheckpointKey(checkpoints);
+
+  for (let index = currentIndex + 1; index < checkpoints.length; index += 1) {
+    if (checkpoints[index].status !== "verified") {
+      return checkpoints[index].key;
+    }
+  }
+
+  for (let index = 0; index < checkpoints.length; index += 1) {
+    if (checkpoints[index].status !== "verified") {
+      return checkpoints[index].key;
+    }
+  }
+
+  return null;
+}
+
 export function AdminDashboard() {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
   const [adminName, setAdminName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [openCheckpointByTeam, setOpenCheckpointByTeam] = useState<Record<number, string | null>>({});
   const { toast } = useToast();
 
   const loadGame = async () => {
     const next = await api<AdminGameResponse>("/api/admin/game");
     setGame(next);
+    return next;
   };
 
   useEffect(() => {
@@ -77,6 +118,30 @@ export function AdminDashboard() {
       loadGame().catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(poll);
+  }, [game]);
+
+  useEffect(() => {
+    if (!game) return;
+
+    setOpenCheckpointByTeam((current) => {
+      const next: Record<number, string | null> = {};
+
+      for (const teamView of game.teams) {
+        const existing = current[teamView.team.id];
+        const stillValid =
+          existing &&
+          teamView.checkpoints.some(
+            (checkpoint) =>
+              checkpoint.key === existing && checkpoint.status !== "verified"
+          );
+
+        next[teamView.team.id] = stillValid
+          ? existing
+          : getDefaultOpenCheckpointKey(teamView.checkpoints);
+      }
+
+      return next;
+    });
   }, [game]);
 
   async function onLogin(event: FormEvent<HTMLFormElement>) {
@@ -746,17 +811,41 @@ export function AdminDashboard() {
                       Latest location: {teamView.latestLocation ? teamView.latestLocation.label : "No GPS yet"}
                     </p>
                   </div>
+                  <p className="text-xs text-white/48">
+                    {teamView.checkpoints.every((checkpoint) => checkpoint.status === "verified")
+                      ? "All checkpoints verified"
+                      : `Next checkpoint in review: ${
+                          teamView.checkpoints.find(
+                            (checkpoint) =>
+                              checkpoint.key === openCheckpointByTeam[teamView.team.id]
+                          )?.label ?? "Pending"
+                        }`}
+                  </p>
                 </div>
-                <div className="grid gap-3">
+                <div className="grid gap-2">
                   {teamView.checkpoints.map((checkpoint) => {
                     const badge = checkpointBadge(checkpoint);
+                    const isOpen = openCheckpointByTeam[teamView.team.id] === checkpoint.key;
                     return (
                       <div
                         key={checkpoint.key}
-                        className="rounded-[18px] border border-white/8 bg-white/[0.05] p-3"
+                        className={`rounded-[18px] border p-3 transition ${
+                          isOpen
+                            ? "border-orange-400/26 bg-white/[0.06] shadow-[0_0_0_1px_rgba(245,158,11,0.06)]"
+                            : "border-white/6 bg-transparent"
+                        }`}
                       >
-                        <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-                          <div>
+                        <button
+                          className="flex w-full items-start justify-between gap-3 px-1 text-left"
+                          type="button"
+                          onClick={() =>
+                            setOpenCheckpointByTeam((current) => ({
+                              ...current,
+                              [teamView.team.id]: current[teamView.team.id] === checkpoint.key ? null : checkpoint.key,
+                            }))
+                          }
+                        >
+                          <div className="min-w-0 flex-1">
                             <p className="font-medium text-white">{checkpoint.label}</p>
                             <p className="text-xs text-white/42">{checkpoint.description}</p>
                             <p className="mt-2 text-xs text-white/68">
@@ -767,78 +856,119 @@ export function AdminDashboard() {
                                 {checkpoint.expected_location_description}
                               </p>
                             ) : null}
-                          </div>
-                          <Badge variant={badge.variant}>{badge.label}</Badge>
-                        </div>
-                        {checkpoint.latest_checkin ? (
-                          <form
-                            className="space-y-3"
-                            onSubmit={async (event) => {
-                              event.preventDefault();
-                              const formData = new FormData(event.currentTarget);
-                              await runAdminAction(
-                                `save-checkin:${checkpoint.latest_checkin?.id}`,
-                                async () => {
-                                  await api(`/api/admin/checkins/${checkpoint.latest_checkin?.id}/review`, {
-                                    method: "PATCH",
-                                    body: JSON.stringify({
-                                      status: formData.get("status"),
-                                      reviewNote: formData.get("reviewNote"),
-                                    }),
-                                  });
-                                  await loadGame();
-                                },
-                                "Check-in reviewed",
-                                `${teamView.team.team_name} ${checkpoint.label.toLowerCase()} was updated.`
-                              );
-                            }}
-                          >
-                            <div className="flex flex-wrap items-center gap-3 text-xs text-white/44">
-                              <span>{new Date(checkpoint.latest_checkin.created_at).toLocaleString()}</span>
-                              {checkpoint.latest_checkin.latitude !== null ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <MapPin className="h-3.5 w-3.5" />
-                                  {checkpoint.latest_checkin.latitude.toFixed(4)},{" "}
-                                  {checkpoint.latest_checkin.longitude?.toFixed(4)}
-                                </span>
-                              ) : (
-                                <span>No GPS</span>
-                              )}
-                            </div>
-                            {checkpoint.latest_checkin.checkin_note ? (
-                              <p className="text-sm leading-7 text-white/56">
-                                {checkpoint.latest_checkin.checkin_note}
-                              </p>
-                            ) : null}
-                            <select
-                              className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
-                              defaultValue={checkpoint.latest_checkin.status}
-                              name="status"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="verified">Verified</option>
-                              <option value="rejected">Rejected</option>
-                            </select>
-                            <Textarea
-                              className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                              defaultValue={checkpoint.latest_checkin.review_note}
-                              name="reviewNote"
-                              placeholder="Leave an HQ note for this checkpoint."
-                            />
-                            <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
-                              {pendingAction === `save-checkin:${checkpoint.latest_checkin?.id}` ? (
+                            <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-white/44">
+                              {checkpoint.latest_checkin ? (
                                 <>
-                                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                                  Saving...
+                                  <span>
+                                    {new Date(checkpoint.latest_checkin.created_at).toLocaleString()}
+                                  </span>
+                                  {checkpoint.latest_checkin.latitude !== null ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      <MapPin className="h-3.5 w-3.5" />
+                                      {checkpoint.latest_checkin.latitude.toFixed(4)},{" "}
+                                      {checkpoint.latest_checkin.longitude?.toFixed(4)}
+                                    </span>
+                                  ) : (
+                                    <span>No GPS</span>
+                                  )}
                                 </>
                               ) : (
-                                "Save Check-In Review"
+                                <span>No check-in submitted yet.</span>
                               )}
-                            </Button>
-                          </form>
-                        ) : (
-                          <p className="text-sm text-white/44">No check-in submitted yet.</p>
-                        )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={badge.variant}>{badge.label}</Badge>
+                            <ChevronDown
+                              className={`mt-0.5 h-4 w-4 shrink-0 text-white/52 transition ${
+                                isOpen ? "rotate-180" : ""
+                              }`}
+                            />
+                          </div>
+                        </button>
+                        {isOpen ? (
+                          <div className="mt-4 border-t border-white/8 px-1 pt-4">
+                            {checkpoint.latest_checkin ? (
+                              <form
+                                className="space-y-3"
+                                onSubmit={async (event) => {
+                                  event.preventDefault();
+                                  const formData = new FormData(event.currentTarget);
+                                  const nextStatus = String(formData.get("status") ?? "pending") as
+                                    | "pending"
+                                    | "verified"
+                                    | "rejected";
+
+                                  await runAdminAction(
+                                    `save-checkin:${checkpoint.latest_checkin?.id}`,
+                                    async () => {
+                                      await api(`/api/admin/checkins/${checkpoint.latest_checkin?.id}/review`, {
+                                        method: "PATCH",
+                                        body: JSON.stringify({
+                                          status: nextStatus,
+                                          reviewNote: formData.get("reviewNote"),
+                                        }),
+                                      });
+
+                                      const nextGame = await loadGame();
+                                      if (nextStatus === "verified") {
+                                        const nextTeam = nextGame.teams.find(
+                                          (candidate) => candidate.team.id === teamView.team.id
+                                        );
+                                        setOpenCheckpointByTeam((current) => ({
+                                          ...current,
+                                          [teamView.team.id]: nextTeam
+                                            ? getNextOpenCheckpointKey(nextTeam.checkpoints, checkpoint.key)
+                                            : null,
+                                        }));
+                                      }
+                                    },
+                                    "Check-in reviewed",
+                                    `${teamView.team.team_name} ${checkpoint.label.toLowerCase()} was updated.`
+                                  );
+                                }}
+                              >
+                                {checkpoint.latest_checkin.checkin_note ? (
+                                  <p className="text-sm leading-7 text-white/56">
+                                    {checkpoint.latest_checkin.checkin_note}
+                                  </p>
+                                ) : null}
+                                <select
+                                  className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+                                  defaultValue={checkpoint.latest_checkin.status}
+                                  name="status"
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="verified">Verified</option>
+                                  <option value="rejected">Rejected</option>
+                                </select>
+                                <Textarea
+                                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                                  defaultValue={checkpoint.latest_checkin.review_note}
+                                  name="reviewNote"
+                                  placeholder="Leave an HQ note for this checkpoint."
+                                />
+                                <Button
+                                  className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
+                                  type="submit"
+                                >
+                                  {pendingAction === `save-checkin:${checkpoint.latest_checkin?.id}` ? (
+                                    <>
+                                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                                      Saving...
+                                    </>
+                                  ) : (
+                                    "Save Check-In Review"
+                                  )}
+                                </Button>
+                              </form>
+                            ) : (
+                              <p className="text-sm text-white/44">
+                                No check-in submitted yet. This stays next in line until the team reaches it.
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}

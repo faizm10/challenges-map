@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
+  ChevronDown,
   ImagePlus,
   LoaderCircle,
   LocateFixed,
@@ -69,6 +70,37 @@ function checkpointLabel(status: TeamCheckpoint["status"]) {
   return "Rejected";
 }
 
+function getDefaultOpenCheckpointKey(checkpoints: TeamCheckpoint[]) {
+  const submittedCandidate = checkpoints.find(
+    (checkpoint) => checkpoint.status !== "verified" && checkpoint.latest_checkin
+  );
+  if (submittedCandidate) return submittedCandidate.key;
+
+  const unresolvedCandidate = checkpoints.find(
+    (checkpoint) => checkpoint.status !== "verified"
+  );
+  return unresolvedCandidate?.key ?? null;
+}
+
+function getNextOpenCheckpointKey(checkpoints: TeamCheckpoint[], currentKey: string) {
+  const currentIndex = checkpoints.findIndex((checkpoint) => checkpoint.key === currentKey);
+  if (currentIndex === -1) return getDefaultOpenCheckpointKey(checkpoints);
+
+  for (let index = currentIndex + 1; index < checkpoints.length; index += 1) {
+    if (checkpoints[index].status !== "verified") {
+      return checkpoints[index].key;
+    }
+  }
+
+  for (let index = 0; index < checkpoints.length; index += 1) {
+    if (checkpoints[index].status !== "verified") {
+      return checkpoints[index].key;
+    }
+  }
+
+  return null;
+}
+
 export function TeamDashboard() {
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
   const [teamName, setTeamName] = useState("");
@@ -83,6 +115,7 @@ export function TeamDashboard() {
   const [isRequestingLocationAccess, setIsRequestingLocationAccess] = useState(false);
   const [locationAccessMessage, setLocationAccessMessage] = useState<string>("");
   const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
+  const [openCheckpointKey, setOpenCheckpointKey] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadDashboard = async () => {
@@ -111,6 +144,23 @@ export function TeamDashboard() {
         return hasStartedRace;
       })
     : [];
+
+  useEffect(() => {
+    if (!visibleCheckpoints.length) {
+      setOpenCheckpointKey(null);
+      return;
+    }
+
+    setOpenCheckpointKey((current) => {
+      const stillValid =
+        current &&
+        visibleCheckpoints.some(
+          (checkpoint) => checkpoint.key === current && checkpoint.status !== "verified"
+        );
+
+      return stillValid ? current : getDefaultOpenCheckpointKey(visibleCheckpoints);
+    });
+  }, [dashboard, hasStartedRace]);
 
   async function onLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -363,6 +413,17 @@ export function TeamDashboard() {
         }),
       });
       setDashboard(next.dashboard);
+      const nextVisibleCheckpoints = next.dashboard.checkpoints.filter((item) => {
+        if (item.checkin_type === "start") return true;
+        const nextStartCheckpoint =
+          next.dashboard.checkpoints.find((candidate) => candidate.checkin_type === "start") ?? null;
+        return Boolean(nextStartCheckpoint?.latest_checkin);
+      });
+      setOpenCheckpointKey((current) =>
+        current === checkpoint.key
+          ? getNextOpenCheckpointKey(nextVisibleCheckpoints, checkpoint.key)
+          : current
+      );
       toast({
         title: `${checkpoint.label} recorded`,
         description: "HQ can now see your latest checkpoint activity.",
@@ -577,107 +638,141 @@ export function TeamDashboard() {
             </div>
           </div>
 
-          {visibleCheckpoints.map((checkpoint) => (
-            <Card
-              key={checkpoint.key}
-              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
-            >
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-lg font-semibold text-white">{checkpoint.label}</p>
-                  <p className="mt-1 text-sm leading-7 text-white/56">{checkpoint.description}</p>
-                  <p className="mt-2 text-sm text-white/76">
-                    <span className="text-white/46">Expected location:</span>{" "}
-                    {checkpoint.expected_location_label}
-                  </p>
-                  {checkpoint.expected_location_description ? (
-                    <p className="text-xs text-white/42">
-                      {checkpoint.expected_location_description}
-                    </p>
-                  ) : null}
-                </div>
-                <Badge variant={checkpointVariant(checkpoint.status)}>
-                  {checkpointLabel(checkpoint.status)}
-                </Badge>
-              </div>
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-3 sm:p-4">
+            <div className="grid gap-2">
+              {visibleCheckpoints.map((checkpoint) => {
+                const isOpen = openCheckpointKey === checkpoint.key;
 
-              <form
-                className="space-y-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const formData = new FormData(event.currentTarget);
-                  void onCheckpointCheckin(checkpoint, String(formData.get("checkinNote") ?? ""));
-                }}
-              >
-                <Textarea
-                  className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                  defaultValue={checkpoint.latest_checkin?.checkin_note ?? ""}
-                  name="checkinNote"
-                  placeholder="Optional note for HQ about where you are or what just happened."
-                />
-                <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
-                  <div className="mb-2 flex items-start gap-3">
-                    <div className="rounded-2xl bg-white/[0.06] p-2 text-orange-200">
-                      <Navigation className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">GPS check-in status</p>
-                      <p className="mt-1 text-sm leading-6 text-white/60">
-                        {gpsMessages[checkpoint.key] ??
-                          (checkpoint.latest_checkin?.gps_captured_at
-                            ? "Location was captured on your latest check-in."
-                            : "Location will be requested as soon as you tap the button below.")}
-                      </p>
-                    </div>
-                  </div>
-                  {!checkpoint.latest_checkin?.gps_captured_at ? (
-                    <p className="text-xs text-white/44">
-                      If location access is blocked, the check-in still goes through and HQ can
-                      review it manually.
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <Button
-                    className="h-12 w-full bg-orange-500 text-base text-black hover:bg-orange-400"
-                    disabled={checkingInKey === checkpoint.key}
-                    type="submit"
+                return (
+                  <div
+                    key={checkpoint.key}
+                    className={`rounded-[20px] border transition ${
+                      isOpen
+                        ? "border-orange-400/22 bg-white/[0.06]"
+                        : "border-white/6 bg-transparent"
+                    }`}
                   >
-                    {checkingInKey === checkpoint.key ? (
-                      <>
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Checking in...
-                      </>
-                    ) : (
-                      `Check in now`
-                    )}
-                  </Button>
-                </div>
-              </form>
+                    <button
+                      className="flex w-full items-start justify-between gap-3 p-4 text-left"
+                      type="button"
+                      onClick={() =>
+                        setOpenCheckpointKey((current) =>
+                          current === checkpoint.key ? null : checkpoint.key
+                        )
+                      }
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-lg font-semibold text-white">{checkpoint.label}</p>
+                        <p className="mt-1 text-sm leading-6 text-white/56">{checkpoint.description}</p>
+                        <p className="mt-2 text-sm text-white/76">
+                          <span className="text-white/46">Expected location:</span>{" "}
+                          {checkpoint.expected_location_label}
+                        </p>
+                        {checkpoint.expected_location_description ? (
+                          <p className="text-xs text-white/42">
+                            {checkpoint.expected_location_description}
+                          </p>
+                        ) : null}
+                        {checkpoint.latest_checkin ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/42">
+                            <span>{new Date(checkpoint.latest_checkin.created_at).toLocaleString()}</span>
+                            {checkpoint.latest_checkin.latitude !== null ? (
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {checkpoint.latest_checkin.latitude.toFixed(5)},{" "}
+                                {checkpoint.latest_checkin.longitude?.toFixed(5)}
+                              </span>
+                            ) : (
+                              <span>No GPS captured</span>
+                            )}
+                            {checkpoint.latest_checkin.accuracy_meters !== null ? (
+                              <span>Accuracy {Math.round(checkpoint.latest_checkin.accuracy_meters)}m</span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={checkpointVariant(checkpoint.status)}>
+                          {checkpointLabel(checkpoint.status)}
+                        </Badge>
+                        <ChevronDown
+                          className={`mt-0.5 h-4 w-4 shrink-0 text-white/52 transition ${
+                            isOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </div>
+                    </button>
 
-              {checkpoint.latest_checkin ? (
-                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/42">
-                  <span>{new Date(checkpoint.latest_checkin.created_at).toLocaleString()}</span>
-                  {checkpoint.latest_checkin.latitude !== null ? (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {checkpoint.latest_checkin.latitude.toFixed(5)},{" "}
-                      {checkpoint.latest_checkin.longitude?.toFixed(5)}
-                    </span>
-                  ) : (
-                    <span>No GPS captured</span>
-                  )}
-                  {checkpoint.latest_checkin.accuracy_meters !== null ? (
-                    <span>Accuracy {Math.round(checkpoint.latest_checkin.accuracy_meters)}m</span>
-                  ) : null}
-                  {checkpoint.latest_checkin.review_note ? (
-                    <span>HQ note: {checkpoint.latest_checkin.review_note}</span>
-                  ) : null}
-                </div>
-              ) : null}
-            </Card>
-          ))}
+                    {isOpen ? (
+                      <div className="border-t border-white/8 px-4 pb-4 pt-4">
+                        <form
+                          className="space-y-3"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const formData = new FormData(event.currentTarget);
+                            void onCheckpointCheckin(
+                              checkpoint,
+                              String(formData.get("checkinNote") ?? "")
+                            );
+                          }}
+                        >
+                          <Textarea
+                            className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
+                            defaultValue={checkpoint.latest_checkin?.checkin_note ?? ""}
+                            name="checkinNote"
+                            placeholder="Optional note for HQ about where you are or what just happened."
+                          />
+                          <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+                            <div className="mb-2 flex items-start gap-3">
+                              <div className="rounded-2xl bg-white/[0.06] p-2 text-orange-200">
+                                <Navigation className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-white">GPS check-in status</p>
+                                <p className="mt-1 text-sm leading-6 text-white/60">
+                                  {gpsMessages[checkpoint.key] ??
+                                    (checkpoint.latest_checkin?.gps_captured_at
+                                      ? "Location was captured on your latest check-in."
+                                      : "Location will be requested as soon as you tap the button below.")}
+                                </p>
+                              </div>
+                            </div>
+                            {!checkpoint.latest_checkin?.gps_captured_at ? (
+                              <p className="text-xs text-white/44">
+                                If location access is blocked, the check-in still goes through and HQ can
+                                review it manually.
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <Button
+                            className="h-12 w-full bg-orange-500 text-base text-black hover:bg-orange-400"
+                            disabled={checkingInKey === checkpoint.key}
+                            type="submit"
+                          >
+                            {checkingInKey === checkpoint.key ? (
+                              <>
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                                Checking in...
+                              </>
+                            ) : (
+                              "Check in now"
+                            )}
+                          </Button>
+                        </form>
+
+                        {checkpoint.latest_checkin?.review_note ? (
+                          <p className="mt-3 text-xs text-white/44">
+                            HQ note: {checkpoint.latest_checkin.review_note}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {!hasStartedRace ? (
             <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4 text-white">
