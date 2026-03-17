@@ -150,9 +150,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             </span>
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/38">
-                Toronto Social Game
+                Toronto Team City Challenge
               </div>
-              <div className="text-sm font-medium text-white">Race to Union</div>
+              <div className="text-sm font-medium text-white">Converge</div>
             </div>
           </Link>
 
@@ -179,7 +179,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
               onClick={() => setIsCreateRaceOpen(true)}
             >
-              Start a Race
+              Start Converge
             </Button>
           </div>
         </div>
@@ -194,14 +194,14 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
             >
               <Badge className="mb-6 border-orange-400/18 bg-orange-500/8 px-4 py-1.5 text-orange-100/90">
-                City-wide walking challenge
+                Premium team city challenge
               </Badge>
               <h1 className="max-w-4xl font-serif text-5xl leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-8xl">
-                Race the City. Converge at Union.
+                Converge on the city.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-white/54 sm:text-xl">
-                Five teams. Live HQ drops. Cinematic walking energy. Social,
-                competitive, slightly chaotic fun built for a Toronto night out.
+                Five teams. Live HQ prompts. Checkpoints, proof, and cinematic
+                city movement built for a premium Toronto night out.
               </p>
             </motion.div>
 
@@ -215,7 +215,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
                 onClick={() => setIsCreateRaceOpen(true)}
               >
-                Start a Race
+                Start Converge
               </Button>
               <Button
                 asChild
@@ -270,7 +270,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                       Mission pulse
                     </div>
                     <div className="mt-2 text-2xl font-semibold text-white">
-                      The next race starts soon.
+                      The next Converge starts soon.
                     </div>
                   </div>
                   <Badge className="border-white/8 bg-white/6 text-white/76" variant="secondary">
@@ -385,7 +385,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 Live map
               </p>
               <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-                Watch five teams collapse inward toward one finish line.
+                Watch five teams move through Toronto toward one final convergence.
               </h2>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -517,21 +517,21 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
         <SectionReveal>
           <div className="rounded-[40px] border border-white/10 bg-white/[0.045] px-6 py-10 text-center sm:px-10 sm:py-14">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">
-              Start your own race
+              Start your own Converge
             </p>
             <h2 className="mx-auto max-w-4xl font-serif text-4xl leading-tight sm:text-5xl lg:text-6xl">
               Build a night people will talk about the whole ride home.
             </h2>
             <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/58">
-              Launch your own Race to Union with live HQ prompts, team routes,
-              social challenge drops, and a finish that feels earned.
+              Launch your own Converge with live HQ prompts, team routes,
+              social challenge drops, and a finish at Union that feels earned.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Button
                 className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
                 onClick={() => setIsCreateRaceOpen(true)}
               >
-                Start a Race
+                Start Converge
               </Button>
               <Button
                 asChild

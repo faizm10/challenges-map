@@ -134,8 +134,8 @@ export function AdminDashboard() {
               Control the chaos.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-white/58">
-              HQ unlocks the control room, edits challenges, reviews media, verifies
-              check-ins, and scores each team live.
+              HQ unlocks the Converge control room, edits challenges, reviews media,
+              verifies check-ins, and scores each team live.
             </p>
             <Button
               asChild
@@ -150,7 +150,7 @@ export function AdminDashboard() {
             <CardHeader className="p-0">
               <CardTitle className="text-2xl text-white">HQ Unlock</CardTitle>
               <CardDescription className="text-white/48">
-                Admin name and PIN only. No public access.
+                Admin name and PIN only. No public access to Converge controls.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 pt-5">

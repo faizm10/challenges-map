@@ -15,8 +15,37 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Race to Union",
-  description: "A team-based Toronto race to Union Station with HQ controls and a live leaderboard.",
+  metadataBase: new URL("https://converge.city"),
+  applicationName: "Converge",
+  title: {
+    default: "Converge",
+    template: "%s | Converge",
+  },
+  description:
+    "Converge is a Toronto team city challenge with live HQ prompts, checkpoint tracking, media proof, and real-time event control.",
+  keywords: [
+    "Converge",
+    "Toronto team challenge",
+    "city challenge game",
+    "HQ challenge dashboard",
+    "team checkpoints",
+    "live event leaderboard",
+    "Toronto walking game",
+  ],
+  openGraph: {
+    title: "Converge",
+    description:
+      "A premium Toronto team city challenge with live HQ control, checkpoints, media proof, and convergence gameplay.",
+    siteName: "Converge",
+    type: "website",
+    locale: "en_CA",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Converge",
+    description:
+      "Toronto team city challenge with live HQ prompts, checkpoints, media proof, and a real-time leaderboard.",
+  },
 };
 
 export default function RootLayout({

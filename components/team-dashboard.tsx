@@ -316,7 +316,7 @@ export function TeamDashboard() {
               Your route. Your challenge queue.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-white/58">
-              Enter your team name and PIN to unlock your race dashboard, check-ins,
+              Enter your team name and PIN to unlock your Converge dashboard, check-ins,
               media uploads, proof-note submissions, and live standings.
             </p>
             <Button
@@ -332,7 +332,7 @@ export function TeamDashboard() {
             <CardHeader className="p-0">
               <CardTitle className="text-2xl text-white">Team Unlock</CardTitle>
               <CardDescription className="text-white/48">
-                One team name and PIN unlocks one dashboard.
+                One team name and PIN unlock one Converge dashboard.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 pt-5">

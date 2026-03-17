@@ -39,11 +39,11 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
             Live Leaderboard
           </p>
           <h1 className="max-w-[10ch] font-serif text-4xl leading-none text-white sm:text-5xl md:text-6xl">
-            Race to Union
+            Converge
           </h1>
           <p className="max-w-2xl text-sm leading-7 text-white/58 sm:text-base">
-            Five teams race across Toronto toward Union Station while HQ drops
-            challenges, teams submit proof, and the leaderboard reshuffles live.
+            A Toronto team city challenge where live HQ prompts, checkpoints, media
+            proof, and team movement reshape the standings in real time.
           </p>
           <div className="flex flex-wrap gap-2">
             <Badge className="border-white/10 bg-white/8 text-white/80" variant="secondary">
@@ -76,7 +76,7 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
               Race Map
             </p>
             <h2 className="font-serif text-2xl text-white sm:text-3xl">
-              Routes converging on Union Station
+              Team routes converging on Union
             </h2>
           </div>
           <RaceMap teams={mapTeams} />

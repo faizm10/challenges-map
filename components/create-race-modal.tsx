@@ -81,10 +81,10 @@ export function CreateRaceModal({
                     <div className="mb-6 flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-300">
-                          Create a Race
+                          Create a Converge
                         </p>
                         <h3 className="mt-2 max-w-md font-serif text-2xl leading-tight sm:text-3xl">
-                          Launch a city-wide walking game.
+                          Launch a premium team city challenge.
                         </h3>
                       </div>
                       <button
@@ -146,10 +146,10 @@ export function CreateRaceModal({
                   <div className="p-5 sm:p-6">
                     <div className="grid gap-4">
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium text-white/70">Race name</label>
+                        <label className="text-sm font-medium text-white/70">Event name</label>
                         <Input
                           className="border-white/10 bg-white/5 text-white placeholder:text-white/30"
-                          placeholder="Friday Night Union Run"
+                          placeholder="Converge Toronto Night Run"
                         />
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
@@ -171,7 +171,7 @@ export function CreateRaceModal({
 
                       <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-transparent p-5">
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-300">
-                          Race Preview
+                          Converge Preview
                         </p>
                         <div className="mt-4 space-y-3">
                           <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -191,7 +191,7 @@ export function CreateRaceModal({
 
                       <div className="sticky bottom-0 flex flex-col gap-3 border-t border-white/10 bg-[#0c0b0d]/96 pt-4 sm:flex-row">
                         <Button className="h-12 flex-1 rounded-full bg-orange-500 px-6 text-black hover:bg-orange-400">
-                          Create Draft Race
+                          Create Draft Event
                         </Button>
                         <Button
                           className="h-12 flex-1 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10"
