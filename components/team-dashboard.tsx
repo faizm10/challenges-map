@@ -326,7 +326,8 @@ export function TeamDashboard() {
   const visibleCheckpoints = dashboard
     ? dashboard.checkpoints.filter((checkpoint) => {
         if (checkpoint.checkin_type === "start") return true;
-        return hasStartedRace;
+        if (checkpoint.checkin_type === "finish") return hasStartedRace;
+        return false;
       })
     : [];
   const locationPermissionCopy = getPlatformPermissionCopy(
@@ -409,22 +410,30 @@ export function TeamDashboard() {
   async function onSubmitChallenge(challengeId: number, proofNote: string) {
     setSavingId(challengeId);
     try {
+      const position = await capturePosition(`challenge-submit-${challengeId}`);
       const next = await api<{ dashboard: TeamDashboardResponse }>(
         `/api/team/challenges/${challengeId}/submit`,
         {
           method: "POST",
-          body: JSON.stringify({ proofNote, status: "submitted" }),
+          body: JSON.stringify({
+            proofNote,
+            status: "submitted",
+            latitude: position.latitude,
+            longitude: position.longitude,
+            accuracyMeters: position.accuracyMeters,
+            gpsCapturedAt: position.gpsCapturedAt,
+          }),
         }
       );
       setDashboard(next.dashboard);
       toast({
-        title: "Proof updated",
-        description: "HQ can now review your latest submission state.",
+        title: "Challenge submitted",
+        description: "Your proof is pending and the challenge checkpoint was recorded.",
         variant: "success",
       });
     } catch (nextError) {
       toast({
-        title: "Could not update challenge",
+        title: "Could not submit challenge",
         description: nextError instanceof Error ? nextError.message : "Request failed.",
         variant: "error",
       });
@@ -1092,6 +1101,15 @@ export function TeamDashboard() {
                             HQ note: {checkpoint.latest_checkin.review_note}
                           </p>
                         ) : null}
+
+                        {checkpoint.checkin_type === "challenge" && checkpoint.challenge_id !== null ? (
+                          <a
+                            className="mt-3 inline-flex h-10 items-center rounded-full border border-white/10 bg-white/[0.05] px-4 text-sm font-medium text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+                            href={`#challenge-proof-${checkpoint.challenge_id}`}
+                          >
+                            Go to upload
+                          </a>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -1127,7 +1145,6 @@ export function TeamDashboard() {
           ) : dashboard.challenges.length ? (
             dashboard.challenges.map((challenge) => {
               const isLocked = challenge.review_status === "verified";
-              const isCheckinLocked = !challenge.is_unlocked;
               const latestUploadAt = challenge.uploads[0]?.uploaded_at;
               const showMediaSection =
                 Boolean(challenge.allow_media_upload) || challenge.uploads.length > 0;
@@ -1135,6 +1152,7 @@ export function TeamDashboard() {
               return (
                 <Card
                   key={challenge.id}
+                  id={`challenge-proof-${challenge.id}`}
                   className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
                 >
                   <div className="mb-4 flex items-start justify-between gap-3">
@@ -1151,14 +1169,12 @@ export function TeamDashboard() {
 
                   <p className="mb-4 text-sm leading-7 text-white/58">{challenge.text}</p>
 
-                  {isCheckinLocked ? (
-                    <div className="mb-4 rounded-[20px] border border-orange-400/14 bg-orange-500/[0.07] p-4">
-                      <p className="text-sm font-semibold text-white">Check-in required first</p>
-                      <p className="mt-1 text-sm leading-6 text-white/62">
-                        Check in for this challenge first to unlock proof uploads and submission.
-                      </p>
-                    </div>
-                  ) : null}
+                  <div className="mb-4 rounded-[20px] border border-emerald-400/12 bg-emerald-500/[0.06] p-4">
+                    <p className="text-sm font-semibold text-white">Submit records this challenge</p>
+                    <p className="mt-1 text-sm leading-6 text-white/60">
+                      Add media or a proof note, then submit. Your challenge checkpoint is recorded automatically.
+                    </p>
+                  </div>
 
                   {showMediaSection ? (
                     <div className="mb-4 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
@@ -1177,7 +1193,7 @@ export function TeamDashboard() {
                             <input
                               accept="image/*,video/*"
                               className="hidden"
-                              disabled={isLocked || isCheckinLocked || uploadingId === challenge.id}
+                              disabled={isLocked || uploadingId === challenge.id}
                               multiple
                               type="file"
                               onChange={(event) => {
@@ -1187,7 +1203,7 @@ export function TeamDashboard() {
                             />
                             <span
                               className={`inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-white transition ${
-                                isLocked || isCheckinLocked || uploadingId === challenge.id
+                                isLocked || uploadingId === challenge.id
                                   ? "cursor-not-allowed bg-white/[0.03] text-white/40"
                                   : "cursor-pointer bg-white/5 hover:bg-white/10"
                               }`}
@@ -1291,22 +1307,22 @@ export function TeamDashboard() {
                     <Textarea
                       className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
                       defaultValue={challenge.proof_note}
-                      disabled={isLocked || isCheckinLocked}
+                      disabled={isLocked}
                       name="proofNote"
-                      placeholder="Add optional context for HQ: what was captured, who appeared, and anything they should notice."
+                      placeholder="Add a note for HQ if needed. You can also submit with uploaded media only."
                     />
                     <Button
                       className="bg-orange-500 text-black hover:bg-orange-400"
-                      disabled={savingId === challenge.id || isLocked || isCheckinLocked}
+                      disabled={savingId === challenge.id || isLocked}
                       type="submit"
                     >
                       {savingId === challenge.id ? (
                         <>
                           <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Saving proof...
+                          Submitting...
                         </>
                       ) : (
-                        "Submit / Update"
+                        "Submit Challenge"
                       )}
                     </Button>
                     <p className="text-xs text-white/42">

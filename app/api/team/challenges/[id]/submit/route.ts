@@ -24,7 +24,14 @@ export async function POST(
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { proofNote?: string; status?: "submitted" | "not_started" }
+    | {
+        proofNote?: string;
+        status?: "submitted" | "not_started";
+        latitude?: number | null;
+        longitude?: number | null;
+        accuracyMeters?: number | null;
+        gpsCapturedAt?: string | null;
+      }
     | null;
 
   try {
@@ -32,7 +39,13 @@ export async function POST(
       session.teamId,
       challengeId,
       body?.proofNote ?? "",
-      body?.status === "not_started" ? "not_started" : "submitted"
+      body?.status === "not_started" ? "not_started" : "submitted",
+      {
+        latitude: body?.latitude ?? null,
+        longitude: body?.longitude ?? null,
+        accuracyMeters: body?.accuracyMeters ?? null,
+        gpsCapturedAt: body?.gpsCapturedAt ?? null,
+      }
     );
   } catch (error) {
     if (isGameError(error)) {

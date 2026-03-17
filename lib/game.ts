@@ -26,6 +26,7 @@ import {
   updateLocalChallengeRelease,
   updateLocalChallengeReview,
   updateLocalChallengeSubmission,
+  upsertLocalChallengeCheckinOnSubmit,
   updateLocalTeamCredentials,
   updateLocalTeamScore,
 } from "@/lib/local-store";
@@ -494,16 +495,6 @@ async function hasChallengeCheckin(teamId: number, challengeId: number) {
   }
 }
 
-async function requireChallengeCheckin(teamId: number, challengeId: number) {
-  const unlocked = await hasChallengeCheckin(teamId, challengeId);
-  if (!unlocked) {
-    throw new GameError(
-      "Complete the challenge check-in first to unlock proof uploads and submission.",
-      409
-    );
-  }
-}
-
 async function getTeamUploads(teamId: number) {
   const { data, error } = await supabase
     .from("challenge_media")
@@ -528,6 +519,90 @@ async function getTeamCheckinsFromDb(teamId: number) {
 
   if (error) throw error;
   return ((data ?? []) as CheckinRow[]).map(normalizeCheckinRow);
+}
+
+async function getLatestChallengeCheckin(teamId: number, challengeId: number) {
+  const { data, error } = await supabase
+    .from("team_checkins")
+    .select(
+      "id, team_id, checkin_type, challenge_id, status, checkin_note, latitude, longitude, accuracy_meters, gps_captured_at, created_at, review_note, reviewed_at, reviewed_by"
+    )
+    .eq("team_id", teamId)
+    .eq("checkin_type", "challenge")
+    .eq("challenge_id", challengeId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? normalizeCheckinRow(data as CheckinRow) : null;
+}
+
+async function getChallengeUploadCount(teamId: number, challengeId: number) {
+  const { count, error } = await supabase
+    .from("challenge_media")
+    .select("*", { count: "exact", head: true })
+    .eq("team_id", teamId)
+    .eq("challenge_id", challengeId);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function upsertChallengeCheckinOnSubmit(input: {
+  teamId: number;
+  challengeId: number;
+  checkinNote?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracyMeters?: number | null;
+  gpsCapturedAt?: string | null;
+}) {
+  const existing = await getLatestChallengeCheckin(input.teamId, input.challengeId);
+  const payload = {
+    status: "pending" as const,
+    checkin_note: (input.checkinNote ?? "").slice(0, 500),
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
+    accuracy_meters: input.accuracyMeters ?? null,
+    gps_captured_at: input.gpsCapturedAt ?? null,
+    review_note: "",
+    reviewed_at: null,
+    reviewed_by: null,
+  };
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from("team_checkins")
+      .update({
+        ...payload,
+        created_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id)
+      .select(
+        "id, team_id, checkin_type, challenge_id, status, checkin_note, latitude, longitude, accuracy_meters, gps_captured_at, created_at, review_note, reviewed_at, reviewed_by"
+      )
+      .single();
+
+    if (error) throw error;
+    return normalizeCheckinRow(data as CheckinRow);
+  }
+
+  const { data, error } = await supabase
+    .from("team_checkins")
+    .insert({
+      team_id: input.teamId,
+      checkin_type: "challenge",
+      challenge_id: input.challengeId,
+      ...payload,
+    })
+    .select(
+      "id, team_id, checkin_type, challenge_id, status, checkin_note, latitude, longitude, accuracy_meters, gps_captured_at, created_at, review_note, reviewed_at, reviewed_by"
+    )
+    .single();
+
+  if (error) throw error;
+  return normalizeCheckinRow(data as CheckinRow);
 }
 
 async function getAllCheckinsFromDb() {
@@ -1155,16 +1230,29 @@ export async function updateTeamChallengeSubmission(
   teamId: number,
   challengeId: number,
   proofNote: string,
-  status: "submitted" | "not_started"
+  status: "submitted" | "not_started",
+  gps?: {
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracyMeters?: number | null;
+    gpsCapturedAt?: string | null;
+  }
 ) {
   try {
-    await requireChallengeCheckin(teamId, challengeId);
     const current = await getChallengeStatusRow(teamId, challengeId);
     if (!current) {
       throw new GameError("Challenge submission was not found.", 404);
     }
     if (current.review_status === "verified") {
       throw new GameError("This challenge has already been verified by HQ and is now locked.", 409);
+    }
+
+    if (status === "submitted") {
+      const hasProofNote = proofNote.trim().length > 0;
+      const uploadCount = await getChallengeUploadCount(teamId, challengeId);
+      if (!hasProofNote && uploadCount === 0) {
+        throw new GameError("Add a proof note or upload media before submitting.", 400);
+      }
     }
 
     const shouldResetReview = status === "not_started" || current.review_status === "rejected";
@@ -1183,12 +1271,44 @@ export async function updateTeamChallengeSubmission(
       .eq("challenge_id", challengeId);
 
     if (error) throw error;
+
+    if (status === "submitted") {
+      await upsertChallengeCheckinOnSubmit({
+        teamId,
+        challengeId,
+        checkinNote: proofNote,
+        latitude: gps?.latitude ?? null,
+        longitude: gps?.longitude ?? null,
+        accuracyMeters: gps?.accuracyMeters ?? null,
+        gpsCapturedAt: gps?.gpsCapturedAt ?? null,
+      });
+    }
   } catch (error) {
     if (isGameError(error)) {
       throw error;
     }
     if (isSupabaseUnavailable(error)) {
+      if (status === "submitted") {
+        const localDashboard = getLocalTeamDashboard(teamId);
+        const localChallenge = localDashboard?.challenges.find((item) => item.id === challengeId) ?? null;
+        const hasProofNote = proofNote.trim().length > 0;
+        const uploadCount = localChallenge?.uploads.length ?? 0;
+        if (!hasProofNote && uploadCount === 0) {
+          throw new GameError("Add a proof note or upload media before submitting.", 400);
+        }
+      }
       updateLocalChallengeSubmission(teamId, challengeId, proofNote, status);
+      if (status === "submitted") {
+        upsertLocalChallengeCheckinOnSubmit({
+          teamId,
+          challengeId,
+          checkinNote: proofNote,
+          latitude: gps?.latitude ?? null,
+          longitude: gps?.longitude ?? null,
+          accuracyMeters: gps?.accuracyMeters ?? null,
+          gpsCapturedAt: gps?.gpsCapturedAt ?? null,
+        });
+      }
       return;
     }
     throw error;
@@ -1197,7 +1317,6 @@ export async function updateTeamChallengeSubmission(
 
 export async function uploadTeamChallengeMedia(teamId: number, challengeId: number, file: File) {
   try {
-    await requireChallengeCheckin(teamId, challengeId);
     await requireChallengeMediaEnabled(challengeId);
     const statusRow = await getChallengeStatusRow(teamId, challengeId);
     if (!statusRow) {

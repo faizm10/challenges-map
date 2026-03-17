@@ -643,6 +643,51 @@ export function updateLocalChallengeSubmission(
   }
 }
 
+export function upsertLocalChallengeCheckinOnSubmit(input: {
+  teamId: number;
+  challengeId: number;
+  checkinNote?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracyMeters?: number | null;
+  gpsCapturedAt?: string | null;
+}) {
+  const state = getState();
+  const existing = state.teamCheckins
+    .filter(
+      (item) =>
+        item.team_id === input.teamId &&
+        item.checkin_type === "challenge" &&
+        item.challenge_id === input.challengeId
+    )
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+
+  if (existing) {
+    existing.status = "pending";
+    existing.checkin_note = (input.checkinNote ?? "").slice(0, 500);
+    existing.latitude = input.latitude ?? null;
+    existing.longitude = input.longitude ?? null;
+    existing.accuracy_meters = input.accuracyMeters ?? null;
+    existing.gps_captured_at = input.gpsCapturedAt ?? null;
+    existing.created_at = new Date().toISOString();
+    existing.review_note = "";
+    existing.reviewed_at = null;
+    existing.reviewed_by = null;
+    return { ...existing };
+  }
+
+  return createLocalCheckin({
+    teamId: input.teamId,
+    checkinType: "challenge",
+    challengeId: input.challengeId,
+    checkinNote: input.checkinNote,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    accuracyMeters: input.accuracyMeters,
+    gpsCapturedAt: input.gpsCapturedAt,
+  });
+}
+
 export function updateLocalChallengeReview(
   teamId: number,
   challengeId: number,
