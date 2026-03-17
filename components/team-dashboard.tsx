@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { ImagePlus, LoaderCircle, MapPin, Navigation, Trash2, Video } from "lucide-react";
+import {
+  ImagePlus,
+  LoaderCircle,
+  LocateFixed,
+  MapPin,
+  Navigation,
+  Trash2,
+  Video,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -472,6 +480,21 @@ export function TeamDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+          <div className="rounded-[22px] border border-orange-400/14 bg-orange-500/[0.07] p-4 text-white">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-2xl bg-orange-500/14 p-2 text-orange-200">
+                <LocateFixed className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">Location check-ins work best on your phone</p>
+                <p className="mt-1 text-sm leading-6 text-white/62">
+                  Tap the check-in button and allow location access when your phone asks. Your GPS
+                  status will appear right inside each checkpoint card.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {dashboard.checkpoints.map((checkpoint) => (
             <Card
               key={checkpoint.key}
@@ -510,9 +533,32 @@ export function TeamDashboard() {
                   name="checkinNote"
                   placeholder="Optional note for HQ about where you are or what just happened."
                 />
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+                  <div className="mb-2 flex items-start gap-3">
+                    <div className="rounded-2xl bg-white/[0.06] p-2 text-orange-200">
+                      <Navigation className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">GPS check-in status</p>
+                      <p className="mt-1 text-sm leading-6 text-white/60">
+                        {gpsMessages[checkpoint.key] ??
+                          (checkpoint.latest_checkin?.gps_captured_at
+                            ? "Location was captured on your latest check-in."
+                            : "Location will be requested as soon as you tap the button below.")}
+                      </p>
+                    </div>
+                  </div>
+                  {!checkpoint.latest_checkin?.gps_captured_at ? (
+                    <p className="text-xs text-white/44">
+                      If location access is blocked, the check-in still goes through and HQ can
+                      review it manually.
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-col gap-3">
                   <Button
-                    className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
+                    className="h-12 w-full bg-orange-500 text-base text-black hover:bg-orange-400"
                     disabled={checkingInKey === checkpoint.key}
                     type="submit"
                   >
@@ -522,16 +568,9 @@ export function TeamDashboard() {
                         Checking in...
                       </>
                     ) : (
-                      checkpoint.label
+                      `Check in now`
                     )}
                   </Button>
-                  <div className="flex items-center gap-2 text-sm text-white/48">
-                    <Navigation className="h-4 w-4 text-orange-300" />
-                    {gpsMessages[checkpoint.key] ??
-                      (checkpoint.latest_checkin?.gps_captured_at
-                        ? "Location captured on latest check-in."
-                        : "Location will be requested when you tap check in.")}
-                  </div>
                 </div>
               </form>
 
