@@ -333,6 +333,27 @@ export function TeamDashboard() {
     locationPlatform,
     locationPermissionState
   );
+  const hasRecordedGpsFix = Boolean(
+    lastResolvedPosition ||
+      (dashboard?.latestLocation?.latitude !== undefined &&
+        dashboard?.latestLocation?.longitude !== undefined &&
+        dashboard?.latestLocation?.gps_captured_at)
+  );
+  const locationHeaderTitle = hasRecordedGpsFix
+    ? "Location is enabled"
+    : locationPermissionState === "granted"
+      ? "Location access is ready"
+      : locationPermissionCopy.title;
+  const locationHeaderBadge = hasRecordedGpsFix
+    ? "Enabled"
+    : locationPermissionState === "granted"
+      ? "Ready"
+      : locationPermissionCopy.badge;
+  const locationHeaderMessage = hasRecordedGpsFix
+    ? "GPS can be sent with your check-ins whenever your device can capture it."
+    : locationPermissionState === "granted"
+      ? "Location permission is on. Capture a GPS fix during check-in."
+      : locationPermissionCopy.message;
   const locationHelpText =
     !isSecureLocationContext
       ? "GPS only works over HTTPS or localhost. If you opened this on a phone using a local network URL like http://192.168.x.x:3000, the check-in will still submit but coordinates will not be attached."
@@ -881,20 +902,25 @@ export function TeamDashboard() {
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-white">{locationPermissionCopy.title}</p>
+                  <p className="text-sm font-semibold text-white">{locationHeaderTitle}</p>
                   <Badge className="border-orange-300/18 bg-orange-300/10 text-orange-100" variant="secondary">
-                    {locationPermissionCopy.badge}
+                    {locationHeaderBadge}
                   </Badge>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-white/62">
-                  {locationPermissionCopy.message}
+                  {locationHeaderMessage}
                 </p>
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
-                className="h-11 w-full bg-white/8 text-white hover:bg-white/12 sm:w-auto"
+                className={`h-11 w-full sm:w-auto ${
+                  hasRecordedGpsFix
+                    ? "bg-emerald-500/90 text-white hover:bg-emerald-500"
+                    : "bg-white/8 text-white hover:bg-white/12"
+                }`}
                 disabled={
+                  hasRecordedGpsFix ||
                   locationPermissionCopy.actionMode === "disabled" ||
                   locationPermissionCopy.actionMode === "granted" ||
                   locationPermissionState === "requesting"
@@ -908,6 +934,11 @@ export function TeamDashboard() {
                     <LoaderCircle className="h-4 w-4 animate-spin" />
                     {locationPermissionCopy.actionLabel}
                   </>
+                ) : hasRecordedGpsFix ? (
+                  <>
+                    <LocateFixed className="h-4 w-4" />
+                    Location Enabled
+                  </>
                 ) : (
                   <>
                     <LocateFixed className="h-4 w-4" />
@@ -916,51 +947,20 @@ export function TeamDashboard() {
                 )}
               </Button>
               <p className="text-sm leading-6 text-white/62">
-                {locationHelpText}
+                Use Chrome on your phone if possible. {locationHelpText}
               </p>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[18px] border border-white/8 bg-white/[0.04] p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/44">
-                  Last GPS Fix
-                </p>
-                {lastResolvedPosition ? (
-                  <>
-                    <p className="mt-2 font-mono text-sm text-white">
-                      {lastResolvedPosition.latitude.toFixed(5)}, {lastResolvedPosition.longitude.toFixed(5)}
-                    </p>
-                    <p className="mt-1 text-xs text-white/48">
-                      {lastResolvedPosition.accuracyMeters !== null
-                        ? `Accuracy ${Math.round(lastResolvedPosition.accuracyMeters)}m`
-                        : "Accuracy unknown"}
-                    </p>
-                    <p className="mt-1 text-xs text-white/40">
-                      {new Date(lastResolvedPosition.gpsCapturedAt).toLocaleString()}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-2 text-sm text-white/52">No GPS fix captured yet.</p>
-                )}
+            {!hasRecordedGpsFix ? (
+              <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.04] px-3 py-2.5">
+                <p className="text-sm text-white/52">No GPS fix captured yet.</p>
               </div>
-              <div className="rounded-[18px] border border-white/8 bg-white/[0.04] p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/44">
-                  Mobile Tip
-                </p>
-                <p className="mt-2 text-sm leading-6 text-white/58">
-                  If the first GPS attempt hangs, keep the page open and try again outdoors or near a window. The app now retries once and can reuse your last captured fix.
-                </p>
-              </div>
-            </div>
+            ) : null}
           </div>
 
           {locationPermissionState === "denied" ? (
             <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4 text-white">
-              <p className="text-sm font-semibold text-white">Location help</p>
-              <p className="mt-1 text-sm leading-6 text-white/58">
-                GPS is blocked right now. You can still check in without it, but HQ will only see a
-                manual update until location is enabled again.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-white/72">{locationHelpText}</p>
+              <p className="text-sm font-semibold text-white">Location blocked</p>
+              <p className="mt-2 text-sm leading-6 text-white/64">{locationHelpText}</p>
             </div>
           ) : null}
 

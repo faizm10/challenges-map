@@ -389,11 +389,45 @@ export function getLocalRecentCheckins(): AdminCheckinFeedItem[] {
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
     .map((checkin) => {
       const team = state.teams.find((item) => item.id === checkin.team_id)!;
+      const challenge =
+        checkin.challenge_id !== null
+          ? state.challenges.find((item) => item.id === checkin.challenge_id) ?? null
+          : null;
+      const challengeStatus =
+        checkin.challenge_id !== null
+          ? state.teamChallengeStatus.find(
+              (item) =>
+                item.team_id === checkin.team_id && item.challenge_id === checkin.challenge_id
+            ) ?? null
+          : null;
+      const uploads =
+        checkin.challenge_id !== null
+          ? state.challengeMedia
+              .filter(
+                (item) =>
+                  item.team_id === checkin.team_id && item.challenge_id === checkin.challenge_id
+              )
+              .sort((a, b) => Date.parse(b.uploaded_at) - Date.parse(a.uploaded_at))
+              .map((item) => ({ ...item }))
+          : [];
       return {
         ...checkin,
         team_name: team.team_name,
         color: team.color,
         badge_label: team.badge_label,
+        checkpoint_label: buildCheckpointLabel(checkin.checkin_type, challenge?.title),
+        challenge: challenge
+          ? {
+              id: challenge.id,
+              challenge_order: challenge.challenge_order,
+              title: challenge.title,
+              text: challenge.text,
+              expected_location: challenge.expected_location,
+              review_status: challengeStatus?.review_status ?? "pending",
+            }
+          : null,
+        uploads,
+        proof_note: challengeStatus?.proof_note ?? "",
       };
     });
 }

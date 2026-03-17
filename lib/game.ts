@@ -639,15 +639,30 @@ export async function getLatestLocations(): Promise<TeamLatestLocation[]> {
 
 export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
   try {
-    const [teamsResult, checkins] = await Promise.all([
+    const [teamsResult, checkins, challengesResult, statusResult, uploadsResult] = await Promise.all([
       supabase
         .from("teams")
         .select("id, team_name, color, badge_label")
         .order("id", { ascending: true }),
       getAllCheckinsFromDb(),
+      supabase
+        .from("challenges")
+        .select("id, challenge_order, title, text, expected_location"),
+      supabase
+        .from("team_challenge_status")
+        .select("team_id, challenge_id, proof_note, review_status"),
+      supabase
+        .from("challenge_media")
+        .select(
+          "id, team_id, challenge_id, bucket_name, storage_path, public_url, media_type, file_name, mime_type, file_size_bytes, uploaded_at"
+        )
+        .order("uploaded_at", { ascending: false }),
     ]);
 
     if (teamsResult.error) throw teamsResult.error;
+    if (challengesResult.error) throw challengesResult.error;
+    if (statusResult.error) throw statusResult.error;
+    if (uploadsResult.error) throw uploadsResult.error;
     const teamMap = new Map(
       ((teamsResult.data ?? []) as Array<{
         id: number;
@@ -656,14 +671,62 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
         badge_label: string;
       }>).map((team) => [team.id, team])
     );
+    const challengeMap = new Map(
+      ((challengesResult.data ?? []) as Array<{
+        id: number;
+        challenge_order: number;
+        title: string;
+        text: string;
+        expected_location: string;
+      }>).map((challenge) => [challenge.id, challenge])
+    );
+    const statusMap = new Map(
+      ((statusResult.data ?? []) as Array<{
+        team_id: number;
+        challenge_id: number;
+        proof_note: string;
+        review_status: "pending" | "verified" | "rejected";
+      }>).map((status) => [`${status.team_id}:${status.challenge_id}`, status] as const)
+    );
+    const uploadsByKey = new Map<string, ChallengeUpload[]>();
+    for (const upload of ((uploadsResult.data ?? []) as UploadRow[]).map(normalizeUploadRow)) {
+      const key = `${upload.team_id}:${upload.challenge_id}`;
+      const current = uploadsByKey.get(key) ?? [];
+      current.push(upload);
+      uploadsByKey.set(key, current);
+    }
 
     return checkins.map((checkin) => {
       const team = teamMap.get(checkin.team_id);
+      const challenge =
+        checkin.challenge_id !== null ? challengeMap.get(checkin.challenge_id) ?? null : null;
+      const challengeStatus =
+        checkin.challenge_id !== null
+          ? statusMap.get(`${checkin.team_id}:${checkin.challenge_id}`) ?? null
+          : null;
+      const uploads =
+        checkin.challenge_id !== null
+          ? uploadsByKey.get(`${checkin.team_id}:${checkin.challenge_id}`) ?? []
+          : [];
+
       return {
         ...checkin,
         team_name: team?.team_name ?? `Team ${checkin.team_id}`,
         color: team?.color ?? "#d85f3a",
         badge_label: team?.badge_label ?? "Team",
+        checkpoint_label: checkpointLabel(checkin.checkin_type, challenge?.title),
+        challenge: challenge
+          ? {
+              id: challenge.id,
+              challenge_order: challenge.challenge_order,
+              title: challenge.title,
+              text: challenge.text,
+              expected_location: challenge.expected_location,
+              review_status: challengeStatus?.review_status ?? "pending",
+            }
+          : null,
+        uploads,
+        proof_note: challengeStatus?.proof_note ?? "",
       };
     });
   } catch (error) {

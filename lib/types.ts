@@ -112,6 +112,17 @@ export type AdminCheckinFeedItem = TeamCheckin & {
   team_name: string;
   color: string;
   badge_label: string;
+  checkpoint_label: string;
+  challenge: null | {
+    id: number;
+    challenge_order: number;
+    title: string;
+    text: string;
+    expected_location: string;
+    review_status: "pending" | "verified" | "rejected";
+  };
+  uploads: ChallengeUpload[];
+  proof_note: string;
 };
 
 export type AdminRoutePoint = {

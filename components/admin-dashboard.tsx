@@ -6,9 +6,11 @@ import type { FormEvent } from "react";
 import {
   ChevronDown,
   Clock3,
+  ExternalLink,
   Image as ImageIcon,
   LoaderCircle,
   MapPin,
+  X,
   Video,
 } from "lucide-react";
 
@@ -100,6 +102,8 @@ export function AdminDashboard() {
   const [error, setError] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [openCheckpointByTeam, setOpenCheckpointByTeam] = useState<Record<number, string | null>>({});
+  const [activeRecentCheckinId, setActiveRecentCheckinId] = useState<number | null>(null);
+  const [activeProofIndex, setActiveProofIndex] = useState(0);
   const { toast } = useToast();
 
   const loadGame = async () => {
@@ -119,6 +123,25 @@ export function AdminDashboard() {
     }, 5000);
     return () => window.clearInterval(poll);
   }, [game]);
+
+  const activeRecentCheckin =
+    game?.recentCheckins.find((item) => item.id === activeRecentCheckinId) ?? null;
+
+  useEffect(() => {
+    if (!activeRecentCheckin) {
+      setActiveProofIndex(0);
+      return;
+    }
+
+    if (activeRecentCheckin.uploads.length === 0) {
+      setActiveProofIndex(0);
+      return;
+    }
+
+    setActiveProofIndex((current) =>
+      Math.min(current, Math.max(0, activeRecentCheckin.uploads.length - 1))
+    );
+  }, [activeRecentCheckin]);
 
   useEffect(() => {
     if (!game) return;
@@ -473,9 +496,7 @@ export function AdminDashboard() {
                         <Badge variant={feedBadge(item)}>{item.status}</Badge>
                       </div>
                       <p className="font-medium text-white">
-                        {item.checkin_type === "challenge"
-                          ? `Challenge ${item.challenge_id} check-in`
-                          : `${item.checkin_type === "start" ? "Start" : "Finish"} check-in`}
+                        {item.checkpoint_label}
                       </p>
                     </div>
                     <div className="text-xs text-white/42">
@@ -497,6 +518,80 @@ export function AdminDashboard() {
                   {item.checkin_note ? (
                     <p className="mt-3 text-sm leading-7 text-white/56">{item.checkin_note}</p>
                   ) : null}
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <Button
+                      className="w-full bg-emerald-500/90 text-white hover:bg-emerald-500 sm:w-auto"
+                      disabled={pendingAction === `review-checkin:${item.id}:verified`}
+                      type="button"
+                      onClick={() =>
+                        runAdminAction(
+                          `review-checkin:${item.id}:verified`,
+                          async () => {
+                            await api(`/api/admin/checkins/${item.id}/review`, {
+                              method: "PATCH",
+                              body: JSON.stringify({
+                                status: "verified",
+                                reviewNote: item.review_note ?? "",
+                              }),
+                            });
+                            await loadGame();
+                          },
+                          "Check-in approved",
+                          `${item.team_name} ${item.checkpoint_label.toLowerCase()} was approved.`
+                        )
+                      }
+                    >
+                      {pendingAction === `review-checkin:${item.id}:verified` ? (
+                        <>
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          Approving...
+                        </>
+                      ) : (
+                        "Approve"
+                      )}
+                    </Button>
+                    <Button
+                      className="w-full bg-amber-500/90 text-black hover:bg-amber-400 sm:w-auto"
+                      disabled={pendingAction === `review-checkin:${item.id}:rejected`}
+                      type="button"
+                      onClick={() =>
+                        runAdminAction(
+                          `review-checkin:${item.id}:rejected`,
+                          async () => {
+                            await api(`/api/admin/checkins/${item.id}/review`, {
+                              method: "PATCH",
+                              body: JSON.stringify({
+                                status: "rejected",
+                                reviewNote: item.review_note ?? "",
+                              }),
+                            });
+                            await loadGame();
+                          },
+                          "Check-in rejected",
+                          `${item.team_name} ${item.checkpoint_label.toLowerCase()} was rejected.`
+                        )
+                      }
+                    >
+                      {pendingAction === `review-checkin:${item.id}:rejected` ? (
+                        <>
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          Rejecting...
+                        </>
+                      ) : (
+                        "Reject"
+                      )}
+                    </Button>
+                    {item.challenge ? (
+                      <Button
+                        className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setActiveRecentCheckinId(item.id)}
+                      >
+                        View Proof
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               ))
             ) : (
@@ -701,6 +796,146 @@ export function AdminDashboard() {
           ) : null}
         </CardContent>
       </Card>
+
+      {activeRecentCheckin ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/10 bg-[#120f10] text-white shadow-[0_24px_80px_rgba(0,0,0,0.44)]">
+            <div className="flex items-start justify-between gap-4 border-b border-white/8 px-5 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                  Challenge Proof
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">
+                  {activeRecentCheckin.challenge?.challenge_order}. {activeRecentCheckin.challenge?.title}
+                </h3>
+                <p className="mt-1 text-sm text-white/54">{activeRecentCheckin.team_name}</p>
+              </div>
+              <Button
+                className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+                type="button"
+                variant="secondary"
+                onClick={() => setActiveRecentCheckinId(null)}
+              >
+                <X className="h-4 w-4" />
+                Close
+              </Button>
+            </div>
+
+            <div className="grid max-h-[calc(92vh-80px)] gap-5 overflow-y-auto p-5 sm:p-6 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="space-y-4">
+                <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4">
+                  {activeRecentCheckin.uploads.length ? (
+                    <>
+                      <div className="overflow-hidden rounded-[20px] border border-white/8 bg-black/20">
+                        {activeRecentCheckin.uploads[activeProofIndex]?.media_type === "video" ? (
+                          <video
+                            className="h-[240px] w-full bg-black object-contain sm:h-[360px]"
+                            controls
+                            src={activeRecentCheckin.uploads[activeProofIndex]?.public_url}
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            alt={activeRecentCheckin.uploads[activeProofIndex]?.file_name ?? "Proof upload"}
+                            className="h-[240px] w-full object-cover sm:h-[360px]"
+                            src={activeRecentCheckin.uploads[activeProofIndex]?.public_url}
+                          />
+                        )}
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        {activeRecentCheckin.uploads.map((upload, index) => (
+                          <button
+                            key={upload.id}
+                            className={`rounded-[16px] border p-2 text-left transition ${
+                              index === activeProofIndex
+                                ? "border-orange-400/30 bg-white/[0.08]"
+                                : "border-white/8 bg-white/[0.03]"
+                            }`}
+                            type="button"
+                            onClick={() => setActiveProofIndex(index)}
+                          >
+                            <div className="mb-2 flex items-center gap-2">
+                              {upload.media_type === "video" ? (
+                                <Video className="h-4 w-4 text-white/70" />
+                              ) : (
+                                <ImageIcon className="h-4 w-4 text-white/70" />
+                              )}
+                              <span className="truncate text-sm text-white/78">{upload.file_name}</span>
+                            </div>
+                            <p className="text-xs text-white/42">
+                              {new Date(upload.uploaded_at).toLocaleString()}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-[20px] border border-dashed border-white/10 bg-white/[0.03] p-6 text-sm text-white/52">
+                      No media uploaded yet for this challenge.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
+                    Challenge Info
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-white/64">
+                    {activeRecentCheckin.challenge?.text}
+                  </p>
+                  <p className="mt-4 text-sm text-white/74">
+                    <span className="text-white/44">Expected location:</span>{" "}
+                    {activeRecentCheckin.challenge?.expected_location}
+                  </p>
+                  <p className="mt-2 text-sm text-white/74">
+                    <span className="text-white/44">Check-in:</span>{" "}
+                    {new Date(activeRecentCheckin.created_at).toLocaleString()}
+                  </p>
+                  <p className="mt-2 text-sm text-white/74">
+                    <span className="text-white/44">GPS:</span>{" "}
+                    {activeRecentCheckin.latitude !== null
+                      ? `${activeRecentCheckin.latitude.toFixed(4)}, ${activeRecentCheckin.longitude?.toFixed(4)}`
+                      : "No GPS"}
+                  </p>
+                </div>
+
+                <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
+                    Team Proof Note
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-white/64">
+                    {activeRecentCheckin.proof_note || "No proof note submitted yet."}
+                  </p>
+                  {activeRecentCheckin.checkin_note ? (
+                    <>
+                      <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
+                        Check-In Note
+                      </p>
+                      <p className="mt-3 text-sm leading-7 text-white/64">
+                        {activeRecentCheckin.checkin_note}
+                      </p>
+                    </>
+                  ) : null}
+                </div>
+
+                {activeRecentCheckin.uploads[activeProofIndex] ? (
+                  <a
+                    className="inline-flex items-center gap-2 text-sm text-orange-200 hover:text-orange-100"
+                    href={activeRecentCheckin.uploads[activeProofIndex].public_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open original file
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
