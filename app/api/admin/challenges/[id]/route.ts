@@ -16,7 +16,7 @@ export async function PATCH(
   const body = (await request.json().catch(() => null)) as
     | { title?: string; text?: string }
     | null;
-  updateChallenge(Number(id), body?.title ?? "", body?.text ?? "");
+  await updateChallenge(Number(id), body?.title ?? "", body?.text ?? "");
 
-  return NextResponse.json({ ok: true, challenges: getChallenges(true) });
+  return NextResponse.json({ ok: true, challenges: await getChallenges(true) });
 }

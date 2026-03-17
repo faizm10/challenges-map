@@ -2,14 +2,6 @@ import type { ChallengeSeed, TeamSeed } from "@/lib/types";
 
 export const COOKIE_NAME = "race_to_union_session";
 export const SESSION_SECRET = "race-to-union-next-session-secret-v1";
-export const ADMIN_PIN = "UNIONHQ2026";
-export const TEAM_PINS: Record<number, string> = {
-  1: "TEAM1GO",
-  2: "TEAM2GO",
-  3: "TEAM3GO",
-  4: "TEAM4GO",
-  5: "TEAM5GO",
-};
 
 export const UNION_STATION = {
   name: "Union Station",

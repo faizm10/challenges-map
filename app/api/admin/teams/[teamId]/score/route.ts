@@ -23,6 +23,6 @@ export async function PATCH(
       ? null
       : Math.max(1, Math.min(5, Number(rawRank)));
 
-  updateTeamScore(Number(teamId), arrivalRank, Number(body?.creativityScore ?? 0));
-  return NextResponse.json({ ok: true, leaderboard: getLeaderboard() });
+  await updateTeamScore(Number(teamId), arrivalRank, Number(body?.creativityScore ?? 0));
+  return NextResponse.json({ ok: true, leaderboard: await getLeaderboard() });
 }

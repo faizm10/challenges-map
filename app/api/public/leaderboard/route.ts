@@ -4,7 +4,7 @@ import { CHALLENGE_SEED, UNION_STATION } from "@/lib/config";
 import { getChallenges, getLeaderboard } from "@/lib/game";
 
 export async function GET() {
-  const challenges = getChallenges(true);
+  const challenges = await getChallenges(true);
   return NextResponse.json({
     event: {
       title: "Race to Union",
@@ -12,6 +12,6 @@ export async function GET() {
       released_count: challenges.filter((challenge) => challenge.is_released).length,
       total_challenges: CHALLENGE_SEED.length,
     },
-    leaderboard: getLeaderboard(),
+    leaderboard: await getLeaderboard(),
   });
 }

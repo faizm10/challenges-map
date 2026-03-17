@@ -35,6 +35,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function TeamDashboard() {
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
+  const [teamName, setTeamName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -63,8 +64,9 @@ export function TeamDashboard() {
     try {
       await api("/api/auth/team", {
         method: "POST",
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ name: teamName, pin }),
       });
+      setTeamName("");
       setPin("");
       await loadDashboard();
     } catch (nextError) {
@@ -117,6 +119,16 @@ export function TeamDashboard() {
             </CardHeader>
             <CardContent className="p-0 pt-5">
               <form className="space-y-4" onSubmit={onLogin}>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Team name</label>
+                  <Input
+                    type="text"
+                    value={teamName}
+                    onChange={(event) => setTeamName(event.target.value)}
+                    placeholder="Team 1"
+                    required
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Enter team PIN</label>
                   <Input

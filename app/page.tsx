@@ -4,8 +4,8 @@ import { getChallenges, getLeaderboard } from "@/lib/game";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const challenges = getChallenges(true);
+export default async function HomePage() {
+  const challenges = await getChallenges(true);
   const initialData = {
     event: {
       title: "Race to Union",
@@ -13,7 +13,7 @@ export default function HomePage() {
       released_count: challenges.filter((challenge) => challenge.is_released).length,
       total_challenges: CHALLENGE_SEED.length,
     },
-    leaderboard: getLeaderboard(),
+    leaderboard: await getLeaderboard(),
   };
 
   const mapTeams = TEAM_SEED.map((team) => ({

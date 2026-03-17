@@ -7,15 +7,14 @@ import type {
   TeamDashboardResponse,
   TeamScore,
 } from "@/lib/types";
-import { db, resetData } from "@/lib/db";
-
-function getReleasedCount() {
-  return (
-    db.prepare("SELECT COUNT(*) AS count FROM challenges WHERE is_released = 1").get() as {
-      count: number;
-    }
-  ).count;
-}
+import {
+  ACCESS_SEED,
+  CHALLENGE_ROWS,
+  TEAM_CHALLENGE_STATUS_ROWS,
+  TEAM_ROWS,
+  TEAM_SCORE_ROWS,
+} from "@/lib/seed";
+import { supabase } from "@/lib/supabase";
 
 function getMilestones(entry: {
   completed_count: number;
@@ -28,68 +27,91 @@ function getMilestones(entry: {
   return milestones;
 }
 
-export function getChallenges(includeHidden = true): Challenge[] {
-  const sql = includeHidden
-    ? "SELECT id, challenge_order, title, text, is_released FROM challenges ORDER BY challenge_order"
-    : "SELECT id, challenge_order, title, text, is_released FROM challenges WHERE is_released = 1 ORDER BY challenge_order";
-  return db.prepare(sql).all() as Challenge[];
+function speedPointsForRank(rank: number | null) {
+  return rank === 1 ? 40 : rank === 2 ? 32 : rank === 3 ? 24 : rank === 4 ? 16 : rank === 5 ? 8 : 0;
 }
 
-export function getLeaderboard(): LeaderboardEntry[] {
-  const releasedCount = getReleasedCount();
-  const rows = db
-    .prepare(
-      `
-      SELECT
-        t.id,
-        t.team_name,
-        t.start_location_name,
-        t.walk_time,
-        t.color,
-        t.badge_label,
-        ts.arrival_rank,
-        COALESCE(ts.creativity_score, 0) AS creativity_score,
-        SUM(CASE WHEN tcs.status = 'submitted' THEN 1 ELSE 0 END) AS completed_count
-      FROM teams t
-      LEFT JOIN team_scores ts ON ts.team_id = t.id
-      LEFT JOIN team_challenge_status tcs ON tcs.team_id = t.id
-      GROUP BY
-        t.id, t.team_name, t.start_location_name, t.walk_time, t.color, t.badge_label,
-        ts.arrival_rank, ts.creativity_score
-      ORDER BY t.id
-      `
-    )
-    .all() as Array<{
-      id: number;
-      team_name: string;
-      start_location_name: string;
-      walk_time: string;
-      color: string;
-      badge_label: string;
-      arrival_rank: number | null;
-      creativity_score: number;
-      completed_count: number;
-    }>;
+async function getReleasedCount() {
+  const { count, error } = await supabase
+    .from("challenges")
+    .select("*", { count: "exact", head: true })
+    .eq("is_released", true);
 
-  const scored = rows.map((row) => {
-    const speedPoints =
-      row.arrival_rank === 1
-        ? 40
-        : row.arrival_rank === 2
-          ? 32
-          : row.arrival_rank === 3
-            ? 24
-            : row.arrival_rank === 4
-              ? 16
-              : row.arrival_rank === 5
-                ? 8
-                : 0;
-    const challengePoints = Math.min(row.completed_count * 8, 40);
-    const creativityScore = Math.max(0, Math.min(20, row.creativity_score ?? 0));
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function getChallenges(includeHidden = true): Promise<Challenge[]> {
+  let query = supabase
+    .from("challenges")
+    .select("id, challenge_order, title, text, is_released")
+    .order("challenge_order", { ascending: true });
+
+  if (!includeHidden) {
+    query = query.eq("is_released", true);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as Challenge[];
+}
+
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  const [releasedCount, teamsResult, scoresResult, statusResult] = await Promise.all([
+    getReleasedCount(),
+    supabase
+      .from("teams")
+      .select("id, team_name, start_location_name, walk_time, color, badge_label")
+      .order("id", { ascending: true }),
+    supabase
+      .from("team_scores")
+      .select("team_id, arrival_rank, creativity_score")
+      .order("team_id", { ascending: true }),
+    supabase
+      .from("team_challenge_status")
+      .select("team_id, status"),
+  ]);
+
+  if (teamsResult.error) throw teamsResult.error;
+  if (scoresResult.error) throw scoresResult.error;
+  if (statusResult.error) throw statusResult.error;
+
+  const teams = (teamsResult.data ?? []) as Array<{
+    id: number;
+    team_name: string;
+    start_location_name: string;
+    walk_time: string;
+    color: string;
+    badge_label: string;
+  }>;
+  const scores = new Map(
+    ((scoresResult.data ?? []) as TeamScore[]).map((score) => [score.team_id, score])
+  );
+  const completedCounts = new Map<number, number>();
+
+  for (const row of (statusResult.data ?? []) as Array<{ team_id: number; status: string }>) {
+    if (row.status !== "submitted") continue;
+    completedCounts.set(row.team_id, (completedCounts.get(row.team_id) ?? 0) + 1);
+  }
+
+  const scored = teams.map((row) => {
+    const score = scores.get(row.id);
+    const arrivalRank = score?.arrival_rank ?? null;
+    const speedPoints = speedPointsForRank(arrivalRank);
+    const completedCount = completedCounts.get(row.id) ?? 0;
+    const challengePoints = Math.min(completedCount * 8, 40);
+    const creativityScore = Math.max(0, Math.min(20, score?.creativity_score ?? 0));
     const totalPoints = speedPoints + challengePoints + creativityScore;
 
     return {
-      ...row,
+      id: row.id,
+      team_name: row.team_name,
+      start_location_name: row.start_location_name,
+      walk_time: row.walk_time,
+      color: row.color,
+      badge_label: row.badge_label,
+      arrival_rank: arrivalRank,
+      completed_count: completedCount,
       speed_points: speedPoints,
       challenge_points: challengePoints,
       creativity_score: creativityScore,
@@ -97,7 +119,10 @@ export function getLeaderboard(): LeaderboardEntry[] {
       released_count: releasedCount,
       progress_percent:
         releasedCount === 0 ? 4 : Math.max(10, Math.min(100, Math.round(totalPoints))),
-      milestones: getMilestones(row),
+      milestones: getMilestones({
+        completed_count: completedCount,
+        arrival_rank: arrivalRank,
+      }),
     };
   });
 
@@ -112,115 +137,182 @@ export function getLeaderboard(): LeaderboardEntry[] {
   return scored.map((row, index) => ({ ...row, leaderboard_rank: index + 1 }));
 }
 
-export function getTeamDashboard(teamId: number): TeamDashboardResponse | null {
-  const team = db
-    .prepare(
-      `
-      SELECT id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label
-      FROM teams WHERE id = ?
-      `
-    )
-    .get(teamId) as Team | undefined;
+export async function getTeamDashboard(teamId: number): Promise<TeamDashboardResponse | null> {
+  const [teamResult, releasedChallenges, statusResult, leaderboard] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label")
+      .eq("id", teamId)
+      .maybeSingle(),
+    getChallenges(false),
+    supabase
+      .from("team_challenge_status")
+      .select("challenge_id, status, proof_note, submitted_at")
+      .eq("team_id", teamId),
+    getLeaderboard(),
+  ]);
 
+  if (teamResult.error) throw teamResult.error;
+  if (statusResult.error) throw statusResult.error;
+
+  const team = teamResult.data as Team | null;
   if (!team) return null;
 
-  const challenges = db
-    .prepare(
-      `
-      SELECT
-        c.id,
-        c.challenge_order,
-        c.title,
-        c.text,
-        c.is_released,
-        tcs.status,
-        tcs.proof_note,
-        tcs.submitted_at
-      FROM challenges c
-      JOIN team_challenge_status tcs
-        ON tcs.challenge_id = c.id AND tcs.team_id = ?
-      WHERE c.is_released = 1
-      ORDER BY c.challenge_order
-      `
-    )
-    .all(teamId) as TeamChallengeStatus[];
+  const statuses = new Map(
+    ((statusResult.data ?? []) as Array<{
+      challenge_id: number;
+      status: "not_started" | "submitted";
+      proof_note: string;
+      submitted_at: string | null;
+    }>).map((status) => [status.challenge_id, status])
+  );
 
-  const leaderboard = getLeaderboard();
+  const challenges = releasedChallenges.map((challenge) => {
+    const status = statuses.get(challenge.id);
+    return {
+      ...challenge,
+      status: status?.status ?? "not_started",
+      proof_note: status?.proof_note ?? "",
+      submitted_at: status?.submitted_at ?? null,
+    };
+  }) as TeamChallengeStatus[];
+
   const teamStats = leaderboard.find((entry) => entry.id === teamId);
   if (!teamStats) return null;
 
   return { team, challenges, teamStats, leaderboard };
 }
 
-export function getAdminGame(): AdminGameResponse {
+export async function getAdminGame(): Promise<AdminGameResponse> {
+  const [teamsResult, challenges, scoresResult, leaderboard] = await Promise.all([
+    supabase.from("teams").select("id").order("id", { ascending: true }),
+    getChallenges(true),
+    supabase
+      .from("team_scores")
+      .select("team_id, arrival_rank, creativity_score")
+      .order("team_id", { ascending: true }),
+    getLeaderboard(),
+  ]);
+
+  if (teamsResult.error) throw teamsResult.error;
+  if (scoresResult.error) throw scoresResult.error;
+
+  const teams = await Promise.all(
+    ((teamsResult.data ?? []) as Array<{ id: number }>).map(async ({ id }) => getTeamDashboard(id))
+  );
+
   return {
-    challenges: getChallenges(true),
-    teams: [1, 2, 3, 4, 5]
-      .map((teamId) => getTeamDashboard(teamId))
-      .filter(Boolean) as TeamDashboardResponse[],
-    scores: db
-      .prepare("SELECT team_id, arrival_rank, creativity_score FROM team_scores ORDER BY team_id")
-      .all() as TeamScore[],
-    leaderboard: getLeaderboard(),
+    challenges,
+    teams: teams.filter(Boolean) as TeamDashboardResponse[],
+    scores: (scoresResult.data ?? []) as TeamScore[],
+    leaderboard,
     pins: {
-      admin_hint: "Hardcoded in server config",
-      team_pin_count: 5,
+      admin_hint: "Stored in Supabase access_credentials table",
+      team_pin_count: ((teamsResult.data ?? []) as Array<{ id: number }>).length,
     },
   };
 }
 
-export function updateChallenge(challengeId: number, title: string, text: string) {
-  db.prepare("UPDATE challenges SET title = ?, text = ? WHERE id = ?").run(
-    title.slice(0, 120),
-    text.slice(0, 500),
-    challengeId
-  );
+export async function updateChallenge(challengeId: number, title: string, text: string) {
+  const { error } = await supabase
+    .from("challenges")
+    .update({
+      title: title.slice(0, 120),
+      text: text.slice(0, 500),
+    })
+    .eq("id", challengeId);
+
+  if (error) throw error;
   return getChallenges(true);
 }
 
-export function updateChallengeRelease(challengeId: number, isReleased: boolean) {
-  db.prepare("UPDATE challenges SET is_released = ? WHERE id = ?").run(isReleased ? 1 : 0, challengeId);
+export async function updateChallengeRelease(challengeId: number, isReleased: boolean) {
+  const { error } = await supabase
+    .from("challenges")
+    .update({ is_released: isReleased })
+    .eq("id", challengeId);
+
+  if (error) throw error;
   return getChallenges(true);
 }
 
-export function updateTeamChallengeSubmission(
+export async function updateTeamChallengeSubmission(
   teamId: number,
   challengeId: number,
   proofNote: string,
   status: "submitted" | "not_started"
 ) {
-  db.prepare(
-    `
-    UPDATE team_challenge_status
-    SET status = ?, proof_note = ?, submitted_at = ?
-    WHERE team_id = ? AND challenge_id = ?
-    `
-  ).run(
-    status,
-    proofNote.slice(0, 500),
-    status === "submitted" ? new Date().toISOString() : null,
-    teamId,
-    challengeId
-  );
+  const { error } = await supabase
+    .from("team_challenge_status")
+    .update({
+      status,
+      proof_note: proofNote.slice(0, 500),
+      submitted_at: status === "submitted" ? new Date().toISOString() : null,
+    })
+    .eq("team_id", teamId)
+    .eq("challenge_id", challengeId);
+
+  if (error) throw error;
 }
 
-export function updateTeamScore(teamId: number, arrivalRank: number | null, creativityScore: number) {
-  db.prepare(
-    "UPDATE team_scores SET arrival_rank = ?, creativity_score = ? WHERE team_id = ?"
-  ).run(arrivalRank, Math.max(0, Math.min(20, creativityScore)), teamId);
+export async function updateTeamScore(
+  teamId: number,
+  arrivalRank: number | null,
+  creativityScore: number
+) {
+  const { error } = await supabase
+    .from("team_scores")
+    .update({
+      arrival_rank: arrivalRank,
+      creativity_score: Math.max(0, Math.min(20, creativityScore)),
+    })
+    .eq("team_id", teamId);
+
+  if (error) throw error;
 }
 
-export function isChallengeReleased(challengeId: number) {
-  const result = db
-    .prepare("SELECT id, is_released FROM challenges WHERE id = ?")
-    .get(challengeId) as { id: number; is_released: number } | undefined;
-  return result?.is_released === 1;
+export async function isChallengeReleased(challengeId: number) {
+  const { data, error } = await supabase
+    .from("challenges")
+    .select("id, is_released")
+    .eq("id", challengeId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return Boolean(data?.is_released);
 }
 
-export function resetGame() {
-  resetData();
+export async function resetGame() {
+  const deleteFilters = async () => {
+    const deletes = await Promise.all([
+      supabase.from("team_challenge_status").delete().gte("team_id", 1),
+      supabase.from("team_scores").delete().gte("team_id", 1),
+      supabase.from("challenges").delete().gte("id", 1),
+      supabase.from("access_credentials").delete().gte("id", 1),
+      supabase.from("teams").delete().gte("id", 1),
+    ]);
+
+    for (const result of deletes) {
+      if (result.error) throw result.error;
+    }
+  };
+
+  await deleteFilters();
+
+  const inserts = await Promise.all([
+    supabase.from("teams").insert(TEAM_ROWS),
+    supabase.from("challenges").insert(CHALLENGE_ROWS),
+    supabase.from("team_scores").insert(TEAM_SCORE_ROWS),
+    supabase.from("team_challenge_status").insert(TEAM_CHALLENGE_STATUS_ROWS),
+    supabase.from("access_credentials").insert(ACCESS_SEED),
+  ]);
+
+  for (const result of inserts) {
+    if (result.error) throw result.error;
+  }
+
   return {
-    challenges: getChallenges(true),
-    leaderboard: getLeaderboard(),
+    challenges: await getChallenges(true),
+    leaderboard: await getLeaderboard(),
   };
 }

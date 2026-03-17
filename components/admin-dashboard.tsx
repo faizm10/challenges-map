@@ -28,6 +28,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function AdminDashboard() {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
+  const [adminName, setAdminName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const { toast } = useToast();
@@ -56,8 +57,9 @@ export function AdminDashboard() {
     try {
       await api("/api/auth/admin", {
         method: "POST",
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ name: adminName, pin }),
       });
+      setAdminName("");
       setPin("");
       await loadGame();
     } catch (nextError) {
@@ -119,6 +121,16 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent className="p-0 pt-5">
               <form className="space-y-4" onSubmit={onLogin}>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Admin name</label>
+                  <Input
+                    type="text"
+                    value={adminName}
+                    onChange={(event) => setAdminName(event.target.value)}
+                    placeholder="HQ Admin"
+                    required
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Enter admin PIN</label>
                   <Input
