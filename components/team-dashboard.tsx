@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   ChevronDown,
@@ -249,6 +249,8 @@ export function TeamDashboard() {
   const [lastResolvedPosition, setLastResolvedPosition] = useState<CapturedLocation | null>(null);
   const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
   const [openCheckpointKey, setOpenCheckpointKey] = useState<string | null>(null);
+  const [newChallengeBanner, setNewChallengeBanner] = useState<TeamChallengeStatus | null>(null);
+  const seenChallengeIdsRef = useRef<number[] | null>(null);
   const { toast } = useToast();
 
   const loadDashboard = async () => {
@@ -274,6 +276,30 @@ export function TeamDashboard() {
     }, 5000);
     return () => window.clearInterval(poll);
   }, [dashboard]);
+
+  useEffect(() => {
+    if (!dashboard) return;
+
+    const currentIds = dashboard.challenges.map((challenge) => challenge.id);
+    const previousIds = seenChallengeIdsRef.current;
+
+    if (previousIds) {
+      const newChallenge = dashboard.challenges.find((challenge) => !previousIds.includes(challenge.id));
+      if (newChallenge) {
+        setNewChallengeBanner(newChallenge);
+      }
+    }
+
+    seenChallengeIdsRef.current = currentIds;
+  }, [dashboard]);
+
+  useEffect(() => {
+    if (!newChallengeBanner) return;
+    const timeout = window.setTimeout(() => {
+      setNewChallengeBanner(null);
+    }, 9000);
+    return () => window.clearTimeout(timeout);
+  }, [newChallengeBanner]);
 
   async function refreshLocationPermissionState() {
     if (
@@ -323,6 +349,7 @@ export function TeamDashboard() {
   const startCheckpoint =
     dashboard?.checkpoints.find((checkpoint) => checkpoint.checkin_type === "start") ?? null;
   const hasStartedRace = Boolean(startCheckpoint?.latest_checkin);
+  const isFinishUnlocked = (dashboard?.teamStats.completed_count ?? 0) >= 5;
   const visibleCheckpoints = dashboard
     ? dashboard.checkpoints.filter((checkpoint) => {
         if (checkpoint.checkin_type === "start") return true;
@@ -701,7 +728,7 @@ export function TeamDashboard() {
     }
   }
 
-  async function onCheckpointCheckin(checkpoint: TeamCheckpoint, note: string) {
+  async function onCheckpointCheckin(checkpoint: TeamCheckpoint) {
     setCheckingInKey(checkpoint.key);
     try {
       const position = await capturePosition(checkpoint.key);
@@ -710,7 +737,7 @@ export function TeamDashboard() {
         body: JSON.stringify({
           checkinType: checkpoint.checkin_type,
           challengeId: checkpoint.challenge_id,
-          checkinNote: note,
+          checkinNote: "",
           latitude: position.latitude,
           longitude: position.longitude,
           accuracyMeters: position.accuracyMeters,
@@ -977,6 +1004,8 @@ export function TeamDashboard() {
             <div className="grid gap-2">
               {visibleCheckpoints.map((checkpoint) => {
                 const isOpen = openCheckpointKey === checkpoint.key;
+                const isFinishLocked =
+                  checkpoint.checkin_type === "finish" && !isFinishUnlocked;
 
                 return (
                   <div
@@ -1044,19 +1073,17 @@ export function TeamDashboard() {
                           className="space-y-3"
                           onSubmit={(event) => {
                             event.preventDefault();
-                            const formData = new FormData(event.currentTarget);
-                            void onCheckpointCheckin(
-                              checkpoint,
-                              String(formData.get("checkinNote") ?? "")
-                            );
+                            void onCheckpointCheckin(checkpoint);
                           }}
                         >
-                          <Textarea
-                            className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                            defaultValue={checkpoint.latest_checkin?.checkin_note ?? ""}
-                            name="checkinNote"
-                            placeholder="Optional note for HQ about where you are or what just happened."
-                          />
+                          {isFinishLocked ? (
+                            <div className="rounded-[20px] border border-orange-400/14 bg-orange-500/[0.07] p-4">
+                              <p className="text-sm font-semibold text-white">Finish locked</p>
+                              <p className="mt-1 text-sm leading-6 text-white/62">
+                                Complete all 5 challenges before the final Union check-in unlocks.
+                              </p>
+                            </div>
+                          ) : null}
                           <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
                             <div className="mb-2 flex items-start gap-3">
                               <div className="rounded-2xl bg-white/[0.06] p-2 text-orange-200">
@@ -1082,7 +1109,7 @@ export function TeamDashboard() {
 
                           <Button
                             className="h-12 w-full bg-orange-500 text-base text-black hover:bg-orange-400"
-                            disabled={checkingInKey === checkpoint.key}
+                            disabled={checkingInKey === checkpoint.key || isFinishLocked}
                             type="submit"
                           >
                             {checkingInKey === checkpoint.key ? (
@@ -1102,14 +1129,6 @@ export function TeamDashboard() {
                           </p>
                         ) : null}
 
-                        {checkpoint.checkin_type === "challenge" && checkpoint.challenge_id !== null ? (
-                          <a
-                            className="mt-3 inline-flex h-10 items-center rounded-full border border-white/10 bg-white/[0.05] px-4 text-sm font-medium text-white/80 transition hover:bg-white/[0.08] hover:text-white"
-                            href={`#challenge-proof-${checkpoint.challenge_id}`}
-                          >
-                            Go to upload
-                          </a>
-                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -1138,6 +1157,29 @@ export function TeamDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
+          {newChallengeBanner ? (
+            <div className="md:col-span-2 rounded-[24px] border border-orange-300/18 bg-orange-500/[0.08] p-5 text-white shadow-[0_18px_50px_rgba(255,120,0,0.12)]">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-200">
+                Challenge Drop Is Out
+              </p>
+              <div className="mt-2 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-2xl font-semibold text-white">{newChallengeBanner.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-white/62">
+                    A new challenge just landed. Open the card below to upload proof and submit.
+                  </p>
+                </div>
+                <button
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
+                  type="button"
+                  onClick={() => setNewChallengeBanner(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {!hasStartedRace ? (
             <p className="text-sm text-white/46">
               Start the race with your first check-in to reveal challenge cards.
