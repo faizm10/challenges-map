@@ -27,23 +27,23 @@
 }
 
 :root {
-  --background: oklch(0.97 0.01 82);
-  --foreground: oklch(0.22 0.03 260);
-  --card: oklch(0.99 0.01 85 / 92%);
-  --card-foreground: oklch(0.22 0.03 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.03 260);
-  --primary: oklch(0.62 0.18 38);
-  --primary-foreground: oklch(0.98 0.01 90);
-  --secondary: oklch(0.95 0.02 82);
-  --secondary-foreground: oklch(0.22 0.03 260);
-  --muted: oklch(0.94 0.01 85);
-  --muted-foreground: oklch(0.48 0.03 250);
-  --accent: oklch(0.94 0.02 82);
-  --accent-foreground: oklch(0.22 0.03 260);
-  --border: oklch(0.88 0.01 80);
-  --input: oklch(0.88 0.01 80);
-  --ring: oklch(0.62 0.18 38);
+  --background: oklch(0.13 0.01 30);
+  --foreground: oklch(0.96 0.01 80);
+  --card: oklch(0.17 0.01 30 / 88%);
+  --card-foreground: oklch(0.96 0.01 80);
+  --popover: oklch(0.15 0.01 30);
+  --popover-foreground: oklch(0.96 0.01 80);
+  --primary: oklch(0.68 0.18 42);
+  --primary-foreground: oklch(0.12 0.01 30);
+  --secondary: oklch(0.22 0.01 28);
+  --secondary-foreground: oklch(0.94 0.01 80);
+  --muted: oklch(0.2 0.01 28);
+  --muted-foreground: oklch(0.72 0.01 65);
+  --accent: oklch(0.23 0.01 28);
+  --accent-foreground: oklch(0.94 0.01 80);
+  --border: oklch(0.28 0.01 35);
+  --input: oklch(0.28 0.01 35);
+  --ring: oklch(0.68 0.18 42);
   --radius: 1rem;
 }
 
@@ -54,9 +54,9 @@
 body {
   @apply bg-background text-foreground min-h-screen;
   background-image:
-    radial-gradient(circle at top left, rgb(216 95 58 / 0.18), transparent 24%),
-    radial-gradient(circle at bottom right, rgb(37 99 235 / 0.12), transparent 24%),
-    linear-gradient(180deg, #fbf7ef 0%, #f4efe6 100%);
+    radial-gradient(circle at top left, rgb(216 95 58 / 0.12), transparent 22%),
+    radial-gradient(circle at bottom right, rgb(255 255 255 / 0.04), transparent 22%),
+    linear-gradient(180deg, #0a090a 0%, #121011 100%);
 }
 
 body::before {
@@ -76,7 +76,7 @@ html {
 }
 
 .glass-panel {
-  @apply border-white/50 bg-card/90 shadow-[0_20px_50px_rgba(67,54,34,0.12)] backdrop-blur-xl;
+  @apply border-white/8 bg-card/90 shadow-[0_24px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl;
 }
 
 @layer base {

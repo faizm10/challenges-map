@@ -137,25 +137,25 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
   }));
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#050506] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.14),transparent_24%),radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_20%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_20%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
+    <main className="relative min-h-screen overflow-x-hidden bg-[#070607] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.1),transparent_22%),radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(255,255,255,0.015),transparent_18%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
 
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/25 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-white/8 bg-[#090809]/72 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-6">
           <Link className="flex items-center gap-3" href="/">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500 font-serif text-xl text-black">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/95 font-serif text-xl text-black shadow-[0_0_30px_rgba(249,115,22,0.24)]">
               U
             </span>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
+              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/38">
                 Toronto Social Game
               </div>
               <div className="text-sm font-medium text-white">Race to Union</div>
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-7 text-sm text-white/60 md:flex">
+          <nav className="hidden items-center gap-7 text-sm text-white/52 md:flex">
             <a href="#how-it-works" className="transition hover:text-white">
               How it works
             </a>
@@ -187,13 +187,13 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               initial={{ opacity: 0, y: 28 }}
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
             >
-              <Badge className="mb-6 border-orange-400/30 bg-orange-500/10 px-4 py-1.5 text-orange-200">
+              <Badge className="mb-6 border-orange-400/18 bg-orange-500/8 px-4 py-1.5 text-orange-100/90">
                 City-wide walking challenge
               </Badge>
               <h1 className="max-w-4xl font-serif text-5xl leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-8xl">
                 Race the City. Converge at Union.
               </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-white/62 sm:text-xl">
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-white/54 sm:text-xl">
                 Five teams. Live HQ drops. Cinematic walking energy. Social,
                 competitive, slightly chaotic fun built for a Toronto night out.
               </p>
@@ -231,9 +231,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-[28px] border border-white/10 bg-white/[0.045] p-5 backdrop-blur-md"
+                  className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5 backdrop-blur-md"
                 >
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-white/40">
+                  <div className="text-[11px] uppercase tracking-[0.22em] text-white/34">
                     {item.label}
                   </div>
                   <div className="mt-3 text-lg font-semibold text-white">{item.value}</div>
@@ -248,21 +248,21 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             initial={{ opacity: 0, scale: 0.96, y: 24 }}
             transition={{ duration: 0.8, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="absolute -left-10 top-16 h-36 w-36 rounded-full bg-orange-500/20 blur-3xl" />
-            <div className="absolute -right-8 bottom-12 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-            <Card className="relative overflow-hidden rounded-[36px] border-white/10 bg-white/[0.045] p-0">
-              <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.08),transparent_36%),radial-gradient(circle_at_72%_18%,rgba(249,115,22,0.18),transparent_26%)]" />
+            <div className="absolute -left-10 top-16 h-36 w-36 rounded-full bg-orange-500/12 blur-3xl" />
+            <div className="absolute -right-8 bottom-12 h-40 w-40 rounded-full bg-white/4 blur-3xl" />
+            <Card className="relative overflow-hidden rounded-[36px] border-white/8 !bg-[#161214]/88 p-0 shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
+              <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.05),transparent_36%),radial-gradient(circle_at_72%_18%,rgba(249,115,22,0.12),transparent_24%)]" />
               <div className="relative p-6 sm:p-8">
                 <div className="mb-8 flex items-center justify-between gap-4">
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.22em] text-white/40">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-white/30">
                       Mission pulse
                     </div>
                     <div className="mt-2 text-2xl font-semibold text-white">
                       The next race starts soon.
                     </div>
                   </div>
-                  <Badge className="border-white/10 bg-white/10 text-white" variant="secondary">
+                  <Badge className="border-white/8 bg-white/6 text-white/76" variant="secondary">
                     Premium chaos
                   </Badge>
                 </div>
@@ -270,8 +270,8 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 <CountdownTimer />
 
                 <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-[28px] border border-white/10 bg-black/25 p-5">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-white/60">
+                  <div className="rounded-[28px] border border-white/8 bg-black/16 p-5">
+                    <div className="mb-3 flex items-center gap-2 text-sm text-white/52">
                       <Users className="h-4 w-4 text-orange-300" />
                       Live team selection
                     </div>
@@ -279,7 +279,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                       {animatedTeams.slice(0, 3).map((team) => (
                         <div
                           key={team.id}
-                          className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-3"
+                          className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-3"
                         >
                           <div className="flex items-center gap-3">
                             <span
@@ -288,7 +288,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                             />
                             <span className="text-sm text-white">{team.teamName}</span>
                           </div>
-                          <span className="text-xs uppercase tracking-[0.18em] text-white/35">
+                          <span className="text-xs uppercase tracking-[0.18em] text-white/28">
                             Ready
                           </span>
                         </div>
@@ -296,8 +296,8 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                     </div>
                   </div>
 
-                  <div className="rounded-[28px] border border-white/10 bg-black/25 p-5">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-white/60">
+                  <div className="rounded-[28px] border border-white/8 bg-black/16 p-5">
+                    <div className="mb-3 flex items-center gap-2 text-sm text-white/52">
                       <Sparkles className="h-4 w-4 text-orange-300" />
                       HQ challenge cadence
                     </div>
@@ -307,7 +307,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                           <motion.div
                             key={item}
                             animate={{ opacity: [0.55, 1, 0.55] }}
-                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80"
+                            className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-white/68"
                             transition={{
                               duration: 2.6,
                               delay: index * 0.35,
@@ -326,7 +326,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
           </motion.div>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#050506]" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#070607]" />
       </section>
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-24 px-4 pb-24 md:px-6">

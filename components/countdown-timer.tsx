@@ -47,12 +47,12 @@ export function CountdownTimer() {
       {units.map((unit) => (
         <div
           key={unit.label}
-          className="rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-center backdrop-blur-sm"
+          className="rounded-2xl border border-white/8 bg-black/18 px-3 py-4 text-center backdrop-blur-sm"
         >
-          <div className="text-2xl font-semibold text-white sm:text-3xl">
+          <div className="text-2xl font-semibold text-white/96 sm:text-3xl">
             {String(unit.value).padStart(2, "0")}
           </div>
-          <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/45 sm:text-xs">
+          <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/32 sm:text-xs">
             {unit.label}
           </div>
         </div>
