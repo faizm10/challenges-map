@@ -519,68 +519,72 @@ export function AdminDashboard() {
                     <p className="mt-3 text-sm leading-7 text-white/56">{item.checkin_note}</p>
                   ) : null}
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                    <Button
-                      className="w-full bg-emerald-500/90 text-white hover:bg-emerald-500 sm:w-auto"
-                      disabled={pendingAction === `review-checkin:${item.id}:verified`}
-                      type="button"
-                      onClick={() =>
-                        runAdminAction(
-                          `review-checkin:${item.id}:verified`,
-                          async () => {
-                            await api(`/api/admin/checkins/${item.id}/review`, {
-                              method: "PATCH",
-                              body: JSON.stringify({
-                                status: "verified",
-                                reviewNote: item.review_note ?? "",
-                              }),
-                            });
-                            await loadGame();
-                          },
-                          "Check-in approved",
-                          `${item.team_name} ${item.checkpoint_label.toLowerCase()} was approved.`
-                        )
-                      }
-                    >
-                      {pendingAction === `review-checkin:${item.id}:verified` ? (
-                        <>
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Approving...
-                        </>
-                      ) : (
-                        "Approve"
-                      )}
-                    </Button>
-                    <Button
-                      className="w-full bg-amber-500/90 text-black hover:bg-amber-400 sm:w-auto"
-                      disabled={pendingAction === `review-checkin:${item.id}:rejected`}
-                      type="button"
-                      onClick={() =>
-                        runAdminAction(
-                          `review-checkin:${item.id}:rejected`,
-                          async () => {
-                            await api(`/api/admin/checkins/${item.id}/review`, {
-                              method: "PATCH",
-                              body: JSON.stringify({
-                                status: "rejected",
-                                reviewNote: item.review_note ?? "",
-                              }),
-                            });
-                            await loadGame();
-                          },
-                          "Check-in rejected",
-                          `${item.team_name} ${item.checkpoint_label.toLowerCase()} was rejected.`
-                        )
-                      }
-                    >
-                      {pendingAction === `review-checkin:${item.id}:rejected` ? (
-                        <>
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Rejecting...
-                        </>
-                      ) : (
-                        "Reject"
-                      )}
-                    </Button>
+                    {item.status !== "verified" ? (
+                      <>
+                        <Button
+                          className="w-full bg-emerald-500/90 text-white hover:bg-emerald-500 sm:w-auto"
+                          disabled={pendingAction === `review-checkin:${item.id}:verified`}
+                          type="button"
+                          onClick={() =>
+                            runAdminAction(
+                              `review-checkin:${item.id}:verified`,
+                              async () => {
+                                await api(`/api/admin/checkins/${item.id}/review`, {
+                                  method: "PATCH",
+                                  body: JSON.stringify({
+                                    status: "verified",
+                                    reviewNote: item.review_note ?? "",
+                                  }),
+                                });
+                                await loadGame();
+                              },
+                              "Check-in approved",
+                              `${item.team_name} ${item.checkpoint_label.toLowerCase()} was approved.`
+                            )
+                          }
+                        >
+                          {pendingAction === `review-checkin:${item.id}:verified` ? (
+                            <>
+                              <LoaderCircle className="h-4 w-4 animate-spin" />
+                              Approving...
+                            </>
+                          ) : (
+                            "Approve"
+                          )}
+                        </Button>
+                        <Button
+                          className="w-full bg-amber-500/90 text-black hover:bg-amber-400 sm:w-auto"
+                          disabled={pendingAction === `review-checkin:${item.id}:rejected`}
+                          type="button"
+                          onClick={() =>
+                            runAdminAction(
+                              `review-checkin:${item.id}:rejected`,
+                              async () => {
+                                await api(`/api/admin/checkins/${item.id}/review`, {
+                                  method: "PATCH",
+                                  body: JSON.stringify({
+                                    status: "rejected",
+                                    reviewNote: item.review_note ?? "",
+                                  }),
+                                });
+                                await loadGame();
+                              },
+                              "Check-in rejected",
+                              `${item.team_name} ${item.checkpoint_label.toLowerCase()} was rejected.`
+                            )
+                          }
+                        >
+                          {pendingAction === `review-checkin:${item.id}:rejected` ? (
+                            <>
+                              <LoaderCircle className="h-4 w-4 animate-spin" />
+                              Rejecting...
+                            </>
+                          ) : (
+                            "Reject"
+                          )}
+                        </Button>
+                      </>
+                    ) : null}
                     {item.challenge ? (
                       <Button
                         className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
