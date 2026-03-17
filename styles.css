@@ -1,0 +1,394 @@
+:root {
+  --bg: #f3efe5;
+  --paper: rgba(255, 251, 244, 0.88);
+  --ink: #1e2430;
+  --muted: #5f6471;
+  --accent: #d85f3a;
+  --accent-deep: #8c2f1f;
+  --accent-soft: #f6d7c9;
+  --line: rgba(30, 36, 48, 0.12);
+  --shadow: 0 18px 50px rgba(60, 48, 31, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Space Grotesk", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(216, 95, 58, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(43, 120, 110, 0.18), transparent 24%),
+    linear-gradient(180deg, #f8f4eb 0%, var(--bg) 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(30, 36, 48, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 36, 48, 0.03) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent 80%);
+}
+
+.app-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 64px;
+}
+
+.hero,
+.panel {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.hero {
+  padding: 36px;
+  margin-bottom: 22px;
+}
+
+.hero::after,
+.panel::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -60% auto;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(216, 95, 58, 0.12), transparent 70%);
+}
+
+.panel {
+  padding: 28px;
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: "Fraunces", serif;
+  line-height: 1.02;
+}
+
+h1 {
+  font-size: clamp(2.6rem, 7vw, 5.2rem);
+  max-width: 9ch;
+}
+
+h2 {
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+}
+
+h3 {
+  font-size: 1.2rem;
+}
+
+.hero-copy,
+.section-copy,
+.team-address,
+.team-route,
+li,
+td,
+th,
+textarea,
+select,
+input,
+button {
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.hero-copy,
+.section-copy,
+.team-address,
+.team-route,
+.meta-label,
+li {
+  color: var(--muted);
+}
+
+.hero-copy {
+  max-width: 58ch;
+  margin: 14px 0 0;
+}
+
+.hero-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.hero-meta div,
+.rules-card,
+.team-card,
+.challenge-item {
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+
+.hero-meta div {
+  padding: 16px 18px;
+}
+
+.meta-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 22px;
+}
+
+.section-copy {
+  max-width: 42ch;
+  margin: 0;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.team-card {
+  padding: 18px;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.team-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(60, 48, 31, 0.08);
+}
+
+.team-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.team-badge,
+.walk-time {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.team-badge {
+  padding: 6px 12px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.walk-time {
+  padding: 6px 10px;
+  background: rgba(30, 36, 48, 0.08);
+}
+
+.team-address,
+.team-route {
+  margin: 10px 0 0;
+}
+
+.split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
+  gap: 20px;
+}
+
+.challenge-list {
+  display: grid;
+  gap: 14px;
+}
+
+.challenge-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.challenge-label {
+  font-weight: 700;
+}
+
+textarea,
+select,
+input {
+  width: 100%;
+  padding: 12px 14px;
+  color: var(--ink);
+  border-radius: 14px;
+  border: 1px solid rgba(30, 36, 48, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  font-family: inherit;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+textarea:focus,
+select:focus,
+input:focus,
+button:focus {
+  outline: 2px solid rgba(216, 95, 58, 0.28);
+  outline-offset: 2px;
+}
+
+.rules-card {
+  padding: 20px;
+  align-self: start;
+}
+
+.rules-card ul {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+.score-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ghost-button {
+  border: 1px solid rgba(30, 36, 48, 0.16);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+  padding: 12px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.ghost-button:hover {
+  border-color: rgba(216, 95, 58, 0.45);
+  color: var(--accent-deep);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-deep);
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.team-name-cell {
+  font-weight: 700;
+}
+
+.speed-points,
+.challenge-points,
+.total-points {
+  font-weight: 700;
+}
+
+@media (max-width: 860px) {
+  .hero,
+  .panel {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .hero-meta,
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero,
+  .panel,
+  .team-card {
+    animation: rise-in 420ms ease both;
+  }
+
+  .team-card:nth-child(2) {
+    animation-delay: 60ms;
+  }
+
+  .team-card:nth-child(3) {
+    animation-delay: 120ms;
+  }
+
+  .team-card:nth-child(4) {
+    animation-delay: 180ms;
+  }
+
+  .team-card:nth-child(5) {
+    animation-delay: 240ms;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
