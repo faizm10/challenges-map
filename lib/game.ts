@@ -1706,6 +1706,8 @@ export async function reviewTeamCheckin(
   reviewNote: string,
   reviewedBy: string
 ) {
+  let reviewedCheckin: TeamCheckin | null = null;
+
   try {
     const { error } = await supabase
       .from("team_checkins")
@@ -1724,16 +1726,51 @@ export async function reviewTeamCheckin(
       if (!row) {
         throw new GameError("Check-in not found.", 404);
       }
+      if (status === "verified" && row.checkin_type === "challenge" && row.challenge_id !== null) {
+        const localStatus = getLocalTeamDashboard(row.team_id)?.challenges.find(
+          (challenge) => challenge.id === row.challenge_id
+        );
+        if (localStatus?.status === "submitted") {
+          updateLocalChallengeReview(
+            row.team_id,
+            row.challenge_id,
+            "verified",
+            reviewNote,
+            reviewedBy
+          );
+        }
+      }
       return row;
     }
     throw error;
   }
 
-  const updated = await getCheckinById(checkinId);
-  if (!updated) {
+  reviewedCheckin = await getCheckinById(checkinId);
+  if (!reviewedCheckin) {
     throw new GameError("Check-in not found.", 404);
   }
-  return updated;
+
+  if (
+    status === "verified" &&
+    reviewedCheckin.checkin_type === "challenge" &&
+    reviewedCheckin.challenge_id !== null
+  ) {
+    const challengeStatus = await getChallengeStatusRow(
+      reviewedCheckin.team_id,
+      reviewedCheckin.challenge_id
+    );
+    if (challengeStatus?.status === "submitted") {
+      await reviewTeamChallenge(
+        reviewedCheckin.team_id,
+        reviewedCheckin.challenge_id,
+        "verified",
+        reviewNote,
+        reviewedBy
+      );
+    }
+  }
+
+  return reviewedCheckin;
 }
 
 export async function updateTeamScore(
