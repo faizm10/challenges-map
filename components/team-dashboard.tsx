@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { ImagePlus, MapPin, Navigation, Trash2, Video } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import type { TeamDashboardResponse } from "@/lib/types";
+import { useToast } from "@/components/ui/toaster";
+import type { TeamChallengeStatus, TeamCheckpoint, TeamDashboardResponse } from "@/lib/types";
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -33,12 +35,43 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+function challengeStateLabel(challenge: TeamChallengeStatus) {
+  if (challenge.review_status === "verified") return "Verified";
+  if (challenge.review_status === "rejected") return "Rejected";
+  return challenge.status === "submitted" ? "Submitted" : "Not started";
+}
+
+function challengeStateVariant(challenge: TeamChallengeStatus) {
+  if (challenge.review_status === "verified") return "success" as const;
+  if (challenge.review_status === "rejected") return "warning" as const;
+  return challenge.status === "submitted" ? "secondary" as const : "warning" as const;
+}
+
+function checkpointVariant(status: TeamCheckpoint["status"]) {
+  if (status === "verified") return "success" as const;
+  if (status === "rejected") return "warning" as const;
+  if (status === "pending") return "secondary" as const;
+  return "warning" as const;
+}
+
+function checkpointLabel(status: TeamCheckpoint["status"]) {
+  if (status === "not_started") return "Not started";
+  if (status === "pending") return "Pending review";
+  if (status === "verified") return "Verified";
+  return "Rejected";
+}
+
 export function TeamDashboard() {
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
   const [teamName, setTeamName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [removingUploadId, setRemovingUploadId] = useState<number | null>(null);
+  const [checkingInKey, setCheckingInKey] = useState<string | null>(null);
+  const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
+  const { toast } = useToast();
 
   const loadDashboard = async () => {
     const next = await api<TeamDashboardResponse>("/api/team/me");
@@ -82,30 +115,209 @@ export function TeamDashboard() {
   async function onSubmitChallenge(challengeId: number, proofNote: string) {
     setSavingId(challengeId);
     try {
-      await api(`/api/team/challenges/${challengeId}/submit`, {
-        method: "POST",
-        body: JSON.stringify({ proofNote, status: "submitted" }),
+      const next = await api<{ dashboard: TeamDashboardResponse }>(
+        `/api/team/challenges/${challengeId}/submit`,
+        {
+          method: "POST",
+          body: JSON.stringify({ proofNote, status: "submitted" }),
+        }
+      );
+      setDashboard(next.dashboard);
+      toast({
+        title: "Proof updated",
+        description: "HQ can now review your latest submission state.",
+        variant: "success",
       });
-      await loadDashboard();
+    } catch (nextError) {
+      toast({
+        title: "Could not update challenge",
+        description: nextError instanceof Error ? nextError.message : "Request failed.",
+        variant: "error",
+      });
     } finally {
       setSavingId(null);
     }
   }
 
+  async function onUploadFiles(challengeId: number, fileList: FileList | null) {
+    if (!fileList?.length) return;
+
+    setUploadingId(challengeId);
+    try {
+      const formData = new FormData();
+      Array.from(fileList).forEach((file) => formData.append("files", file));
+
+      const response = await fetch(`/api/team/challenges/${challengeId}/uploads`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        dashboard?: TeamDashboardResponse;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed.");
+      }
+
+      if (data.dashboard) {
+        setDashboard(data.dashboard);
+      } else {
+        await loadDashboard();
+      }
+
+      toast({
+        title: "Media uploaded",
+        description: "Your proof gallery was updated for HQ review.",
+        variant: "success",
+      });
+    } catch (nextError) {
+      toast({
+        title: "Upload failed",
+        description: nextError instanceof Error ? nextError.message : "Request failed.",
+        variant: "error",
+      });
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
+  async function onDeleteUpload(challengeId: number, uploadId: number) {
+    setRemovingUploadId(uploadId);
+    try {
+      const response = await fetch(`/api/team/challenges/${challengeId}/uploads/${uploadId}`, {
+        method: "DELETE",
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        dashboard?: TeamDashboardResponse;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "Delete failed.");
+      }
+
+      if (data.dashboard) {
+        setDashboard(data.dashboard);
+      } else {
+        await loadDashboard();
+      }
+
+      toast({
+        title: "Media removed",
+        description: "That file is no longer attached to the challenge.",
+        variant: "success",
+      });
+    } catch (nextError) {
+      toast({
+        title: "Could not remove file",
+        description: nextError instanceof Error ? nextError.message : "Request failed.",
+        variant: "error",
+      });
+    } finally {
+      setRemovingUploadId(null);
+    }
+  }
+
+  async function capturePosition(checkpointKey: string) {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setGpsMessages((current) => ({ ...current, [checkpointKey]: "Location unavailable on this device." }));
+      return {
+        latitude: null,
+        longitude: null,
+        accuracyMeters: null,
+        gpsCapturedAt: null,
+      };
+    }
+
+    return new Promise<{
+      latitude: number | null;
+      longitude: number | null;
+      accuracyMeters: number | null;
+      gpsCapturedAt: string | null;
+    }>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setGpsMessages((current) => ({
+            ...current,
+            [checkpointKey]: `Location captured within ${Math.round(position.coords.accuracy)}m.`,
+          }));
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracyMeters: position.coords.accuracy,
+            gpsCapturedAt: new Date(position.timestamp).toISOString(),
+          });
+        },
+        (geoError) => {
+          const message =
+            geoError.code === geoError.PERMISSION_DENIED
+              ? "Location permission denied. Check-in still sent without GPS."
+              : geoError.code === geoError.TIMEOUT
+                ? "Location timed out. Check-in still sent without GPS."
+                : "Location unavailable. Check-in still sent without GPS.";
+          setGpsMessages((current) => ({ ...current, [checkpointKey]: message }));
+          resolve({
+            latitude: null,
+            longitude: null,
+            accuracyMeters: null,
+            gpsCapturedAt: null,
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 30000,
+        }
+      );
+    });
+  }
+
+  async function onCheckpointCheckin(checkpoint: TeamCheckpoint, note: string) {
+    setCheckingInKey(checkpoint.key);
+    try {
+      const position = await capturePosition(checkpoint.key);
+      const next = await api<{ dashboard: TeamDashboardResponse }>("/api/team/checkins", {
+        method: "POST",
+        body: JSON.stringify({
+          checkinType: checkpoint.checkin_type,
+          challengeId: checkpoint.challenge_id,
+          checkinNote: note,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          accuracyMeters: position.accuracyMeters,
+          gpsCapturedAt: position.gpsCapturedAt,
+        }),
+      });
+      setDashboard(next.dashboard);
+      toast({
+        title: `${checkpoint.label} recorded`,
+        description: "HQ can now see your latest checkpoint activity.",
+        variant: "success",
+      });
+    } catch (nextError) {
+      toast({
+        title: "Check-in failed",
+        description: nextError instanceof Error ? nextError.message : "Request failed.",
+        variant: "error",
+      });
+    } finally {
+      setCheckingInKey(null);
+    }
+  }
+
   if (!dashboard) {
     return (
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 md:px-6 md:py-8">
         <Card className="grid gap-6 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:grid-cols-[1fr_360px] lg:items-start">
           <div className="space-y-4">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Team Access
             </p>
-            <h1 className="max-w-[10ch] font-serif text-5xl leading-none text-white sm:text-6xl">
+            <h1 className="max-w-[10ch] font-serif text-4xl leading-none text-white sm:text-6xl">
               Your route. Your challenge queue.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-white/58">
-              Enter your team name and PIN to unlock your race dashboard, released
-              challenges, proof-note submissions, and live standings.
+              Enter your team name and PIN to unlock your race dashboard, check-ins,
+              media uploads, proof-note submissions, and live standings.
             </p>
             <Button
               asChild
@@ -160,9 +372,9 @@ export function TeamDashboard() {
   }
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 md:px-6 md:py-8">
       <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
               <Badge className="border-white/10 bg-white/8 text-white/88" variant="secondary">
@@ -175,16 +387,16 @@ export function TeamDashboard() {
             <h1 className="font-serif text-4xl text-white sm:text-5xl">{dashboard.team.team_name}</h1>
             <p className="max-w-3xl text-lg leading-8 text-white/56">{dashboard.team.route_summary}</p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button
               asChild
-              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
               variant="secondary"
             >
               <Link href="/">Leaderboard</Link>
             </Button>
             <Button
-              className="text-white/72 hover:bg-white/6 hover:text-white"
+              className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"
               variant="ghost"
               onClick={onLogout}
             >
@@ -193,7 +405,7 @@ export function TeamDashboard() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Walk Time
@@ -208,9 +420,11 @@ export function TeamDashboard() {
           </div>
           <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Challenge Points
+              Last Known
             </p>
-            <p className="text-2xl font-semibold text-white">{dashboard.teamStats.challenge_points}</p>
+            <p className="text-lg font-semibold text-white">
+              {dashboard.latestLocation ? dashboard.latestLocation.label : "No GPS yet"}
+            </p>
           </div>
           <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
@@ -223,59 +437,248 @@ export function TeamDashboard() {
 
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
+          <CardTitle className="text-3xl text-white">Check-In Progress</CardTitle>
+          <CardDescription className="text-white/52">
+            Check in at the start, for each released challenge, and when you arrive at Union.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {dashboard.checkpoints.map((checkpoint) => (
+            <Card
+              key={checkpoint.key}
+              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
+            >
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-white">{checkpoint.label}</p>
+                  <p className="mt-1 text-sm leading-7 text-white/56">{checkpoint.description}</p>
+                </div>
+                <Badge variant={checkpointVariant(checkpoint.status)}>
+                  {checkpointLabel(checkpoint.status)}
+                </Badge>
+              </div>
+
+              <form
+                className="space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const formData = new FormData(event.currentTarget);
+                  void onCheckpointCheckin(checkpoint, String(formData.get("checkinNote") ?? ""));
+                }}
+              >
+                <Textarea
+                  className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
+                  defaultValue={checkpoint.latest_checkin?.checkin_note ?? ""}
+                  name="checkinNote"
+                  placeholder="Optional note for HQ about where you are or what just happened."
+                />
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <Button
+                    className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
+                    disabled={checkingInKey === checkpoint.key}
+                    type="submit"
+                  >
+                    {checkingInKey === checkpoint.key ? "Checking In..." : checkpoint.label}
+                  </Button>
+                  <div className="flex items-center gap-2 text-sm text-white/48">
+                    <Navigation className="h-4 w-4 text-orange-300" />
+                    {gpsMessages[checkpoint.key] ??
+                      (checkpoint.latest_checkin?.gps_captured_at
+                        ? "Location captured on latest check-in."
+                        : "Location will be requested when you tap check in.")}
+                  </div>
+                </div>
+              </form>
+
+              {checkpoint.latest_checkin ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/42">
+                  <span>{new Date(checkpoint.latest_checkin.created_at).toLocaleString()}</span>
+                  {checkpoint.latest_checkin.latitude !== null ? (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      GPS captured
+                    </span>
+                  ) : (
+                    <span>No GPS captured</span>
+                  )}
+                  {checkpoint.latest_checkin.review_note ? (
+                    <span>HQ note: {checkpoint.latest_checkin.review_note}</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+        <CardHeader>
           <CardTitle className="text-3xl text-white">Released Challenges</CardTitle>
           <CardDescription className="text-white/52">
-            Teams can only submit proof notes for challenges HQ has already released.
+            Upload photos or videos for HQ review, then add an optional proof note.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           {dashboard.challenges.length ? (
-            dashboard.challenges.map((challenge) => (
-              <Card
-                key={challenge.id}
-                className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
-              >
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-                      Challenge {challenge.challenge_order}
-                    </p>
-                    <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
-                  </div>
-                  <Badge variant={challenge.status === "submitted" ? "success" : "warning"}>
-                    {challenge.status === "submitted" ? "Submitted" : "Not started"}
-                  </Badge>
-                </div>
-                <p className="mb-4 text-sm leading-7 text-white/58">{challenge.text}</p>
-                <form
-                  className="space-y-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const formData = new FormData(event.currentTarget);
-                    onSubmitChallenge(challenge.id, String(formData.get("proofNote") ?? ""));
-                  }}
+            dashboard.challenges.map((challenge) => {
+              const isLocked = challenge.review_status === "verified";
+              const latestUploadAt = challenge.uploads[0]?.uploaded_at;
+
+              return (
+                <Card
+                  key={challenge.id}
+                  className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
                 >
-                  <Textarea
-                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                    name="proofNote"
-                    defaultValue={challenge.proof_note}
-                    placeholder="Paste a proof note or external video/photo link for HQ."
-                  />
-                  <Button
-                    className="bg-orange-500 text-black hover:bg-orange-400"
-                    disabled={savingId === challenge.id}
-                    type="submit"
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                        Challenge {challenge.challenge_order}
+                      </p>
+                      <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
+                    </div>
+                    <Badge variant={challengeStateVariant(challenge)}>
+                      {challengeStateLabel(challenge)}
+                    </Badge>
+                  </div>
+
+                  <p className="mb-4 text-sm leading-7 text-white/58">{challenge.text}</p>
+
+                  <div className="mb-4 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Proof media</p>
+                        <p className="text-xs text-white/46">
+                          {challenge.uploads.length} file{challenge.uploads.length === 1 ? "" : "s"}
+                          {latestUploadAt
+                            ? ` · latest ${new Date(latestUploadAt).toLocaleString()}`
+                            : " · nothing uploaded yet"}
+                        </p>
+                      </div>
+                      <label className="inline-flex">
+                        <input
+                          accept="image/*,video/*"
+                          className="hidden"
+                          disabled={isLocked || uploadingId === challenge.id}
+                          multiple
+                          type="file"
+                          onChange={(event) => {
+                            void onUploadFiles(challenge.id, event.currentTarget.files);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        <span className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 text-sm text-white transition hover:bg-white/10">
+                          <ImagePlus className="h-4 w-4" />
+                          {uploadingId === challenge.id ? "Uploading..." : "Add media"}
+                        </span>
+                      </label>
+                    </div>
+
+                    {isLocked ? (
+                      <p className="mt-3 text-xs text-emerald-300/80">
+                        HQ verified this challenge. Uploads are locked.
+                      </p>
+                    ) : null}
+                    {challenge.review_status === "rejected" && challenge.review_note ? (
+                      <p className="mt-3 text-xs text-amber-200/80">
+                        HQ note: {challenge.review_note}
+                      </p>
+                    ) : null}
+
+                    {challenge.uploads.length ? (
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {challenge.uploads.map((upload) => (
+                          <div
+                            key={upload.id}
+                            className="overflow-hidden rounded-[20px] border border-white/8 bg-black/20"
+                          >
+                            <div className="aspect-[4/3] bg-black/30">
+                              {upload.media_type === "image" ? (
+                                <img
+                                  alt={upload.file_name}
+                                  className="h-full w-full object-cover"
+                                  src={upload.public_url}
+                                />
+                              ) : (
+                                <video
+                                  className="h-full w-full object-cover"
+                                  controls
+                                  preload="metadata"
+                                  src={upload.public_url}
+                                />
+                              )}
+                            </div>
+                            <div className="space-y-2 p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-white">{upload.file_name}</p>
+                                  <p className="text-xs text-white/44">
+                                    {upload.media_type === "video" ? "Video" : "Image"} ·{" "}
+                                    {Math.max(1, Math.round(upload.file_size_bytes / 1024 / 1024))}MB
+                                  </p>
+                                </div>
+                                {upload.media_type === "video" ? (
+                                  <Video className="mt-0.5 h-4 w-4 shrink-0 text-white/40" />
+                                ) : null}
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <a
+                                  className="text-xs text-orange-300 hover:text-orange-200"
+                                  href={upload.public_url}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  Open
+                                </a>
+                                {!isLocked ? (
+                                  <button
+                                    className="inline-flex items-center gap-1 text-xs text-white/52 transition hover:text-red-300"
+                                    disabled={removingUploadId === upload.id}
+                                    type="button"
+                                    onClick={() => void onDeleteUpload(challenge.id, upload.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    {removingUploadId === upload.id ? "Removing..." : "Remove"}
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <form
+                    className="space-y-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const formData = new FormData(event.currentTarget);
+                      void onSubmitChallenge(challenge.id, String(formData.get("proofNote") ?? ""));
+                    }}
                   >
-                    {savingId === challenge.id ? "Saving..." : "Submit / Update"}
-                  </Button>
-                  <p className="text-xs text-white/42">
-                    {challenge.submitted_at
-                      ? `Last submitted ${new Date(challenge.submitted_at).toLocaleString()}`
-                      : "No proof submitted yet."}
-                  </p>
-                </form>
-              </Card>
-            ))
+                    <Textarea
+                      className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
+                      defaultValue={challenge.proof_note}
+                      disabled={isLocked}
+                      name="proofNote"
+                      placeholder="Add optional context for HQ: what was captured, who appeared, and anything they should notice."
+                    />
+                    <Button
+                      className="bg-orange-500 text-black hover:bg-orange-400"
+                      disabled={savingId === challenge.id || isLocked}
+                      type="submit"
+                    >
+                      {savingId === challenge.id ? "Saving..." : "Submit / Update"}
+                    </Button>
+                    <p className="text-xs text-white/42">
+                      {challenge.submitted_at
+                        ? `Last submitted ${new Date(challenge.submitted_at).toLocaleString()}`
+                        : "No proof submitted yet."}
+                    </p>
+                  </form>
+                </Card>
+              );
+            })
           ) : (
             <p className="text-sm text-white/46">
               No live drops yet. HQ has not released any challenges.

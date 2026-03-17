@@ -2,6 +2,9 @@ import type { ChallengeSeed, TeamSeed } from "@/lib/types";
 
 export const COOKIE_NAME = "race_to_union_session";
 export const SESSION_SECRET = "race-to-union-next-session-secret-v1";
+export const CHALLENGE_PROOF_BUCKET = "challenge-proof";
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+export const MAX_FILES_PER_UPLOAD_REQUEST = 10;
 
 export const UNION_STATION = {
   name: "Union Station",

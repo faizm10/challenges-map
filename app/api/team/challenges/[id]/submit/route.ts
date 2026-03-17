@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { getTeamDashboard, isChallengeReleased, updateTeamChallengeSubmission } from "@/lib/game";
+import {
+  getTeamDashboard,
+  isChallengeReleased,
+  isGameError,
+  updateTeamChallengeSubmission,
+} from "@/lib/game";
 import { requireTeamSession } from "@/lib/session";
 
 export async function POST(
@@ -22,12 +27,23 @@ export async function POST(
     | { proofNote?: string; status?: "submitted" | "not_started" }
     | null;
 
-  await updateTeamChallengeSubmission(
-    session.teamId,
-    challengeId,
-    body?.proofNote ?? "",
-    body?.status === "not_started" ? "not_started" : "submitted"
-  );
+  try {
+    await updateTeamChallengeSubmission(
+      session.teamId,
+      challengeId,
+      body?.proofNote ?? "",
+      body?.status === "not_started" ? "not_started" : "submitted"
+    );
+  } catch (error) {
+    if (isGameError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Request failed." },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     ok: true,

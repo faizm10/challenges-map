@@ -12,16 +12,17 @@ import {
 } from "@/components/ui/map";
 import { Card } from "@/components/ui/card";
 import { UNION_STATION } from "@/lib/config";
-import type { TeamSeed } from "@/lib/types";
+import type { TeamLatestLocation, TeamSeed } from "@/lib/types";
 
 type RaceMapProps = {
   teams: Array<Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color" | "routeLine" | "coordinates">>;
+  latestLocations?: TeamLatestLocation[];
 };
 
-export function RaceMap({ teams }: RaceMapProps) {
+export function RaceMap({ teams, latestLocations = [] }: RaceMapProps) {
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="h-[420px] w-full">
+    <Card className="overflow-hidden border-white/8 bg-[#120f10]/88 p-0">
+      <div className="h-[320px] w-full sm:h-[380px] lg:h-[420px]">
         <Map center={[-79.3842, 43.6515]} zoom={12.4}>
           <MapControls />
 
@@ -72,6 +73,33 @@ export function RaceMap({ teams }: RaceMapProps) {
               width={4}
               opacity={0.92}
             />
+          ))}
+
+          {latestLocations.map((location) => (
+            <MapMarker
+              key={`latest-${location.team_id}`}
+              longitude={location.longitude}
+              latitude={location.latitude}
+            >
+              <MarkerContent>
+                <div className="relative flex h-5 w-5 items-center justify-center">
+                  <span
+                    className="absolute inline-flex h-5 w-5 rounded-full opacity-35"
+                    style={{ backgroundColor: location.color }}
+                  />
+                  <span
+                    className="relative h-3.5 w-3.5 rounded-full border-2 border-black"
+                    style={{ backgroundColor: location.color }}
+                  />
+                </div>
+              </MarkerContent>
+              <MarkerPopup>
+                <div className="rounded-xl border bg-white px-3 py-2 text-sm shadow-md">
+                  <strong>{location.team_name}</strong>
+                  <p className="text-muted-foreground">{location.label}</p>
+                </div>
+              </MarkerPopup>
+            </MapMarker>
           ))}
         </Map>
       </div>

@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Clock3, Image as ImageIcon, MapPin, Video } from "lucide-react";
 
+import { TEAM_SEED } from "@/lib/config";
+import { RaceMap } from "@/components/race-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 import { Textarea } from "@/components/ui/textarea";
-import type { AdminGameResponse } from "@/lib/types";
+import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -24,6 +27,32 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const data = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) throw new Error(data.error || "Request failed.");
   return data;
+}
+
+function reviewBadge(challenge: TeamChallengeStatus) {
+  if (challenge.review_status === "verified") {
+    return { label: "Verified", variant: "success" as const };
+  }
+  if (challenge.review_status === "rejected") {
+    return { label: "Rejected", variant: "warning" as const };
+  }
+  return {
+    label: challenge.status === "submitted" ? "Submitted" : "Not started",
+    variant: challenge.status === "submitted" ? ("secondary" as const) : ("warning" as const),
+  };
+}
+
+function checkpointBadge(checkpoint: TeamCheckpoint) {
+  if (checkpoint.status === "verified") return { label: "Verified", variant: "success" as const };
+  if (checkpoint.status === "rejected") return { label: "Rejected", variant: "warning" as const };
+  if (checkpoint.status === "pending") return { label: "Pending", variant: "secondary" as const };
+  return { label: "Not started", variant: "warning" as const };
+}
+
+function feedBadge(item: AdminCheckinFeedItem) {
+  if (item.status === "verified") return "success" as const;
+  if (item.status === "rejected") return "warning" as const;
+  return "secondary" as const;
 }
 
 export function AdminDashboard() {
@@ -96,18 +125,18 @@ export function AdminDashboard() {
 
   if (!game) {
     return (
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
         <Card className="grid gap-6 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:grid-cols-[1fr_360px] lg:items-start">
           <div className="space-y-4">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               HQ Admin
             </p>
-            <h1 className="max-w-[10ch] font-serif text-5xl leading-none text-white sm:text-6xl">
+            <h1 className="max-w-[10ch] font-serif text-4xl leading-none text-white sm:text-6xl">
               Control the chaos.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-white/58">
-              HQ unlocks the control room, edits the challenge pack, releases prompts
-              one by one, and scores each team live.
+              HQ unlocks the control room, edits challenges, reviews media, verifies
+              check-ins, and scores each team live.
             </p>
             <Button
               asChild
@@ -161,32 +190,41 @@ export function AdminDashboard() {
     );
   }
 
+  const mapTeams = TEAM_SEED.map((team) => ({
+    id: team.id,
+    teamName: team.teamName,
+    startLocationName: team.startLocationName,
+    color: team.color,
+    routeLine: team.routeLine,
+    coordinates: team.coordinates,
+  }));
+
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
       <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               HQ Dashboard
             </p>
-            <h1 className="font-serif text-4xl text-white">
-              Release challenges, review proof, score teams.
+            <h1 className="font-serif text-3xl text-white sm:text-4xl">
+              Release challenges, verify check-ins, score teams.
             </h1>
             <p className="max-w-3xl text-white/56">
-              All changes write to the shared game state and update team dashboards
-              plus the public leaderboard after polling.
+              The admin view refreshes every few seconds and highlights the latest team
+              movement, proof, and checkpoint activity.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
             <Button
               asChild
-              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
               variant="secondary"
             >
               <Link href="/">Leaderboard</Link>
             </Button>
             <Button
-              className="bg-red-500/90 text-white hover:bg-red-500"
+              className="w-full bg-red-500/90 text-white hover:bg-red-500 sm:w-auto"
               variant="destructive"
               onClick={() =>
                 runAdminAction(
@@ -195,14 +233,14 @@ export function AdminDashboard() {
                     await loadGame();
                   },
                   "Game reset",
-                  "Challenges, submissions, and scores are back to the initial state."
+                  "Challenges, submissions, media, check-ins, and scores are back to the initial state."
                 )
               }
             >
               Reset Game
             </Button>
             <Button
-              className="text-white/72 hover:bg-white/6 hover:text-white"
+              className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"
               variant="ghost"
               onClick={onLogout}
             >
@@ -211,7 +249,7 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Released
@@ -222,30 +260,101 @@ export function AdminDashboard() {
           </div>
           <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+              Latest GPS
+            </p>
+            <p className="text-2xl font-semibold text-white">{game.latestLocations.length}</p>
+          </div>
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+              Recent Activity
+            </p>
+            <p className="text-2xl font-semibold text-white">{game.recentCheckins.length}</p>
+          </div>
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Leader
             </p>
-            <p className="text-2xl font-semibold text-white">
-              {game.leaderboard[0]?.team_name ?? "TBD"}
-            </p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Team Pins
-            </p>
-            <p className="text-2xl font-semibold text-white">{game.pins.team_pin_count}</p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Finish
-            </p>
-            <p className="text-xl font-semibold text-white">Union Front Street</p>
+            <p className="text-xl font-semibold text-white">{game.leaderboard[0]?.team_name ?? "TBD"}</p>
           </div>
         </div>
       </Card>
 
+      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+          <CardHeader>
+            <CardTitle className="text-2xl text-white sm:text-3xl">Live Progress Map</CardTitle>
+            <CardDescription className="text-white/52">
+              Latest known team locations from one-tap checkpoint GPS captures.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RaceMap latestLocations={game.latestLocations} teams={mapTeams} />
+          </CardContent>
+        </Card>
+
+        <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+          <CardHeader>
+            <CardTitle className="text-2xl text-white sm:text-3xl">Recent Check-Ins</CardTitle>
+            <CardDescription className="text-white/52">
+              Chronological feed of the latest team checkpoint activity.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            {game.recentCheckins.length ? (
+              game.recentCheckins.slice(0, 12).map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-[20px] border border-white/8 bg-white/[0.05] p-4"
+                >
+                  <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        <Badge
+                          className="border-transparent text-white"
+                          style={{ backgroundColor: item.color }}
+                          variant="secondary"
+                        >
+                          {item.team_name}
+                        </Badge>
+                        <Badge variant={feedBadge(item)}>{item.status}</Badge>
+                      </div>
+                      <p className="font-medium text-white">
+                        {item.checkin_type === "challenge"
+                          ? `Challenge ${item.challenge_id} check-in`
+                          : `${item.checkin_type === "start" ? "Start" : "Finish"} check-in`}
+                      </p>
+                    </div>
+                    <div className="text-xs text-white/42">
+                      {new Date(item.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-white/46">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      {item.gps_captured_at ? "GPS captured" : "No GPS"}
+                    </span>
+                    {item.latitude !== null ? (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {item.latitude.toFixed(4)}, {item.longitude?.toFixed(4)}
+                      </span>
+                    ) : null}
+                  </div>
+                  {item.checkin_note ? (
+                    <p className="mt-3 text-sm leading-7 text-white/56">{item.checkin_note}</p>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-white/46">No check-ins yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-3xl text-white">Challenge Control</CardTitle>
+          <CardTitle className="text-2xl text-white sm:text-3xl">Challenge Control</CardTitle>
           <CardDescription className="text-white/52">
             Edit the five prompts and release them one by one.
           </CardDescription>
@@ -254,7 +363,7 @@ export function AdminDashboard() {
           {game.challenges.map((challenge) => (
             <Card
               key={challenge.id}
-              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
+              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-4 text-white sm:p-5"
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
@@ -291,20 +400,20 @@ export function AdminDashboard() {
               >
                 <Input
                   className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                  name="title"
                   defaultValue={challenge.title}
+                  name="title"
                 />
                 <Textarea
                   className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                  name="text"
                   defaultValue={challenge.text}
+                  name="text"
                 />
-                <div className="flex flex-wrap gap-3">
-                  <Button className="bg-orange-500 text-black hover:bg-orange-400" type="submit">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
                     Save Challenge
                   </Button>
                   <Button
-                    className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+                    className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
                     type="button"
                     variant="secondary"
                     onClick={() =>
@@ -334,24 +443,24 @@ export function AdminDashboard() {
 
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-3xl text-white">Team Review and Scoring</CardTitle>
+          <CardTitle className="text-2xl text-white sm:text-3xl">Team Review and Scoring</CardTitle>
           <CardDescription className="text-white/52">
-            Review proof notes, assign arrival ranks, and award creativity points.
+            Review proof notes, checkpoint progress, media, and award team scores.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 xl:grid-cols-2">
           {game.teams.map((teamView) => (
             <Card
               key={teamView.team.id}
-              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
+              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-4 text-white sm:p-5"
             >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex flex-wrap gap-2">
                     <Badge
-                      variant="secondary"
                       className="border-transparent text-white"
                       style={{ backgroundColor: teamView.team.color }}
+                      variant="secondary"
                     >
                       {teamView.team.badge_label}
                     </Badge>
@@ -364,8 +473,99 @@ export function AdminDashboard() {
                 </div>
               </div>
 
+              <div className="mb-5 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Checkpoint checklist</p>
+                    <p className="text-xs text-white/42">
+                      Latest location: {teamView.latestLocation ? teamView.latestLocation.label : "No GPS yet"}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-3">
+                  {teamView.checkpoints.map((checkpoint) => {
+                    const badge = checkpointBadge(checkpoint);
+                    return (
+                      <div
+                        key={checkpoint.key}
+                        className="rounded-[18px] border border-white/8 bg-white/[0.05] p-3"
+                      >
+                        <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-white">{checkpoint.label}</p>
+                            <p className="text-xs text-white/42">{checkpoint.description}</p>
+                          </div>
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                        </div>
+                        {checkpoint.latest_checkin ? (
+                          <form
+                            className="space-y-3"
+                            onSubmit={async (event) => {
+                              event.preventDefault();
+                              const formData = new FormData(event.currentTarget);
+                              await runAdminAction(
+                                async () => {
+                                  await api(`/api/admin/checkins/${checkpoint.latest_checkin?.id}/review`, {
+                                    method: "PATCH",
+                                    body: JSON.stringify({
+                                      status: formData.get("status"),
+                                      reviewNote: formData.get("reviewNote"),
+                                    }),
+                                  });
+                                  await loadGame();
+                                },
+                                "Check-in reviewed",
+                                `${teamView.team.team_name} ${checkpoint.label.toLowerCase()} was updated.`
+                              );
+                            }}
+                          >
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-white/44">
+                              <span>{new Date(checkpoint.latest_checkin.created_at).toLocaleString()}</span>
+                              {checkpoint.latest_checkin.latitude !== null ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  {checkpoint.latest_checkin.latitude.toFixed(4)},{" "}
+                                  {checkpoint.latest_checkin.longitude?.toFixed(4)}
+                                </span>
+                              ) : (
+                                <span>No GPS</span>
+                              )}
+                            </div>
+                            {checkpoint.latest_checkin.checkin_note ? (
+                              <p className="text-sm leading-7 text-white/56">
+                                {checkpoint.latest_checkin.checkin_note}
+                              </p>
+                            ) : null}
+                            <select
+                              className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+                              defaultValue={checkpoint.latest_checkin.status}
+                              name="status"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="verified">Verified</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+                            <Textarea
+                              className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                              defaultValue={checkpoint.latest_checkin.review_note}
+                              name="reviewNote"
+                              placeholder="Leave an HQ note for this checkpoint."
+                            />
+                            <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
+                              Save Check-In Review
+                            </Button>
+                          </form>
+                        ) : (
+                          <p className="text-sm text-white/44">No check-in submitted yet.</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <form
-                className="mb-5 grid gap-3 md:grid-cols-[1fr_1fr_auto]"
+                className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]"
                 onSubmit={async (event) => {
                   event.preventDefault();
                   const formData = new FormData(event.currentTarget);
@@ -387,8 +587,8 @@ export function AdminDashboard() {
               >
                 <select
                   className="h-11 rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
-                  name="arrivalRank"
                   defaultValue={teamView.teamStats.arrival_rank ?? ""}
+                  name="arrivalRank"
                 >
                   <option value="">No arrival rank</option>
                   <option value="1">1st</option>
@@ -399,37 +599,134 @@ export function AdminDashboard() {
                 </select>
                 <Input
                   className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                  min={0}
+                  defaultValue={teamView.teamStats.creativity_score}
                   max={20}
+                  min={0}
                   name="creativityScore"
                   type="number"
-                  defaultValue={teamView.teamStats.creativity_score}
                 />
-                <Button className="bg-orange-500 text-black hover:bg-orange-400" type="submit">
+                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:col-span-2 lg:w-auto" type="submit">
                   Save Score
                 </Button>
               </form>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {teamView.challenges.length ? (
-                  teamView.challenges.map((challenge) => (
-                    <div
-                      key={challenge.id}
-                      className="rounded-2xl border border-white/8 bg-white/[0.06] p-4"
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <strong className="text-white">
-                          {challenge.challenge_order}. {challenge.title}
-                        </strong>
-                        <Badge variant={challenge.status === "submitted" ? "success" : "warning"}>
-                          {challenge.status}
-                        </Badge>
+                  teamView.challenges.map((challenge) => {
+                    const latestUploadAt = challenge.uploads[0]?.uploaded_at;
+                    const badge = reviewBadge(challenge);
+
+                    return (
+                      <div
+                        key={challenge.id}
+                        className="rounded-2xl border border-white/8 bg-white/[0.06] p-4"
+                      >
+                        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <strong className="text-white">
+                              {challenge.challenge_order}. {challenge.title}
+                            </strong>
+                            <p className="mt-1 text-xs text-white/44">
+                              {challenge.uploads.length} file{challenge.uploads.length === 1 ? "" : "s"}
+                              {latestUploadAt
+                                ? ` · latest ${new Date(latestUploadAt).toLocaleString()}`
+                                : " · no media yet"}
+                            </p>
+                          </div>
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                        </div>
+
+                        <p className="mb-3 text-sm leading-7 text-white/56">
+                          {challenge.proof_note || "No proof note submitted."}
+                        </p>
+
+                        {challenge.uploads.length ? (
+                          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                            {challenge.uploads.map((upload) => (
+                              <div
+                                key={upload.id}
+                                className="overflow-hidden rounded-[18px] border border-white/8 bg-black/20"
+                              >
+                                <div className="aspect-[4/3] bg-black/30">
+                                  {upload.media_type === "image" ? (
+                                    <img
+                                      alt={upload.file_name}
+                                      className="h-full w-full object-cover"
+                                      src={upload.public_url}
+                                    />
+                                  ) : (
+                                    <video
+                                      className="h-full w-full object-cover"
+                                      controls
+                                      preload="metadata"
+                                      src={upload.public_url}
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between gap-3 p-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium text-white">{upload.file_name}</p>
+                                    <p className="text-xs text-white/42">
+                                      {Math.max(1, Math.round(upload.file_size_bytes / 1024 / 1024))}MB
+                                    </p>
+                                  </div>
+                                  {upload.media_type === "image" ? (
+                                    <ImageIcon className="h-4 w-4 shrink-0 text-white/40" />
+                                  ) : (
+                                    <Video className="h-4 w-4 shrink-0 text-white/40" />
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <form
+                          className="space-y-3"
+                          onSubmit={async (event) => {
+                            event.preventDefault();
+                            const formData = new FormData(event.currentTarget);
+                            await runAdminAction(
+                              async () => {
+                                await api(
+                                  `/api/admin/teams/${teamView.team.id}/challenges/${challenge.id}/review`,
+                                  {
+                                    method: "PATCH",
+                                    body: JSON.stringify({
+                                      reviewStatus: formData.get("reviewStatus"),
+                                      reviewNote: formData.get("reviewNote"),
+                                    }),
+                                  }
+                                );
+                                await loadGame();
+                              },
+                              "Challenge review saved",
+                              `${teamView.team.team_name} challenge ${challenge.challenge_order} review was updated.`
+                            );
+                          }}
+                        >
+                          <select
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+                            defaultValue={challenge.review_status}
+                            name="reviewStatus"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="verified">Verified</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                          <Textarea
+                            className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                            defaultValue={challenge.review_note}
+                            name="reviewNote"
+                            placeholder="Leave an HQ note for the team if proof needs changes."
+                          />
+                          <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
+                            Save Challenge Review
+                          </Button>
+                        </form>
                       </div>
-                      <p className="text-sm leading-7 text-white/56">
-                        {challenge.proof_note || "No proof note submitted."}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <p className="text-sm text-white/46">No released challenges for this team yet.</p>
                 )}

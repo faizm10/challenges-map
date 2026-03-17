@@ -47,5 +47,9 @@ export const TEAM_CHALLENGE_STATUS_ROWS = TEAM_SEED.flatMap((team) =>
     status: "not_started",
     proof_note: "",
     submitted_at: null,
+    review_status: "pending",
+    review_note: "",
+    reviewed_at: null,
+    reviewed_by: null,
   }))
 );

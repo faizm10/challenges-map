@@ -49,6 +49,72 @@ export type TeamChallengeStatus = {
   status: "not_started" | "submitted";
   proof_note: string;
   submitted_at: string | null;
+  review_status: "pending" | "verified" | "rejected";
+  review_note: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  uploads: ChallengeUpload[];
+};
+
+export type ChallengeUpload = {
+  id: number;
+  team_id: number;
+  challenge_id: number;
+  bucket_name: string;
+  storage_path: string;
+  public_url: string;
+  media_type: "image" | "video";
+  file_name: string;
+  mime_type: string;
+  file_size_bytes: number;
+  uploaded_at: string;
+};
+
+export type TeamCheckin = {
+  id: number;
+  team_id: number;
+  checkin_type: "start" | "challenge" | "finish";
+  challenge_id: number | null;
+  status: "pending" | "verified" | "rejected";
+  checkin_note: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy_meters: number | null;
+  gps_captured_at: string | null;
+  created_at: string;
+  review_note: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+};
+
+export type TeamCheckpoint = {
+  key: string;
+  checkin_type: "start" | "challenge" | "finish";
+  challenge_id: number | null;
+  label: string;
+  description: string;
+  status: "not_started" | "pending" | "verified" | "rejected";
+  latest_checkin: TeamCheckin | null;
+};
+
+export type TeamLatestLocation = {
+  team_id: number;
+  team_name: string;
+  color: string;
+  badge_label: string;
+  latitude: number;
+  longitude: number;
+  accuracy_meters: number | null;
+  gps_captured_at: string | null;
+  checkin_type: "start" | "challenge" | "finish";
+  challenge_id: number | null;
+  label: string;
+};
+
+export type AdminCheckinFeedItem = TeamCheckin & {
+  team_name: string;
+  color: string;
+  badge_label: string;
 };
 
 export type TeamScore = {
@@ -89,6 +155,9 @@ export type PublicLeaderboardResponse = {
 export type TeamDashboardResponse = {
   team: Team;
   challenges: TeamChallengeStatus[];
+  checkpoints: TeamCheckpoint[];
+  checkins: TeamCheckin[];
+  latestLocation: TeamLatestLocation | null;
   teamStats: LeaderboardEntry;
   leaderboard: LeaderboardEntry[];
 };
@@ -96,6 +165,8 @@ export type TeamDashboardResponse = {
 export type AdminGameResponse = {
   challenges: Challenge[];
   teams: TeamDashboardResponse[];
+  latestLocations: TeamLatestLocation[];
+  recentCheckins: AdminCheckinFeedItem[];
   scores: TeamScore[];
   leaderboard: LeaderboardEntry[];
   pins: {

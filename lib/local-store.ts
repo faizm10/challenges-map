@@ -1,10 +1,15 @@
+import { TEAM_SEED, UNION_STATION } from "@/lib/config";
 import type {
+  AdminCheckinFeedItem,
   AdminGameResponse,
   Challenge,
+  ChallengeUpload,
   LeaderboardEntry,
   Team,
-  TeamChallengeStatus,
+  TeamCheckin,
+  TeamCheckpoint,
   TeamDashboardResponse,
+  TeamLatestLocation,
   TeamScore,
 } from "@/lib/types";
 import {
@@ -26,7 +31,14 @@ type LocalState = {
     status: "not_started" | "submitted";
     proof_note: string;
     submitted_at: string | null;
+    review_status: "pending" | "verified" | "rejected";
+    review_note: string;
+    reviewed_at: string | null;
+    reviewed_by: string | null;
   }>;
+  challengeMedia: ChallengeUpload[];
+  teamCheckins: TeamCheckin[];
+  nextCheckinId: number;
   teamScores: TeamScore[];
   accessCredentials: AccessCredential[];
 };
@@ -43,7 +55,11 @@ function cloneState(): LocalState {
     teamChallengeStatus: TEAM_CHALLENGE_STATUS_ROWS.map((status) => ({
       ...status,
       status: status.status as "not_started" | "submitted",
+      review_status: status.review_status as "pending" | "verified" | "rejected",
     })),
+    challengeMedia: [],
+    teamCheckins: [],
+    nextCheckinId: 1,
     teamScores: TEAM_SCORE_ROWS.map((score) => ({ ...score })),
     accessCredentials: ACCESS_SEED.map((credential) => ({ ...credential })),
   };
@@ -72,6 +88,116 @@ function speedPointsForRank(rank: number | null) {
   return rank === 1 ? 40 : rank === 2 ? 32 : rank === 3 ? 24 : rank === 4 ? 16 : rank === 5 ? 8 : 0;
 }
 
+function getTeamSeed(teamId: number) {
+  return TEAM_SEED.find((team) => team.id === teamId) ?? null;
+}
+
+function buildCheckpointLabel(type: "start" | "challenge" | "finish", challengeTitle?: string) {
+  if (type === "start") return "Start Check-In";
+  if (type === "finish") return "Finish Check-In";
+  return challengeTitle ? `${challengeTitle} Check-In` : "Challenge Check-In";
+}
+
+function buildCheckpointDescription(
+  type: "start" | "challenge" | "finish",
+  team: Team,
+  challenge?: Challenge
+) {
+  if (type === "start") return `Check in from ${team.start_location_name}.`;
+  if (type === "finish") return `Check in when you reach ${UNION_STATION.name}.`;
+  return challenge
+    ? `Check in when your team completes Challenge ${challenge.challenge_order}.`
+    : "Check in when the challenge is completed.";
+}
+
+function deriveTeamLatestLocation(teamId: number): TeamLatestLocation | null {
+  const state = getState();
+  const team = state.teams.find((item) => item.id === teamId);
+  if (!team) return null;
+
+  const latest = state.teamCheckins
+    .filter((item) => item.team_id === teamId && item.latitude !== null && item.longitude !== null)
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+
+  if (!latest || latest.latitude === null || latest.longitude === null) return null;
+
+  const challenge = latest.challenge_id
+    ? state.challenges.find((item) => item.id === latest.challenge_id)
+    : null;
+
+  return {
+    team_id: team.id,
+    team_name: team.team_name,
+    color: team.color,
+    badge_label: team.badge_label,
+    latitude: latest.latitude,
+    longitude: latest.longitude,
+    accuracy_meters: latest.accuracy_meters,
+    gps_captured_at: latest.gps_captured_at,
+    checkin_type: latest.checkin_type,
+    challenge_id: latest.challenge_id,
+    label: buildCheckpointLabel(latest.checkin_type, challenge?.title),
+  };
+}
+
+function deriveCheckpoints(teamId: number): TeamCheckpoint[] {
+  const state = getState();
+  const team = state.teams.find((item) => item.id === teamId);
+  if (!team) return [];
+
+  const releasedChallenges = state.challenges
+    .filter((challenge) => Boolean(challenge.is_released))
+    .sort((a, b) => a.challenge_order - b.challenge_order);
+
+  const makeLatest = (
+    type: "start" | "challenge" | "finish",
+    challengeId: number | null
+  ) =>
+    state.teamCheckins
+      .filter(
+        (item) =>
+          item.team_id === teamId &&
+          item.checkin_type === type &&
+          (type !== "challenge" || item.challenge_id === challengeId)
+      )
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+
+  const checkpoints: TeamCheckpoint[] = [
+    {
+      key: "start",
+      checkin_type: "start",
+      challenge_id: null,
+      label: "Start Check-In",
+      description: buildCheckpointDescription("start", team),
+      status: makeLatest("start", null)?.status ?? "not_started",
+      latest_checkin: makeLatest("start", null),
+    },
+    ...releasedChallenges.map((challenge) => {
+      const latest = makeLatest("challenge", challenge.id);
+      return {
+        key: `challenge-${challenge.id}`,
+        checkin_type: "challenge" as const,
+        challenge_id: challenge.id,
+        label: `${challenge.title} Check-In`,
+        description: buildCheckpointDescription("challenge", team, challenge),
+        status: latest?.status ?? "not_started",
+        latest_checkin: latest,
+      };
+    }),
+    {
+      key: "finish",
+      checkin_type: "finish",
+      challenge_id: null,
+      label: "Finish Check-In",
+      description: buildCheckpointDescription("finish", team),
+      status: makeLatest("finish", null)?.status ?? "not_started",
+      latest_checkin: makeLatest("finish", null),
+    },
+  ];
+
+  return checkpoints;
+}
+
 export function findLocalCredential(role: "admin" | "team", name: string, pin: string) {
   return getState().accessCredentials.find(
     (credential) =>
@@ -87,6 +213,37 @@ export function getLocalChallenges(includeHidden = true): Challenge[] {
     .sort((a, b) => a.challenge_order - b.challenge_order);
 
   return rows.map((row) => ({ ...row }));
+}
+
+export function getLocalCheckins(teamId: number): TeamCheckin[] {
+  return getState()
+    .teamCheckins
+    .filter((item) => item.team_id === teamId)
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    .map((item) => ({ ...item }));
+}
+
+export function getLocalLatestLocations(): TeamLatestLocation[] {
+  return getState().teams
+    .map((team) => deriveTeamLatestLocation(team.id))
+    .filter(Boolean) as TeamLatestLocation[];
+}
+
+export function getLocalRecentCheckins(): AdminCheckinFeedItem[] {
+  const state = getState();
+
+  return state.teamCheckins
+    .slice()
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    .map((checkin) => {
+      const team = state.teams.find((item) => item.id === checkin.team_id)!;
+      return {
+        ...checkin,
+        team_name: team.team_name,
+        color: team.color,
+        badge_label: team.badge_label,
+      };
+    });
 }
 
 export function getLocalLeaderboard(): LeaderboardEntry[] {
@@ -151,14 +308,30 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
       status: status?.status ?? "not_started",
       proof_note: status?.proof_note ?? "",
       submitted_at: status?.submitted_at ?? null,
+      review_status: status?.review_status ?? "pending",
+      review_note: status?.review_note ?? "",
+      reviewed_at: status?.reviewed_at ?? null,
+      reviewed_by: status?.reviewed_by ?? null,
+      uploads: state.challengeMedia
+        .filter((item) => item.team_id === teamId && item.challenge_id === challenge.id)
+        .sort((a, b) => Date.parse(b.uploaded_at) - Date.parse(a.uploaded_at))
+        .map((item) => ({ ...item })),
     };
-  }) as TeamChallengeStatus[];
+  });
 
   const leaderboard = getLocalLeaderboard();
   const teamStats = leaderboard.find((item) => item.id === teamId);
   if (!teamStats) return null;
 
-  return { team, challenges, teamStats, leaderboard };
+  return {
+    team,
+    challenges,
+    checkpoints: deriveCheckpoints(teamId),
+    checkins: getLocalCheckins(teamId),
+    latestLocation: deriveTeamLatestLocation(teamId),
+    teamStats,
+    leaderboard,
+  };
 }
 
 export function getLocalAdminGame(): AdminGameResponse {
@@ -168,6 +341,8 @@ export function getLocalAdminGame(): AdminGameResponse {
     teams: state.teams
       .map((team) => getLocalTeamDashboard(team.id))
       .filter(Boolean) as TeamDashboardResponse[],
+    latestLocations: getLocalLatestLocations(),
+    recentCheckins: getLocalRecentCheckins(),
     scores: state.teamScores.map((score) => ({ ...score })),
     leaderboard: getLocalLeaderboard(),
     pins: {
@@ -203,6 +378,77 @@ export function updateLocalChallengeSubmission(
   item.status = status;
   item.proof_note = proofNote.slice(0, 500);
   item.submitted_at = status === "submitted" ? new Date().toISOString() : null;
+  if (status === "not_started") {
+    item.review_status = "pending";
+    item.review_note = "";
+    item.reviewed_at = null;
+    item.reviewed_by = null;
+  }
+}
+
+export function updateLocalChallengeReview(
+  teamId: number,
+  challengeId: number,
+  reviewStatus: "pending" | "verified" | "rejected",
+  reviewNote: string,
+  reviewedBy: string
+) {
+  const item = getState().teamChallengeStatus.find(
+    (entry) => entry.team_id === teamId && entry.challenge_id === challengeId
+  );
+  if (!item) return;
+  item.review_status = reviewStatus;
+  item.review_note = reviewNote.slice(0, 500);
+  item.reviewed_at = reviewStatus === "pending" ? null : new Date().toISOString();
+  item.reviewed_by = reviewStatus === "pending" ? null : reviewedBy;
+}
+
+export function createLocalCheckin(input: {
+  teamId: number;
+  checkinType: "start" | "challenge" | "finish";
+  challengeId?: number | null;
+  checkinNote?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracyMeters?: number | null;
+  gpsCapturedAt?: string | null;
+}) {
+  const state = getState();
+  const id = state.nextCheckinId++;
+  const checkin: TeamCheckin = {
+    id,
+    team_id: input.teamId,
+    checkin_type: input.checkinType,
+    challenge_id: input.challengeId ?? null,
+    status: "pending",
+    checkin_note: (input.checkinNote ?? "").slice(0, 500),
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
+    accuracy_meters: input.accuracyMeters ?? null,
+    gps_captured_at: input.gpsCapturedAt ?? null,
+    created_at: new Date().toISOString(),
+    review_note: "",
+    reviewed_at: null,
+    reviewed_by: null,
+  };
+
+  state.teamCheckins.push(checkin);
+  return { ...checkin };
+}
+
+export function reviewLocalCheckin(
+  checkinId: number,
+  status: "pending" | "verified" | "rejected",
+  reviewNote: string,
+  reviewedBy: string
+) {
+  const item = getState().teamCheckins.find((entry) => entry.id === checkinId);
+  if (!item) return null;
+  item.status = status;
+  item.review_note = reviewNote.slice(0, 500);
+  item.reviewed_at = status === "pending" ? null : new Date().toISOString();
+  item.reviewed_by = status === "pending" ? null : reviewedBy;
+  return { ...item };
 }
 
 export function updateLocalTeamScore(teamId: number, arrivalRank: number | null, creativityScore: number) {

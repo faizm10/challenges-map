@@ -32,7 +32,42 @@ create table if not exists public.team_challenge_status (
   status text not null default 'not_started' check (status in ('not_started', 'submitted')),
   proof_note text not null default '',
   submitted_at timestamptz,
+  review_status text not null default 'pending' check (review_status in ('pending', 'verified', 'rejected')),
+  review_note text not null default '',
+  reviewed_at timestamptz,
+  reviewed_by text,
   primary key (team_id, challenge_id)
+);
+
+create table if not exists public.challenge_media (
+  id bigint generated always as identity primary key,
+  team_id bigint not null references public.teams(id) on delete cascade,
+  challenge_id bigint not null references public.challenges(id) on delete cascade,
+  bucket_name text not null,
+  storage_path text not null unique,
+  public_url text not null,
+  media_type text not null check (media_type in ('image', 'video')),
+  file_name text not null,
+  mime_type text not null,
+  file_size_bytes bigint not null,
+  uploaded_at timestamptz not null default now()
+);
+
+create table if not exists public.team_checkins (
+  id bigint generated always as identity primary key,
+  team_id bigint not null references public.teams(id) on delete cascade,
+  checkin_type text not null check (checkin_type in ('start', 'challenge', 'finish')),
+  challenge_id bigint references public.challenges(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'verified', 'rejected')),
+  checkin_note text not null default '',
+  latitude double precision,
+  longitude double precision,
+  accuracy_meters double precision,
+  gps_captured_at timestamptz,
+  created_at timestamptz not null default now(),
+  review_note text not null default '',
+  reviewed_at timestamptz,
+  reviewed_by text
 );
 
 create table if not exists public.team_scores (
@@ -47,8 +82,20 @@ create index if not exists idx_access_credentials_role_name
 create index if not exists idx_team_challenge_status_team
   on public.team_challenge_status(team_id);
 
+create index if not exists idx_challenge_media_team_challenge
+  on public.challenge_media(team_id, challenge_id);
+
+create index if not exists idx_team_checkins_team_created
+  on public.team_checkins(team_id, created_at desc);
+
+insert into storage.buckets (id, name, public)
+values ('challenge-proof', 'challenge-proof', true)
+on conflict (id) do update set public = excluded.public;
+
 truncate table
   public.access_credentials,
+  public.team_checkins,
+  public.challenge_media,
   public.team_challenge_status,
   public.team_scores,
   public.challenges,
@@ -89,36 +136,48 @@ values
   (4, null, 0),
   (5, null, 0);
 
-insert into public.team_challenge_status (team_id, challenge_id, status, proof_note, submitted_at)
+insert into public.team_challenge_status (
+  team_id,
+  challenge_id,
+  status,
+  proof_note,
+  submitted_at,
+  review_status,
+  review_note,
+  reviewed_at,
+  reviewed_by
+)
 values
-  (1, 1, 'not_started', '', null),
-  (1, 2, 'not_started', '', null),
-  (1, 3, 'not_started', '', null),
-  (1, 4, 'not_started', '', null),
-  (1, 5, 'not_started', '', null),
-  (2, 1, 'not_started', '', null),
-  (2, 2, 'not_started', '', null),
-  (2, 3, 'not_started', '', null),
-  (2, 4, 'not_started', '', null),
-  (2, 5, 'not_started', '', null),
-  (3, 1, 'not_started', '', null),
-  (3, 2, 'not_started', '', null),
-  (3, 3, 'not_started', '', null),
-  (3, 4, 'not_started', '', null),
-  (3, 5, 'not_started', '', null),
-  (4, 1, 'not_started', '', null),
-  (4, 2, 'not_started', '', null),
-  (4, 3, 'not_started', '', null),
-  (4, 4, 'not_started', '', null),
-  (4, 5, 'not_started', '', null),
-  (5, 1, 'not_started', '', null),
-  (5, 2, 'not_started', '', null),
-  (5, 3, 'not_started', '', null),
-  (5, 4, 'not_started', '', null),
-  (5, 5, 'not_started', '', null);
+  (1, 1, 'not_started', '', null, 'pending', '', null, null),
+  (1, 2, 'not_started', '', null, 'pending', '', null, null),
+  (1, 3, 'not_started', '', null, 'pending', '', null, null),
+  (1, 4, 'not_started', '', null, 'pending', '', null, null),
+  (1, 5, 'not_started', '', null, 'pending', '', null, null),
+  (2, 1, 'not_started', '', null, 'pending', '', null, null),
+  (2, 2, 'not_started', '', null, 'pending', '', null, null),
+  (2, 3, 'not_started', '', null, 'pending', '', null, null),
+  (2, 4, 'not_started', '', null, 'pending', '', null, null),
+  (2, 5, 'not_started', '', null, 'pending', '', null, null),
+  (3, 1, 'not_started', '', null, 'pending', '', null, null),
+  (3, 2, 'not_started', '', null, 'pending', '', null, null),
+  (3, 3, 'not_started', '', null, 'pending', '', null, null),
+  (3, 4, 'not_started', '', null, 'pending', '', null, null),
+  (3, 5, 'not_started', '', null, 'pending', '', null, null),
+  (4, 1, 'not_started', '', null, 'pending', '', null, null),
+  (4, 2, 'not_started', '', null, 'pending', '', null, null),
+  (4, 3, 'not_started', '', null, 'pending', '', null, null),
+  (4, 4, 'not_started', '', null, 'pending', '', null, null),
+  (4, 5, 'not_started', '', null, 'pending', '', null, null),
+  (5, 1, 'not_started', '', null, 'pending', '', null, null),
+  (5, 2, 'not_started', '', null, 'pending', '', null, null),
+  (5, 3, 'not_started', '', null, 'pending', '', null, null),
+  (5, 4, 'not_started', '', null, 'pending', '', null, null),
+  (5, 5, 'not_started', '', null, 'pending', '', null, null);
 
 alter table public.teams disable row level security;
 alter table public.access_credentials disable row level security;
 alter table public.challenges disable row level security;
 alter table public.team_challenge_status disable row level security;
+alter table public.challenge_media disable row level security;
+alter table public.team_checkins disable row level security;
 alter table public.team_scores disable row level security;

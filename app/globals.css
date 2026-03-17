@@ -27,23 +27,34 @@
 }
 
 :root {
-  --background: oklch(0.13 0.01 30);
-  --foreground: oklch(0.96 0.01 80);
-  --card: oklch(0.17 0.01 30 / 88%);
-  --card-foreground: oklch(0.96 0.01 80);
-  --popover: oklch(0.15 0.01 30);
-  --popover-foreground: oklch(0.96 0.01 80);
-  --primary: oklch(0.68 0.18 42);
-  --primary-foreground: oklch(0.12 0.01 30);
-  --secondary: oklch(0.22 0.01 28);
-  --secondary-foreground: oklch(0.94 0.01 80);
-  --muted: oklch(0.2 0.01 28);
-  --muted-foreground: oklch(0.72 0.01 65);
-  --accent: oklch(0.23 0.01 28);
-  --accent-foreground: oklch(0.94 0.01 80);
-  --border: oklch(0.28 0.01 35);
-  --input: oklch(0.28 0.01 35);
-  --ring: oklch(0.68 0.18 42);
+  /* Deep warm-charcoal base for a richer dark theme without going pure black */
+  --background: oklch(0.145 0.008 38);
+  --foreground: oklch(0.94 0.008 70);
+
+  /* Slightly lifted surfaces with low chroma for subtle premium depth */
+  --card: oklch(0.185 0.009 38 / 88%);
+  --card-foreground: oklch(0.94 0.008 70);
+  --popover: oklch(0.175 0.009 38);
+  --popover-foreground: oklch(0.94 0.008 70);
+
+  /* Softer amber-orange accent: refined highlight, less loud than before */
+  --primary: oklch(0.69 0.12 52);
+  --primary-foreground: oklch(0.17 0.008 38);
+
+  /* Neutral secondary/accent surfaces with warm undertones */
+  --secondary: oklch(0.24 0.008 38);
+  --secondary-foreground: oklch(0.92 0.008 70);
+  --accent: oklch(0.25 0.01 40);
+  --accent-foreground: oklch(0.93 0.008 70);
+
+  /* Muted tones stay readable, warmer, and less flat gray */
+  --muted: oklch(0.215 0.007 40);
+  --muted-foreground: oklch(0.72 0.01 62);
+
+  /* Barely-there borders and a toned-down focus ring */
+  --border: oklch(0.285 0.007 42);
+  --input: oklch(0.285 0.007 42);
+  --ring: oklch(0.63 0.1 52);
   --radius: 1rem;
 }
 
