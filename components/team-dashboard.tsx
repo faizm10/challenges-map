@@ -104,8 +104,8 @@ export function TeamDashboard() {
               Your route. Your challenge queue.
             </h1>
             <p className="max-w-2xl text-base text-muted-foreground">
-              Enter your team PIN to unlock only your dashboard, released
-              challenges, proof-note submission, and live standings.
+              Enter the team name and PIN stored in Supabase to unlock only your
+              dashboard, released challenges, proof-note submission, and live standings.
             </p>
             <Button asChild variant="secondary">
               <Link href="/">Back to Leaderboard</Link>

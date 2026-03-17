@@ -23,14 +23,14 @@ export async function POST(request: Request) {
     .eq("role", "admin")
     .eq("display_name", name)
     .eq("pin", pin)
-    .maybeSingle();
+    .maybeSingle<{ id: number }>();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   if (!data?.id) {
-    return NextResponse.json({ error: "Invalid admin PIN." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid admin name or PIN." }, { status: 401 });
   }
 
   await setSession({ role: "admin" });

@@ -12,14 +12,12 @@ if (!supabaseUrl || !supabaseKey) {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __raceToUnionSupabase:
-    | ReturnType<typeof createClient>
-    | undefined;
+  var __raceToUnionSupabase: ReturnType<typeof createClient<any>> | undefined;
 }
 
 export const supabase =
   global.__raceToUnionSupabase ||
-  createClient(supabaseUrl, supabaseKey, {
+  createClient<any>(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

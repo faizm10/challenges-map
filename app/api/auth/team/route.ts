@@ -23,14 +23,14 @@ export async function POST(request: Request) {
     .eq("role", "team")
     .eq("display_name", name)
     .eq("pin", pin)
-    .maybeSingle();
+    .maybeSingle<{ team_id: number | null }>();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   if (!data?.team_id) {
-    return NextResponse.json({ error: "Invalid team PIN." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid team name or PIN." }, { status: 401 });
   }
 
   await setSession({ role: "team", teamId: Number(data.team_id) });

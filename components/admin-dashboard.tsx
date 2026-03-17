@@ -106,8 +106,9 @@ export function AdminDashboard() {
               Control the chaos.
             </h1>
             <p className="max-w-2xl text-base text-muted-foreground">
-              HQ unlocks the control room with the admin PIN, edits the challenge
-              pack, releases tasks one by one, and scores each team.
+              HQ unlocks the control room with the admin name and PIN from
+              Supabase, edits the challenge pack, releases tasks one by one, and
+              scores each team.
             </p>
             <Button asChild variant="secondary">
               <Link href="/">Back to Leaderboard</Link>
