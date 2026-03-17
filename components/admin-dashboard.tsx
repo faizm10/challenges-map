@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Clock3, Image as ImageIcon, MapPin, Video } from "lucide-react";
+import { Clock3, Image as ImageIcon, LoaderCircle, MapPin, Video } from "lucide-react";
 
 import { CheckinMap } from "@/components/checkin-map";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,7 @@ export function AdminDashboard() {
   const [adminName, setAdminName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadGame = async () => {
@@ -81,6 +82,7 @@ export function AdminDashboard() {
   async function onLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setPendingAction("login");
 
     try {
       await api("/api/auth/admin", {
@@ -92,19 +94,28 @@ export function AdminDashboard() {
       await loadGame();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to log in.");
+    } finally {
+      setPendingAction((current) => (current === "login" ? null : current));
     }
   }
 
   async function onLogout() {
-    await api("/api/auth/logout", { method: "POST" });
-    setGame(null);
+    setPendingAction("logout");
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+      setGame(null);
+    } finally {
+      setPendingAction((current) => (current === "logout" ? null : current));
+    }
   }
 
   async function runAdminAction(
+    pendingKey: string,
     action: () => Promise<void>,
     successTitle: string,
     successDescription?: string
   ) {
+    setPendingAction(pendingKey);
     try {
       await action();
       toast({
@@ -119,6 +130,8 @@ export function AdminDashboard() {
           nextError instanceof Error ? nextError.message : "Something went wrong.",
         variant: "error",
       });
+    } finally {
+      setPendingAction((current) => (current === pendingKey ? null : current));
     }
   }
 
@@ -177,8 +190,19 @@ export function AdminDashboard() {
                     required
                   />
                 </div>
-                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400" type="submit">
-                  Unlock HQ Dashboard
+                <Button
+                  className="w-full bg-orange-500 text-black hover:bg-orange-400"
+                  disabled={pendingAction === "login"}
+                  type="submit"
+                >
+                  {pendingAction === "login" ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Unlock HQ Dashboard"
+                  )}
                 </Button>
                 {error ? <p className="text-sm text-red-400">{error}</p> : null}
               </form>
@@ -215,9 +239,11 @@ export function AdminDashboard() {
             </Button>
             <Button
               className="w-full bg-red-500/90 text-white hover:bg-red-500 sm:w-auto"
+              disabled={pendingAction === "reset"}
               variant="destructive"
               onClick={() =>
                 runAdminAction(
+                  "reset",
                   async () => {
                     await api("/api/admin/reset", { method: "POST" });
                     await loadGame();
@@ -231,10 +257,18 @@ export function AdminDashboard() {
             </Button>
             <Button
               className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"
+              disabled={pendingAction === "logout"}
               variant="ghost"
               onClick={onLogout}
             >
-              Log Out
+              {pendingAction === "logout" ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Signing out...
+                </>
+              ) : (
+                "Log Out"
+              )}
             </Button>
           </div>
         </div>
@@ -401,6 +435,7 @@ export function AdminDashboard() {
                 const form = event.currentTarget;
                 const formData = new FormData(form);
                 await runAdminAction(
+                  "create-challenge",
                   async () => {
                     await api("/api/admin/challenges", {
                       method: "POST",
@@ -420,31 +455,40 @@ export function AdminDashboard() {
             >
               <Input
                 className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                disabled={game.challenges.length >= 5}
+                disabled={game.challenges.length >= 5 || pendingAction === "create-challenge"}
                 name="title"
                 placeholder="Challenge title"
                 required
               />
               <Input
                 className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                disabled={game.challenges.length >= 5}
+                disabled={game.challenges.length >= 5 || pendingAction === "create-challenge"}
                 name="expectedLocation"
                 placeholder="Expected checkpoint location"
                 required
               />
               <Textarea
                 className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                disabled={game.challenges.length >= 5}
+                disabled={game.challenges.length >= 5 || pendingAction === "create-challenge"}
                 name="text"
                 placeholder="Challenge prompt"
                 required
               />
               <Button
                 className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
-                disabled={game.challenges.length >= 5}
+                disabled={game.challenges.length >= 5 || pendingAction === "create-challenge"}
                 type="submit"
               >
-                {game.challenges.length >= 5 ? "Challenge Limit Reached" : "Create Challenge"}
+                {game.challenges.length >= 5 ? (
+                  "Challenge Limit Reached"
+                ) : pendingAction === "create-challenge" ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Challenge"
+                )}
               </Button>
             </form>
           </Card>
@@ -473,6 +517,7 @@ export function AdminDashboard() {
                   event.preventDefault();
                   const formData = new FormData(event.currentTarget);
                   await runAdminAction(
+                    `save-challenge:${challenge.id}`,
                     async () => {
                       await api(`/api/admin/challenges/${challenge.id}`, {
                         method: "PATCH",
@@ -506,15 +551,24 @@ export function AdminDashboard() {
                   name="text"
                 />
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
-                    Save Challenge
+                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
+                    {pendingAction === `save-challenge:${challenge.id}` ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Challenge"
+                    )}
                   </Button>
                   <Button
                     className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
+                    disabled={pendingAction === `toggle-release:${challenge.id}`}
                     type="button"
                     variant="secondary"
                     onClick={() =>
                       runAdminAction(
+                        `toggle-release:${challenge.id}`,
                         async () => {
                           await api(`/api/admin/challenges/${challenge.id}/release`, {
                             method: "PATCH",
@@ -529,7 +583,16 @@ export function AdminDashboard() {
                       )
                     }
                   >
-                    {challenge.is_released ? "Hide" : "Release"}
+                    {pendingAction === `toggle-release:${challenge.id}` ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        {challenge.is_released ? "Hiding..." : "Releasing..."}
+                      </>
+                    ) : challenge.is_released ? (
+                      "Hide"
+                    ) : (
+                      "Release"
+                    )}
                   </Button>
                 </div>
               </form>
@@ -615,6 +678,7 @@ export function AdminDashboard() {
                               event.preventDefault();
                               const formData = new FormData(event.currentTarget);
                               await runAdminAction(
+                                `save-checkin:${checkpoint.latest_checkin?.id}`,
                                 async () => {
                                   await api(`/api/admin/checkins/${checkpoint.latest_checkin?.id}/review`, {
                                     method: "PATCH",
@@ -663,7 +727,14 @@ export function AdminDashboard() {
                               placeholder="Leave an HQ note for this checkpoint."
                             />
                             <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
-                              Save Check-In Review
+                              {pendingAction === `save-checkin:${checkpoint.latest_checkin?.id}` ? (
+                                <>
+                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                "Save Check-In Review"
+                              )}
                             </Button>
                           </form>
                         ) : (
@@ -681,6 +752,7 @@ export function AdminDashboard() {
                   event.preventDefault();
                   const formData = new FormData(event.currentTarget);
                   await runAdminAction(
+                    `save-score:${teamView.team.id}`,
                     async () => {
                       await api(`/api/admin/teams/${teamView.team.id}/score`, {
                         method: "PATCH",
@@ -716,8 +788,18 @@ export function AdminDashboard() {
                   name="creativityScore"
                   type="number"
                 />
-                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:col-span-2 lg:w-auto" type="submit">
-                  Save Score
+                <Button
+                  className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:col-span-2 lg:w-auto"
+                  type="submit"
+                >
+                  {pendingAction === `save-score:${teamView.team.id}` ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Score"
+                  )}
                 </Button>
               </form>
 
@@ -801,6 +883,7 @@ export function AdminDashboard() {
                             event.preventDefault();
                             const formData = new FormData(event.currentTarget);
                             await runAdminAction(
+                              `save-review:${teamView.team.id}:${challenge.id}`,
                               async () => {
                                 await api(
                                   `/api/admin/teams/${teamView.team.id}/challenges/${challenge.id}/review`,
@@ -835,7 +918,14 @@ export function AdminDashboard() {
                             placeholder="Leave an HQ note for the team if proof needs changes."
                           />
                           <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
-                            Save Challenge Review
+                            {pendingAction === `save-review:${teamView.team.id}:${challenge.id}` ? (
+                              <>
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              "Save Challenge Review"
+                            )}
                           </Button>
                         </form>
                       </div>

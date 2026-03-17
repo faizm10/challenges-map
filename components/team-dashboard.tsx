@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { ImagePlus, MapPin, Navigation, Trash2, Video } from "lucide-react";
+import { ImagePlus, LoaderCircle, MapPin, Navigation, Trash2, Video } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,8 @@ export function TeamDashboard() {
   const [teamName, setTeamName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [removingUploadId, setRemovingUploadId] = useState<number | null>(null);
@@ -93,6 +95,7 @@ export function TeamDashboard() {
   async function onLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setIsSigningIn(true);
 
     try {
       await api("/api/auth/team", {
@@ -104,12 +107,19 @@ export function TeamDashboard() {
       await loadDashboard();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to log in.");
+    } finally {
+      setIsSigningIn(false);
     }
   }
 
   async function onLogout() {
-    await api("/api/auth/logout", { method: "POST" });
-    setDashboard(null);
+    setIsSigningOut(true);
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+      setDashboard(null);
+    } finally {
+      setIsSigningOut(false);
+    }
   }
 
   async function onSubmitChallenge(challengeId: number, proofNote: string) {
@@ -359,8 +369,19 @@ export function TeamDashboard() {
                     required
                   />
                 </div>
-                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400" type="submit">
-                  Unlock Team Dashboard
+                <Button
+                  className="w-full bg-orange-500 text-black hover:bg-orange-400"
+                  disabled={isSigningIn}
+                  type="submit"
+                >
+                  {isSigningIn ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Unlock Team Dashboard"
+                  )}
                 </Button>
                 {error ? <p className="text-sm text-red-400">{error}</p> : null}
               </form>
@@ -397,10 +418,18 @@ export function TeamDashboard() {
             </Button>
             <Button
               className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"
+              disabled={isSigningOut}
               variant="ghost"
               onClick={onLogout}
             >
-              Log Out
+              {isSigningOut ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Signing out...
+                </>
+              ) : (
+                "Log Out"
+              )}
             </Button>
           </div>
         </div>
@@ -487,7 +516,14 @@ export function TeamDashboard() {
                     disabled={checkingInKey === checkpoint.key}
                     type="submit"
                   >
-                    {checkingInKey === checkpoint.key ? "Checking In..." : checkpoint.label}
+                    {checkingInKey === checkpoint.key ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Checking in...
+                      </>
+                    ) : (
+                      checkpoint.label
+                    )}
                   </Button>
                   <div className="flex items-center gap-2 text-sm text-white/48">
                     <Navigation className="h-4 w-4 text-orange-300" />
@@ -579,9 +615,15 @@ export function TeamDashboard() {
                             event.currentTarget.value = "";
                           }}
                         />
-                        <span className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 text-sm text-white transition hover:bg-white/10">
+                        <span
+                          className={`inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-white transition ${
+                            isLocked || uploadingId === challenge.id
+                              ? "cursor-not-allowed bg-white/[0.03] text-white/40"
+                              : "cursor-pointer bg-white/5 hover:bg-white/10"
+                          }`}
+                        >
                           <ImagePlus className="h-4 w-4" />
-                          {uploadingId === challenge.id ? "Uploading..." : "Add media"}
+                          {uploadingId === challenge.id ? "Uploading media..." : "Add media"}
                         </span>
                       </label>
                     </div>
@@ -650,7 +692,7 @@ export function TeamDashboard() {
                                     onClick={() => void onDeleteUpload(challenge.id, upload.id)}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
-                                    {removingUploadId === upload.id ? "Removing..." : "Remove"}
+                                    {removingUploadId === upload.id ? "Removing file..." : "Remove"}
                                   </button>
                                 ) : null}
                               </div>
@@ -681,7 +723,14 @@ export function TeamDashboard() {
                       disabled={savingId === challenge.id || isLocked}
                       type="submit"
                     >
-                      {savingId === challenge.id ? "Saving..." : "Submit / Update"}
+                      {savingId === challenge.id ? (
+                        <>
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          Saving proof...
+                        </>
+                      ) : (
+                        "Submit / Update"
+                      )}
                     </Button>
                     <p className="text-xs text-white/42">
                       {challenge.submitted_at
