@@ -71,6 +71,10 @@ body::before {
   mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.7), transparent 85%);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 .glass-panel {
   @apply border-white/50 bg-card/90 shadow-[0_20px_50px_rgba(67,54,34,0.12)] backdrop-blur-xl;
 }

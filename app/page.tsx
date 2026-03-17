@@ -1,4 +1,4 @@
-import { PublicLeaderboard } from "@/components/public-leaderboard";
+import { LandingPage } from "@/components/landing-page";
 import { CHALLENGE_SEED, TEAM_SEED, UNION_STATION } from "@/lib/config";
 import { getChallenges, getLeaderboard } from "@/lib/game";
 
@@ -21,9 +21,7 @@ export default function HomePage() {
     teamName: team.teamName,
     startLocationName: team.startLocationName,
     color: team.color,
-    routeLine: team.routeLine,
-    coordinates: team.coordinates,
   }));
 
-  return <PublicLeaderboard initialData={initialData} mapTeams={mapTeams} />;
+  return <LandingPage initialData={initialData} mapTeams={mapTeams} />;
 }
