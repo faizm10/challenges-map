@@ -46,6 +46,13 @@ type LocationPlatform =
   | "desktop"
   | "generic";
 
+type CapturedLocation = {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number | null;
+  gpsCapturedAt: string;
+};
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -238,6 +245,8 @@ export function TeamDashboard() {
   const [locationPermissionState, setLocationPermissionState] =
     useState<LocationPermissionState>("idle");
   const [locationPlatform, setLocationPlatform] = useState<LocationPlatform>("generic");
+  const [isSecureLocationContext, setIsSecureLocationContext] = useState(true);
+  const [lastResolvedPosition, setLastResolvedPosition] = useState<CapturedLocation | null>(null);
   const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
   const [openCheckpointKey, setOpenCheckpointKey] = useState<string | null>(null);
   const { toast } = useToast();
@@ -253,6 +262,9 @@ export function TeamDashboard() {
 
   useEffect(() => {
     setLocationPlatform(detectLocationPlatform());
+    setIsSecureLocationContext(
+      typeof window === "undefined" ? true : Boolean(window.isSecureContext)
+    );
   }, []);
 
   useEffect(() => {
@@ -264,6 +276,18 @@ export function TeamDashboard() {
   }, [dashboard]);
 
   async function refreshLocationPermissionState() {
+    if (
+      typeof window !== "undefined" &&
+      !window.isSecureContext &&
+      window.location.hostname !== "localhost"
+    ) {
+      setIsSecureLocationContext(false);
+      setLocationPermissionState("unsupported");
+      return "unsupported" as const;
+    }
+
+    setIsSecureLocationContext(true);
+
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setLocationPermissionState("unsupported");
       return "unsupported" as const;
@@ -309,6 +333,10 @@ export function TeamDashboard() {
     locationPlatform,
     locationPermissionState
   );
+  const locationHelpText =
+    !isSecureLocationContext
+      ? "GPS only works over HTTPS or localhost. If you opened this on a phone using a local network URL like http://192.168.x.x:3000, the check-in will still submit but coordinates will not be attached."
+      : locationPermissionCopy.help;
 
   useEffect(() => {
     if (!visibleCheckpoints.length) {
@@ -463,6 +491,16 @@ export function TeamDashboard() {
   }
 
   async function requestLocationAccess() {
+    if (
+      typeof window !== "undefined" &&
+      !window.isSecureContext &&
+      window.location.hostname !== "localhost"
+    ) {
+      setIsSecureLocationContext(false);
+      setLocationPermissionState("unsupported");
+      return;
+    }
+
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setLocationPermissionState("unsupported");
       return;
@@ -473,8 +511,14 @@ export function TeamDashboard() {
     try {
       await new Promise<void>((resolve) => {
         navigator.geolocation.getCurrentPosition(
-          () => {
+          (position) => {
             setLocationPermissionState("granted");
+            setLastResolvedPosition({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracyMeters: position.coords.accuracy,
+              gpsCapturedAt: new Date(position.timestamp).toISOString(),
+            });
             resolve();
           },
           (geoError) => {
@@ -499,7 +543,36 @@ export function TeamDashboard() {
     }
   }
 
+  async function requestBrowserPosition(options: PositionOptions) {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      throw new Error("geolocation-unavailable");
+    }
+
+    return new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+  }
+
   async function capturePosition(checkpointKey: string) {
+    if (
+      typeof window !== "undefined" &&
+      !window.isSecureContext &&
+      window.location.hostname !== "localhost"
+    ) {
+      setIsSecureLocationContext(false);
+      setLocationPermissionState("unsupported");
+      setGpsMessages((current) => ({
+        ...current,
+        [checkpointKey]: "GPS needs HTTPS or localhost. Check-in sent without GPS.",
+      }));
+      return {
+        latitude: null,
+        longitude: null,
+        accuracyMeters: null,
+        gpsCapturedAt: null,
+      };
+    }
+
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setLocationPermissionState("unsupported");
       setGpsMessages((current) => ({
@@ -514,51 +587,88 @@ export function TeamDashboard() {
       };
     }
 
-    return new Promise<{
-      latitude: number | null;
-      longitude: number | null;
-      accuracyMeters: number | null;
-      gpsCapturedAt: string | null;
-    }>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocationPermissionState("granted");
-          setGpsMessages((current) => ({
-            ...current,
-            [checkpointKey]: `GPS captured within ${Math.round(position.coords.accuracy)}m.`,
-          }));
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracyMeters: position.coords.accuracy,
-            gpsCapturedAt: new Date(position.timestamp).toISOString(),
-          });
-        },
-        (geoError) => {
-          const message =
-            geoError.code === geoError.PERMISSION_DENIED
-              ? "Permission denied, check-in sent without GPS."
-              : geoError.code === geoError.TIMEOUT
-                ? "Location timed out, check-in sent without GPS."
-                : "Location unavailable on this device.";
-          setLocationPermissionState(
-            geoError.code === geoError.PERMISSION_DENIED ? "denied" : "error"
-          );
-          setGpsMessages((current) => ({ ...current, [checkpointKey]: message }));
-          resolve({
-            latitude: null,
-            longitude: null,
-            accuracyMeters: null,
-            gpsCapturedAt: null,
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 8000,
-          maximumAge: 30000,
-        }
-      );
-    });
+    try {
+      const position = await requestBrowserPosition({
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 0,
+      });
+      const captured = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracyMeters: position.coords.accuracy,
+        gpsCapturedAt: new Date(position.timestamp).toISOString(),
+      };
+      setLocationPermissionState("granted");
+      setLastResolvedPosition(captured);
+      setGpsMessages((current) => ({
+        ...current,
+        [checkpointKey]: `GPS captured within ${Math.round(position.coords.accuracy)}m.`,
+      }));
+      return captured;
+    } catch (error) {
+      const geoError = error as GeolocationPositionError | undefined;
+      if (geoError?.code === 1) {
+        setLocationPermissionState("denied");
+        setGpsMessages((current) => ({
+          ...current,
+          [checkpointKey]: "Permission denied, check-in sent without GPS.",
+        }));
+        return {
+          latitude: null,
+          longitude: null,
+          accuracyMeters: null,
+          gpsCapturedAt: null,
+        };
+      }
+    }
+
+    try {
+      const fallbackPosition = await requestBrowserPosition({
+        enableHighAccuracy: false,
+        timeout: 12000,
+        maximumAge: 120000,
+      });
+      const captured = {
+        latitude: fallbackPosition.coords.latitude,
+        longitude: fallbackPosition.coords.longitude,
+        accuracyMeters: fallbackPosition.coords.accuracy,
+        gpsCapturedAt: new Date(fallbackPosition.timestamp).toISOString(),
+      };
+      setLocationPermissionState("granted");
+      setLastResolvedPosition(captured);
+      setGpsMessages((current) => ({
+        ...current,
+        [checkpointKey]: `GPS captured on fallback within ${Math.round(
+          fallbackPosition.coords.accuracy
+        )}m.`,
+      }));
+      return captured;
+    } catch (error) {
+      const geoError = error as GeolocationPositionError | undefined;
+
+      if (lastResolvedPosition) {
+        setGpsMessages((current) => ({
+          ...current,
+          [checkpointKey]: "Fresh GPS timed out. Reusing your last captured location for this check-in.",
+        }));
+        return lastResolvedPosition;
+      }
+
+      const message =
+        geoError?.code === 3
+          ? "Location timed out, check-in sent without GPS."
+          : "Location unavailable on this device.";
+
+      setLocationPermissionState(geoError?.code === 1 ? "denied" : "error");
+      setGpsMessages((current) => ({ ...current, [checkpointKey]: message }));
+      return {
+        latitude: null,
+        longitude: null,
+        accuracyMeters: null,
+        gpsCapturedAt: null,
+      };
+    }
   }
 
   async function onCheckpointCheckin(checkpoint: TeamCheckpoint, note: string) {
@@ -806,8 +916,40 @@ export function TeamDashboard() {
                 )}
               </Button>
               <p className="text-sm leading-6 text-white/62">
-                {locationPermissionCopy.help}
+                {locationHelpText}
               </p>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[18px] border border-white/8 bg-white/[0.04] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/44">
+                  Last GPS Fix
+                </p>
+                {lastResolvedPosition ? (
+                  <>
+                    <p className="mt-2 font-mono text-sm text-white">
+                      {lastResolvedPosition.latitude.toFixed(5)}, {lastResolvedPosition.longitude.toFixed(5)}
+                    </p>
+                    <p className="mt-1 text-xs text-white/48">
+                      {lastResolvedPosition.accuracyMeters !== null
+                        ? `Accuracy ${Math.round(lastResolvedPosition.accuracyMeters)}m`
+                        : "Accuracy unknown"}
+                    </p>
+                    <p className="mt-1 text-xs text-white/40">
+                      {new Date(lastResolvedPosition.gpsCapturedAt).toLocaleString()}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-white/52">No GPS fix captured yet.</p>
+                )}
+              </div>
+              <div className="rounded-[18px] border border-white/8 bg-white/[0.04] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/44">
+                  Mobile Tip
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/58">
+                  If the first GPS attempt hangs, keep the page open and try again outdoors or near a window. The app now retries once and can reuse your last captured fix.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -818,7 +960,7 @@ export function TeamDashboard() {
                 GPS is blocked right now. You can still check in without it, but HQ will only see a
                 manual update until location is enabled again.
               </p>
-              <p className="mt-3 text-sm leading-6 text-white/72">{locationPermissionCopy.help}</p>
+              <p className="mt-3 text-sm leading-6 text-white/72">{locationHelpText}</p>
             </div>
           ) : null}
 
