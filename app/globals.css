@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-space-grotesk);
+  --font-serif: var(--font-fraunces);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --background: oklch(0.97 0.01 82);
+  --foreground: oklch(0.22 0.03 260);
+  --card: oklch(0.99 0.01 85 / 92%);
+  --card-foreground: oklch(0.22 0.03 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 260);
+  --primary: oklch(0.62 0.18 38);
+  --primary-foreground: oklch(0.98 0.01 90);
+  --secondary: oklch(0.95 0.02 82);
+  --secondary-foreground: oklch(0.22 0.03 260);
+  --muted: oklch(0.94 0.01 85);
+  --muted-foreground: oklch(0.48 0.03 250);
+  --accent: oklch(0.94 0.02 82);
+  --accent-foreground: oklch(0.22 0.03 260);
+  --border: oklch(0.88 0.01 80);
+  --input: oklch(0.88 0.01 80);
+  --ring: oklch(0.62 0.18 38);
+  --radius: 1rem;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground min-h-screen;
+  background-image:
+    radial-gradient(circle at top left, rgb(216 95 58 / 0.18), transparent 24%),
+    radial-gradient(circle at bottom right, rgb(37 99 235 / 0.12), transparent 24%),
+    linear-gradient(180deg, #fbf7ef 0%, #f4efe6 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(31 36 48 / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(31 36 48 / 0.03) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.7), transparent 85%);
+}
+
+.glass-panel {
+  @apply border-white/50 bg-card/90 shadow-[0_20px_50px_rgba(67,54,34,0.12)] backdrop-blur-xl;
+}
+
+@layer base {
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+  }
+  .maplibregl-popup-tip {
+    @apply hidden!;
+  }
+}
