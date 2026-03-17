@@ -80,6 +80,8 @@ export function TeamDashboard() {
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [removingUploadId, setRemovingUploadId] = useState<number | null>(null);
   const [checkingInKey, setCheckingInKey] = useState<string | null>(null);
+  const [isRequestingLocationAccess, setIsRequestingLocationAccess] = useState(false);
+  const [locationAccessMessage, setLocationAccessMessage] = useState<string>("");
   const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
@@ -232,6 +234,51 @@ export function TeamDashboard() {
       });
     } finally {
       setRemovingUploadId(null);
+    }
+  }
+
+  async function requestLocationAccess() {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setLocationAccessMessage("Location is unavailable on this device.");
+      return;
+    }
+
+    setIsRequestingLocationAccess(true);
+
+    try {
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            setLocationAccessMessage(
+              "Location access is enabled. You can now tap Check in and send GPS with your submission."
+            );
+            resolve();
+          },
+          (geoError) => {
+            if (geoError.code === geoError.PERMISSION_DENIED) {
+              setLocationAccessMessage(
+                "Location is denied in Safari. On iPhone, open aA > Website Settings > Location > Allow, then return here and try again."
+              );
+            } else if (geoError.code === geoError.TIMEOUT) {
+              setLocationAccessMessage(
+                "Location request timed out. Make sure Location Services are on, then try again."
+              );
+            } else {
+              setLocationAccessMessage(
+                "Location could not be requested. Check iPhone Location Services and Safari site permissions, then try again."
+              );
+            }
+            resolve();
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 0,
+          }
+        );
+      });
+    } finally {
+      setIsRequestingLocationAccess(false);
     }
   }
 
@@ -488,10 +535,35 @@ export function TeamDashboard() {
               <div>
                 <p className="text-sm font-semibold text-white">Location check-ins work best on your phone</p>
                 <p className="mt-1 text-sm leading-6 text-white/62">
-                  Tap the check-in button and allow location access when your phone asks. Your GPS
+                  Tap Enable Location first and allow Safari access when your phone asks. Your GPS
                   status will appear right inside each checkpoint card.
                 </p>
               </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button
+                className="h-11 w-full bg-white/8 text-white hover:bg-white/12 sm:w-auto"
+                disabled={isRequestingLocationAccess}
+                type="button"
+                variant="secondary"
+                onClick={() => void requestLocationAccess()}
+              >
+                {isRequestingLocationAccess ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Requesting location...
+                  </>
+                ) : (
+                  <>
+                    <LocateFixed className="h-4 w-4" />
+                    Enable Location
+                  </>
+                )}
+              </Button>
+              <p className="text-sm leading-6 text-white/62">
+                {locationAccessMessage ||
+                  "If Safari shows a permission prompt, choose Allow. If it was denied earlier, use Safari website settings to turn it back on."}
+              </p>
             </div>
           </div>
 
