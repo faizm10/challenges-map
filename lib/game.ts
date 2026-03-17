@@ -1,6 +1,9 @@
 import {
   MAX_CHALLENGES,
   CHALLENGE_PROOF_BUCKET,
+  CHALLENGE_SCORE_MAX_POINTS,
+  CHALLENGE_SCORE_MIN_POINTS,
+  CHALLENGE_SCORE_WINDOW_MINUTES,
   MAX_FILES_PER_UPLOAD_REQUEST,
   MAX_UPLOAD_BYTES,
   TEAM_SEED,
@@ -80,7 +83,6 @@ type CheckinRow = TeamCheckin;
 
 function getMilestones(entry: {
   completed_count: number;
-  arrival_rank: number | null;
   total_challenges: number;
 }): string[] {
   const milestones: string[] = [];
@@ -88,12 +90,27 @@ function getMilestones(entry: {
   if (entry.total_challenges > 0 && entry.completed_count === entry.total_challenges) {
     milestones.push(`All ${entry.total_challenges} Complete`);
   }
-  if (entry.arrival_rank === 1) milestones.push("First to Union");
   return milestones;
 }
 
-function speedPointsForRank(rank: number | null) {
-  return rank === 1 ? 40 : rank === 2 ? 32 : rank === 3 ? 24 : rank === 4 ? 16 : rank === 5 ? 8 : 0;
+function clamp01(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function timingPointsForSubmission(input: {
+  timerStartedAt: string | null;
+  submittedAt: string | null;
+}) {
+  const { timerStartedAt, submittedAt } = input;
+  if (!timerStartedAt || !submittedAt) return 0;
+
+  const deltaSeconds = Math.max(0, (Date.parse(submittedAt) - Date.parse(timerStartedAt)) / 1000);
+  const windowSeconds = CHALLENGE_SCORE_WINDOW_MINUTES * 60;
+  const t = clamp01(deltaSeconds / windowSeconds);
+  const span = CHALLENGE_SCORE_MAX_POINTS - CHALLENGE_SCORE_MIN_POINTS;
+  const points = Math.ceil(CHALLENGE_SCORE_MAX_POINTS - t * span);
+  return Math.max(0, points);
 }
 
 function sanitizeFileName(name: string) {
@@ -131,6 +148,16 @@ async function requireChallengeMediaEnabled(challengeId: number) {
   if (!challenge.allow_media_upload) {
     throw new GameError("Media upload is disabled for this challenge.", 409);
   }
+}
+
+async function maybeStartChallengeTimer(challengeId: number) {
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("challenges")
+    .update({ timer_started_at: nowIso })
+    .eq("id", challengeId)
+    .is("timer_started_at", null);
+  if (error) throw error;
 }
 
 function normalizeCheckinRow(row: CheckinRow): TeamCheckin {
@@ -675,7 +702,9 @@ export async function getChallenges(includeHidden = true): Promise<Challenge[]> 
   try {
     let query = supabase
       .from("challenges")
-      .select("id, challenge_order, title, text, expected_location, allow_media_upload, is_released")
+      .select(
+        "id, challenge_order, title, text, expected_location, allow_media_upload, timer_started_at, is_released"
+      )
       .order("challenge_order", { ascending: true });
 
     if (!includeHidden) {
@@ -857,22 +886,17 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   try {
-    const [challengesResult, teamsResult, scoresResult, statusResult] = await Promise.all([
-      supabase.from("challenges").select("id, is_released"),
+    const [challengesResult, teamsResult, statusResult] = await Promise.all([
+      supabase.from("challenges").select("id, is_released, timer_started_at"),
       supabase
         .from("teams")
         .select("id, team_name, start_location_name, walk_time, color, badge_label")
         .order("id", { ascending: true }),
-      supabase
-        .from("team_scores")
-        .select("team_id, arrival_rank, creativity_score")
-        .order("team_id", { ascending: true }),
-      supabase.from("team_challenge_status").select("team_id, status"),
+      supabase.from("team_challenge_status").select("team_id, challenge_id, status, submitted_at"),
     ]);
 
     if (challengesResult.error) throw challengesResult.error;
     if (teamsResult.error) throw teamsResult.error;
-    if (scoresResult.error) throw scoresResult.error;
     if (statusResult.error) throw statusResult.error;
 
     const teams = (teamsResult.data ?? []) as Array<{
@@ -883,62 +907,94 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
       color: string;
       badge_label: string;
     }>;
-    const scores = new Map(
-      ((scoresResult.data ?? []) as TeamScore[]).map((score) => [score.team_id, score])
+    const challenges = (challengesResult.data ?? []) as Array<{
+      id: number;
+      is_released: boolean;
+      timer_started_at: string | null;
+    }>;
+    const releasedChallengeIds = new Set(
+      challenges.filter((item) => Boolean(item.is_released)).map((item) => Number(item.id))
     );
-    const completedCounts = new Map<number, number>();
+    const timerByChallengeId = new Map<number, string | null>(
+      challenges.map((item) => [Number(item.id), item.timer_started_at ?? null])
+    );
+    const totalChallenges = challenges.length;
+    const releasedCount = challenges.filter((item) => Boolean(item.is_released)).length;
 
-    for (const row of (statusResult.data ?? []) as Array<{ team_id: number; status: string }>) {
-      if (row.status !== "submitted") continue;
-      completedCounts.set(row.team_id, (completedCounts.get(row.team_id) ?? 0) + 1);
+    const statusRows = (statusResult.data ?? []) as Array<{
+      team_id: number;
+      challenge_id: number;
+      status: string;
+      submitted_at: string | null;
+    }>;
+    const statusesByTeam = new Map<number, Array<{ challenge_id: number; status: string; submitted_at: string | null }>>();
+    for (const row of statusRows) {
+      if (!releasedChallengeIds.has(Number(row.challenge_id))) continue;
+      const current = statusesByTeam.get(Number(row.team_id)) ?? [];
+      current.push({
+        challenge_id: Number(row.challenge_id),
+        status: row.status,
+        submitted_at: row.submitted_at ?? null,
+      });
+      statusesByTeam.set(Number(row.team_id), current);
     }
 
-    const totalChallenges = (challengesResult.data ?? []).length;
-    const releasedCount = ((challengesResult.data ?? []) as Array<{ is_released: boolean }>).filter(
-      (challenge) => Boolean(challenge.is_released)
-    ).length;
-
     const scored = teams.map((row) => {
-      const score = scores.get(row.id);
-      const arrivalRank = score?.arrival_rank ?? null;
-      const speedPoints = speedPointsForRank(arrivalRank);
-      const completedCount = completedCounts.get(row.id) ?? 0;
-      const challengePoints = Math.min(completedCount * 8, 40);
-      const creativityScore = Math.max(0, Math.min(20, score?.creativity_score ?? 0));
-      const totalPoints = speedPoints + challengePoints + creativityScore;
+      const statuses = statusesByTeam.get(row.id) ?? [];
+      const completed = statuses.filter((item) => item.status === "submitted");
+      const completedCount = completed.length;
 
-      return {
+      let challengePoints = 0;
+      let lastSubmittedAt: string | null = null;
+      for (const item of completed) {
+        const submittedAt = item.submitted_at ?? null;
+        if (submittedAt) {
+          if (!lastSubmittedAt || Date.parse(submittedAt) > Date.parse(lastSubmittedAt)) {
+            lastSubmittedAt = submittedAt;
+          }
+        }
+        challengePoints += timingPointsForSubmission({
+          timerStartedAt: timerByChallengeId.get(item.challenge_id) ?? null,
+          submittedAt,
+        });
+      }
+
+      const totalPoints = challengePoints;
+      const maxPoints = releasedCount * CHALLENGE_SCORE_MAX_POINTS;
+      const progressPercent =
+        maxPoints <= 0 ? 4 : Math.max(6, Math.min(100, Math.round((totalPoints / maxPoints) * 100)));
+
+      const entry: Omit<LeaderboardEntry, "leaderboard_rank"> = {
         id: row.id,
         team_name: row.team_name,
         start_location_name: row.start_location_name,
         walk_time: row.walk_time,
         color: row.color,
         badge_label: row.badge_label,
-        arrival_rank: arrivalRank,
         completed_count: completedCount,
-        speed_points: speedPoints,
         challenge_points: challengePoints,
-        creativity_score: creativityScore,
         total_points: totalPoints,
         released_count: releasedCount,
         total_challenges: totalChallenges,
-        progress_percent:
-          releasedCount === 0 ? 4 : Math.max(10, Math.min(100, Math.round(totalPoints))),
+        progress_percent: progressPercent,
         milestones: getMilestones({
           completed_count: completedCount,
-          arrival_rank: arrivalRank,
           total_challenges: totalChallenges,
         }),
       };
+      return { entry, lastSubmittedAt };
     });
 
     scored.sort((a, b) => {
-      if (b.total_points !== a.total_points) return b.total_points - a.total_points;
-      if (b.creativity_score !== a.creativity_score) return b.creativity_score - a.creativity_score;
-      return (a.arrival_rank ?? Number.MAX_SAFE_INTEGER) - (b.arrival_rank ?? Number.MAX_SAFE_INTEGER);
+      if (b.entry.total_points !== a.entry.total_points) return b.entry.total_points - a.entry.total_points;
+      if (b.entry.completed_count !== a.entry.completed_count) return b.entry.completed_count - a.entry.completed_count;
+      const aLast = a.lastSubmittedAt ? Date.parse(a.lastSubmittedAt) : Number.POSITIVE_INFINITY;
+      const bLast = b.lastSubmittedAt ? Date.parse(b.lastSubmittedAt) : Number.POSITIVE_INFINITY;
+      if (aLast !== bLast) return aLast - bLast;
+      return a.entry.id - b.entry.id;
     });
 
-    return scored.map((row, index) => ({ ...row, leaderboard_rank: index + 1 }));
+    return scored.map(({ entry }, index) => ({ ...entry, leaderboard_rank: index + 1 }));
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       return getLocalLeaderboard();
@@ -1030,14 +1086,10 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
 
 export async function getAdminGame(): Promise<AdminGameResponse> {
   try {
-    const [teamsResult, challenges, scoresResult, leaderboard, latestLocations, recentCheckins, credentialsResult, allCheckins] =
+    const [teamsResult, challenges, leaderboard, latestLocations, recentCheckins, credentialsResult, allCheckins] =
       await Promise.all([
         supabase.from("teams").select("id").order("id", { ascending: true }),
         getChallenges(true),
-        supabase
-          .from("team_scores")
-          .select("team_id, arrival_rank, creativity_score")
-          .order("team_id", { ascending: true }),
         getLeaderboard(),
         getLatestLocations(),
         getRecentCheckins(),
@@ -1049,7 +1101,6 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
       ]);
 
     if (teamsResult.error) throw teamsResult.error;
-    if (scoresResult.error) throw scoresResult.error;
     if (credentialsResult.error) throw credentialsResult.error;
 
     const credentialMap = new Map(
@@ -1099,7 +1150,6 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
       latestLocations,
       teamRoutes,
       recentCheckins,
-      scores: (scoresResult.data ?? []) as TeamScore[],
       leaderboard,
       pins: {
         admin_hint: "Stored in Supabase access_credentials table",
@@ -1221,9 +1271,12 @@ export async function createChallenge(
 
 export async function updateChallengeRelease(challengeId: number, isReleased: boolean) {
   try {
+    const payload = isReleased
+      ? { is_released: true }
+      : { is_released: false, timer_started_at: null };
     const { error } = await supabase
       .from("challenges")
-      .update({ is_released: isReleased })
+      .update(payload)
       .eq("id", challengeId);
 
     if (error) throw error;
@@ -1293,6 +1346,7 @@ export async function updateTeamChallengeSubmission(
         accuracyMeters: gps?.accuracyMeters ?? null,
         gpsCapturedAt: gps?.gpsCapturedAt ?? null,
       });
+      await maybeStartChallengeTimer(challengeId);
     }
   } catch (error) {
     if (isGameError(error)) {

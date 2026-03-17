@@ -1397,10 +1397,8 @@ export function TeamDashboard() {
               <TableRow>
                 <TableHead>Team</TableHead>
                 <TableHead>Rank</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Challenges</TableHead>
-                <TableHead>Speed</TableHead>
-                <TableHead>Creativity</TableHead>
+                <TableHead>Points</TableHead>
+                <TableHead>Completed</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1410,8 +1408,6 @@ export function TeamDashboard() {
                   <TableCell>#{entry.leaderboard_rank}</TableCell>
                   <TableCell>{entry.total_points}</TableCell>
                   <TableCell>{entry.completed_count}/{entry.total_challenges}</TableCell>
-                  <TableCell>{entry.speed_points}</TableCell>
-                  <TableCell>{entry.creativity_score}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -31,6 +31,7 @@ export type Challenge = {
   text: string;
   expected_location: string;
   allow_media_upload: number;
+  timer_started_at: string | null;
   is_released: number;
 };
 
@@ -163,10 +164,7 @@ export type LeaderboardEntry = {
   walk_time: string;
   color: string;
   badge_label: string;
-  arrival_rank: number | null;
-  creativity_score: number;
   completed_count: number;
-  speed_points: number;
   challenge_points: number;
   total_points: number;
   released_count: number;
@@ -206,7 +204,6 @@ export type AdminGameResponse = {
   latestLocations: TeamLatestLocation[];
   teamRoutes: AdminTeamRoute[];
   recentCheckins: AdminCheckinFeedItem[];
-  scores: TeamScore[];
   leaderboard: LeaderboardEntry[];
   pins: {
     admin_hint: string;

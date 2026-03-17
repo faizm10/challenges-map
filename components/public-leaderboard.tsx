@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Flag, Footprints, Sparkles, Trophy } from "lucide-react";
+import { Footprints } from "lucide-react";
 
 import { RaceMap } from "@/components/race-map";
 import { Badge } from "@/components/ui/badge";
@@ -88,7 +88,7 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
           <CardHeader className="pb-4">
             <CardTitle className="text-2xl text-white sm:text-3xl">Standings</CardTitle>
             <CardDescription className="text-white/52">
-              Rank is based on total points, then creativity, then arrival order.
+              Rank is based on time-weighted challenge points.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
@@ -136,27 +136,19 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
                   />
                 </div>
 
-                <div className="mb-4 grid grid-cols-3 gap-2 text-sm sm:gap-3">
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.06] p-3">
-                    <div className="mb-1 flex items-center gap-2 text-white/46">
-                      <Trophy className="h-4 w-4" />
-                      <span className="truncate">Speed</span>
-                    </div>
-                    <strong className="text-white">{team.speed_points}</strong>
-                  </div>
+                <div className="mb-4 grid grid-cols-2 gap-2 text-sm sm:gap-3">
                   <div className="rounded-2xl border border-white/8 bg-white/[0.06] p-3">
                     <div className="mb-1 flex items-center gap-2 text-white/46">
                       <Footprints className="h-4 w-4" />
-                      <span className="truncate">Challenges</span>
+                      <span className="truncate">Points</span>
                     </div>
-                    <strong className="text-white">{team.challenge_points}</strong>
+                    <strong className="text-white">{team.total_points}</strong>
                   </div>
                   <div className="rounded-2xl border border-white/8 bg-white/[0.06] p-3">
-                    <div className="mb-1 flex items-center gap-2 text-white/46">
-                      <Sparkles className="h-4 w-4" />
-                      <span className="truncate">Creativity</span>
-                    </div>
-                    <strong className="text-white">{team.creativity_score}</strong>
+                    <div className="mb-1 text-white/46">Completed</div>
+                    <strong className="text-white">
+                      {team.completed_count}/{team.total_challenges}
+                    </strong>
                   </div>
                 </div>
 
@@ -164,12 +156,6 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
                   <Badge className="border-white/10 bg-white/8 text-white/78" variant="secondary">
                     {team.completed_count}/{team.total_challenges} complete
                   </Badge>
-                  {team.arrival_rank ? (
-                    <Badge variant="success">
-                      <Flag className="mr-1 h-3.5 w-3.5" />
-                      {team.arrival_rank === 1 ? "1st to Union" : `Arrived ${team.arrival_rank}`}
-                    </Badge>
-                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap gap-2">

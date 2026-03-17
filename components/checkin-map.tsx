@@ -43,52 +43,86 @@ export function CheckinMap({ latestLocations, teamRoutes }: CheckinMapProps) {
             </MarkerPopup>
           </MapMarker>
 
-          {teamRoutes.map((route) =>
-            route.points.length >= 2 ? (
-              <MapRoute
-                key={`route-${route.team_id}`}
-                color={route.color}
-                coordinates={route.points.map((point) => [point.longitude, point.latitude])}
-                id={`team-progress-${route.team_id}`}
-                opacity={0.88}
-                width={4}
-              />
-            ) : null
-          )}
+          {teamRoutes.map((route) => {
+            const routeCoords = route.points.map((point) => [point.longitude, point.latitude] as [number, number]);
 
-          {latestLocations.map((location) => (
-            <MapMarker
-              key={`checkin-${location.team_id}`}
-              latitude={location.latitude}
-              longitude={location.longitude}
-            >
-              <MarkerContent>
-                <div className="relative flex h-6 w-6 items-center justify-center">
-                  <span
-                    className="absolute inline-flex h-6 w-6 rounded-full opacity-30"
-                    style={{ backgroundColor: location.color }}
+            return (
+              <div key={`team-layer-${route.team_id}`}>
+                {route.points.length >= 2 ? (
+                  <MapRoute
+                    color={route.color}
+                    coordinates={routeCoords}
+                    id={`team-progress-${route.team_id}`}
+                    opacity={0.92}
+                    width={2.5}
                   />
-                  <span
-                    className="relative h-4 w-4 rounded-full border-2 border-black"
-                    style={{ backgroundColor: location.color }}
-                  />
-                </div>
-              </MarkerContent>
-              <MarkerPopup>
-                <div className="rounded-xl border bg-white px-3 py-2 text-sm shadow-md">
-                  <strong>{location.team_name}</strong>
-                  <p className="text-muted-foreground">{location.label}</p>
-                  <p className="mt-1 font-mono text-xs text-slate-600">
-                    {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {teamRoutes.find((route) => route.team_id === location.team_id)?.completed_labels.join(" -> ") ??
-                      "No mapped route yet"}
-                  </p>
-                </div>
-              </MarkerPopup>
-            </MapMarker>
-          ))}
+                ) : null}
+
+                {route.points.map((point, index) => {
+                  const isLatest = index === route.points.length - 1;
+                  const dotSize = isLatest ? 24 : 18;
+                  const innerSize = isLatest ? 13 : 10;
+
+                  return (
+                    <MapMarker
+                      key={`checkpoint-${route.team_id}-${point.checkin_type}-${point.challenge_id ?? "none"}-${point.created_at}`}
+                      latitude={point.latitude}
+                      longitude={point.longitude}
+                    >
+                      <MarkerContent>
+                        <div
+                          className="relative flex items-center justify-center"
+                          style={{ width: dotSize, height: dotSize }}
+                        >
+                          {isLatest ? (
+                            <>
+                              <span
+                                className="absolute inline-flex rounded-full opacity-30"
+                                style={{
+                                  width: dotSize,
+                                  height: dotSize,
+                                  backgroundColor: route.color,
+                                }}
+                              />
+                              <span
+                                className="absolute inline-flex rounded-full opacity-25 animate-ping"
+                                style={{
+                                  width: dotSize,
+                                  height: dotSize,
+                                  backgroundColor: route.color,
+                                }}
+                              />
+                            </>
+                          ) : null}
+                          <span
+                            className="relative rounded-full border-[2.5px] border-black shadow-[0_12px_34px_rgba(0,0,0,0.22)]"
+                            style={{
+                              width: innerSize,
+                              height: innerSize,
+                              backgroundColor: route.color,
+                            }}
+                          />
+                        </div>
+                      </MarkerContent>
+                      <MarkerPopup>
+                        <div className="rounded-xl border bg-white px-3 py-2 text-sm shadow-md">
+                          <strong>{route.team_name}</strong>
+                          <p className="text-muted-foreground">{point.label}</p>
+                          <p className="mt-1 text-xs text-slate-500">{new Date(point.created_at).toLocaleString()}</p>
+                          <p className="mt-1 font-mono text-xs text-slate-600">
+                            {point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {route.completed_labels.length ? route.completed_labels.join(" -> ") : "No mapped route yet"}
+                          </p>
+                        </div>
+                      </MarkerPopup>
+                    </MapMarker>
+                  );
+                })}
+              </div>
+            );
+          })}
         </Map>
       </div>
     </Card>

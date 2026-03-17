@@ -21,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 import { Textarea } from "@/components/ui/textarea";
+import { CHALLENGE_SCORE_WINDOW_MINUTES } from "@/lib/config";
 import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -257,7 +258,7 @@ export function AdminDashboard() {
             </h1>
             <p className="max-w-2xl text-base leading-7 text-white/58">
               HQ unlocks the Converge control room, edits challenges, reviews media,
-              verifies check-ins, and scores each team live.
+              verifies check-ins, and keeps the leaderboard moving in real time.
             </p>
             <Button
               asChild
@@ -358,7 +359,7 @@ export function AdminDashboard() {
                     await loadGame();
                   },
                   "Game reset",
-                  "Challenges, submissions, media, check-ins, and scores are back to the initial state."
+                  "Challenges, submissions, media, and check-ins are back to the initial state."
                 )
               }
             >
@@ -748,6 +749,22 @@ export function AdminDashboard() {
                     </span>
                   </div>
                   <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
+                  <p className="mt-2 text-xs text-white/52">
+                    {!challenge.is_released ? (
+                      "Timer: hidden"
+                    ) : !challenge.timer_started_at ? (
+                      "Timer: not started"
+                    ) : (() => {
+                        const remainingSeconds =
+                          CHALLENGE_SCORE_WINDOW_MINUTES * 60 -
+                          (Date.now() - Date.parse(challenge.timer_started_at)) / 1000;
+                        if (remainingSeconds <= 0) return "Timer: ended";
+                        return `Timer: ${Math.ceil(remainingSeconds / 60)}m left`;
+                      })()}
+                    {challenge.timer_started_at
+                      ? ` · first submit ${new Date(challenge.timer_started_at).toLocaleTimeString()}`
+                      : ""}
+                  </p>
                 </div>
                 <Badge variant={challenge.is_released ? "success" : "warning"}>
                   {challenge.is_released ? "Released" : "Hidden"}
@@ -1001,9 +1018,9 @@ export function AdminDashboard() {
 
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-2xl text-white sm:text-3xl">Team Review and Scoring</CardTitle>
+          <CardTitle className="text-2xl text-white sm:text-3xl">Team Review</CardTitle>
           <CardDescription className="text-white/52">
-            Review proof notes, checkpoint progress, media, and award team scores.
+            Review checkpoints, proof notes, and uploaded media. Scoring is automatic.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 xl:grid-cols-2">
@@ -1283,62 +1300,9 @@ export function AdminDashboard() {
                 </div>
               </div>
 
-              <form
-                className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  const formData = new FormData(event.currentTarget);
-                  await runAdminAction(
-                    `save-score:${teamView.team.id}`,
-                    async () => {
-                      await api(`/api/admin/teams/${teamView.team.id}/score`, {
-                        method: "PATCH",
-                        body: JSON.stringify({
-                          arrivalRank: formData.get("arrivalRank"),
-                          creativityScore: formData.get("creativityScore"),
-                        }),
-                      });
-                      await loadGame();
-                    },
-                    "Score saved",
-                    `${teamView.team.team_name} scoring was updated.`
-                  );
-                }}
-              >
-                <select
-                  className="h-11 rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
-                  defaultValue={teamView.teamStats.arrival_rank ?? ""}
-                  name="arrivalRank"
-                >
-                  <option value="">No arrival rank</option>
-                  <option value="1">1st</option>
-                  <option value="2">2nd</option>
-                  <option value="3">3rd</option>
-                  <option value="4">4th</option>
-                  <option value="5">5th</option>
-                </select>
-                <Input
-                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                  defaultValue={teamView.teamStats.creativity_score}
-                  max={20}
-                  min={0}
-                  name="creativityScore"
-                  type="number"
-                />
-                <Button
-                  className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:col-span-2 lg:w-auto"
-                  type="submit"
-                >
-                  {pendingAction === `save-score:${teamView.team.id}` ? (
-                    <>
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Score"
-                  )}
-                </Button>
-              </form>
+              <div className="mb-5 rounded-2xl border border-white/8 bg-white/[0.04] p-4 text-sm text-white/56">
+                Scoring is automatic: each challenge starts a 45-minute timer on the first submission, and points decay for later submissions.
+              </div>
 
               <div className="space-y-4">
                 {teamView.challenges.length ? (

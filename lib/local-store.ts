@@ -1,4 +1,10 @@
-import { TEAM_SEED, UNION_STATION } from "@/lib/config";
+import {
+  CHALLENGE_SCORE_MAX_POINTS,
+  CHALLENGE_SCORE_MIN_POINTS,
+  CHALLENGE_SCORE_WINDOW_MINUTES,
+  TEAM_SEED,
+  UNION_STATION,
+} from "@/lib/config";
 import type {
   AdminCheckinFeedItem,
   AdminGameResponse,
@@ -89,7 +95,6 @@ function getState() {
 
 function getMilestones(entry: {
   completed_count: number;
-  arrival_rank: number | null;
   total_challenges: number;
 }) {
   const milestones: string[] = [];
@@ -97,12 +102,26 @@ function getMilestones(entry: {
   if (entry.total_challenges > 0 && entry.completed_count === entry.total_challenges) {
     milestones.push(`All ${entry.total_challenges} Complete`);
   }
-  if (entry.arrival_rank === 1) milestones.push("First to Union");
   return milestones;
 }
 
-function speedPointsForRank(rank: number | null) {
-  return rank === 1 ? 40 : rank === 2 ? 32 : rank === 3 ? 24 : rank === 4 ? 16 : rank === 5 ? 8 : 0;
+function clamp01(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function timingPointsForSubmission(input: {
+  timerStartedAt: string | null;
+  submittedAt: string | null;
+}) {
+  const { timerStartedAt, submittedAt } = input;
+  if (!timerStartedAt || !submittedAt) return 0;
+
+  const windowSeconds = CHALLENGE_SCORE_WINDOW_MINUTES * 60;
+  const deltaSeconds = Math.max(0, (Date.parse(submittedAt) - Date.parse(timerStartedAt)) / 1000);
+  const t = clamp01(deltaSeconds / windowSeconds);
+  const span = CHALLENGE_SCORE_MAX_POINTS - CHALLENGE_SCORE_MIN_POINTS;
+  return Math.max(0, Math.ceil(CHALLENGE_SCORE_MAX_POINTS - t * span));
 }
 
 function getTeamSeed(teamId: number) {
@@ -434,51 +453,71 @@ export function getLocalRecentCheckins(): AdminCheckinFeedItem[] {
 
 export function getLocalLeaderboard(): LeaderboardEntry[] {
   const state = getState();
-  const releasedCount = state.challenges.filter((challenge) => Boolean(challenge.is_released)).length;
+  const releasedChallenges = state.challenges.filter((challenge) => Boolean(challenge.is_released));
+  const releasedCount = releasedChallenges.length;
+  const releasedChallengeIds = new Set(releasedChallenges.map((challenge) => challenge.id));
+  const timerByChallengeId = new Map<number, string | null>(
+    state.challenges.map((challenge) => [challenge.id, challenge.timer_started_at ?? null])
+  );
 
   const scored = state.teams.map((team) => {
-    const score = state.teamScores.find((item) => item.team_id === team.id);
-    const completedCount = state.teamChallengeStatus.filter(
-      (item) => item.team_id === team.id && item.status === "submitted"
-    ).length;
-    const arrivalRank = score?.arrival_rank ?? null;
-    const speedPoints = speedPointsForRank(arrivalRank);
-    const challengePoints = Math.min(completedCount * 8, 40);
-    const creativityScore = Math.max(0, Math.min(20, score?.creativity_score ?? 0));
-    const totalPoints = speedPoints + challengePoints + creativityScore;
+    const statuses = state.teamChallengeStatus.filter(
+      (item) => item.team_id === team.id && releasedChallengeIds.has(item.challenge_id)
+    );
+    const completed = statuses.filter((item) => item.status === "submitted");
+    const completedCount = completed.length;
+    let challengePoints = 0;
+    let lastSubmittedAt: string | null = null;
 
-    return {
+    for (const item of completed) {
+      const submittedAt = item.submitted_at ?? null;
+      if (submittedAt) {
+        if (!lastSubmittedAt || Date.parse(submittedAt) > Date.parse(lastSubmittedAt)) {
+          lastSubmittedAt = submittedAt;
+        }
+      }
+      challengePoints += timingPointsForSubmission({
+        timerStartedAt: timerByChallengeId.get(item.challenge_id) ?? null,
+        submittedAt,
+      });
+    }
+
+    const totalPoints = challengePoints;
+    const maxPoints = releasedCount * CHALLENGE_SCORE_MAX_POINTS;
+    const progressPercent =
+      maxPoints <= 0 ? 4 : Math.max(6, Math.min(100, Math.round((totalPoints / maxPoints) * 100)));
+
+    const entry: Omit<LeaderboardEntry, "leaderboard_rank"> = {
       id: team.id,
       team_name: team.team_name,
       start_location_name: team.start_location_name,
       walk_time: team.walk_time,
       color: team.color,
       badge_label: team.badge_label,
-      arrival_rank: arrivalRank,
       completed_count: completedCount,
-      speed_points: speedPoints,
       challenge_points: challengePoints,
-      creativity_score: creativityScore,
       total_points: totalPoints,
       released_count: releasedCount,
-      progress_percent:
-        releasedCount === 0 ? 4 : Math.max(10, Math.min(100, Math.round(totalPoints))),
+      progress_percent: progressPercent,
       milestones: getMilestones({
         completed_count: completedCount,
-        arrival_rank: arrivalRank,
         total_challenges: state.challenges.length,
       }),
       total_challenges: state.challenges.length,
     };
+    return { entry, lastSubmittedAt };
   });
 
   scored.sort((a, b) => {
-    if (b.total_points !== a.total_points) return b.total_points - a.total_points;
-    if (b.creativity_score !== a.creativity_score) return b.creativity_score - a.creativity_score;
-    return (a.arrival_rank ?? Number.MAX_SAFE_INTEGER) - (b.arrival_rank ?? Number.MAX_SAFE_INTEGER);
+    if (b.entry.total_points !== a.entry.total_points) return b.entry.total_points - a.entry.total_points;
+    if (b.entry.completed_count !== a.entry.completed_count) return b.entry.completed_count - a.entry.completed_count;
+    const aLast = a.lastSubmittedAt ? Date.parse(a.lastSubmittedAt) : Number.POSITIVE_INFINITY;
+    const bLast = b.lastSubmittedAt ? Date.parse(b.lastSubmittedAt) : Number.POSITIVE_INFINITY;
+    if (aLast !== bLast) return aLast - bLast;
+    return a.entry.id - b.entry.id;
   });
 
-  return scored.map((row, index) => ({ ...row, leaderboard_rank: index + 1 }));
+  return scored.map(({ entry }, index) => ({ ...entry, leaderboard_rank: index + 1 }));
 }
 
 export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | null {
@@ -552,7 +591,6 @@ export function getLocalAdminGame(): AdminGameResponse {
       .map((team) => deriveAdminTeamRoute(team.id))
       .filter(Boolean) as AdminTeamRoute[],
     recentCheckins: getLocalRecentCheckins(),
-    scores: state.teamScores.map((score) => ({ ...score })),
     leaderboard: getLocalLeaderboard(),
     pins: {
       admin_hint: "Using local fallback store",
@@ -583,6 +621,7 @@ export function createLocalChallenge(
     text: text.slice(0, 500),
     expected_location: expectedLocation.slice(0, 160),
     allow_media_upload: allowMediaUpload ? 1 : 0,
+    timer_started_at: null,
     is_released: 0,
   };
 
@@ -620,6 +659,9 @@ export function updateLocalChallengeRelease(challengeId: number, isReleased: boo
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.is_released = isReleased ? 1 : 0;
+  if (!isReleased) {
+    challenge.timer_started_at = null;
+  }
 }
 
 export function updateLocalChallengeSubmission(
@@ -634,7 +676,14 @@ export function updateLocalChallengeSubmission(
   if (!item) return;
   item.status = status;
   item.proof_note = proofNote.slice(0, 500);
-  item.submitted_at = status === "submitted" ? new Date().toISOString() : null;
+  const submittedAt = status === "submitted" ? new Date().toISOString() : null;
+  item.submitted_at = submittedAt;
+  if (status === "submitted") {
+    const challenge = getState().challenges.find((entry) => entry.id === challengeId);
+    if (challenge && !challenge.timer_started_at) {
+      challenge.timer_started_at = submittedAt;
+    }
+  }
   if (status === "not_started") {
     item.review_status = "pending";
     item.review_note = "";
