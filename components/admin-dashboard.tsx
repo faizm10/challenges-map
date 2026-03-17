@@ -97,34 +97,40 @@ export function AdminDashboard() {
   if (!game) {
     return (
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
-        <Card className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-start">
+        <Card className="grid gap-6 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:grid-cols-[1fr_360px] lg:items-start">
           <div className="space-y-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               HQ Admin
             </p>
-            <h1 className="max-w-[10ch] font-serif text-5xl leading-none sm:text-6xl">
+            <h1 className="max-w-[10ch] font-serif text-5xl leading-none text-white sm:text-6xl">
               Control the chaos.
             </h1>
-            <p className="max-w-2xl text-base text-muted-foreground">
-              HQ unlocks the control room with the admin name and PIN from
-              Supabase, edits the challenge pack, releases tasks one by one, and
-              scores each team.
+            <p className="max-w-2xl text-base leading-7 text-white/58">
+              HQ unlocks the control room, edits the challenge pack, releases prompts
+              one by one, and scores each team live.
             </p>
-            <Button asChild variant="secondary">
+            <Button
+              asChild
+              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              variant="secondary"
+            >
               <Link href="/">Back to Leaderboard</Link>
             </Button>
           </div>
 
-          <Card className="rounded-[24px] bg-white/90 p-5">
+          <Card className="rounded-[28px] border-white/8 bg-white/[0.04] p-5 text-white">
             <CardHeader className="p-0">
-              <CardTitle className="text-2xl">Admin PIN</CardTitle>
-              <CardDescription>Hardcoded for v1. HQ only.</CardDescription>
+              <CardTitle className="text-2xl text-white">HQ Unlock</CardTitle>
+              <CardDescription className="text-white/48">
+                Admin name and PIN only. No public access.
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0 pt-5">
               <form className="space-y-4" onSubmit={onLogin}>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Admin name</label>
+                  <label className="text-sm font-medium text-white/72">Admin name</label>
                   <Input
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
                     type="text"
                     value={adminName}
                     onChange={(event) => setAdminName(event.target.value)}
@@ -133,8 +139,9 @@ export function AdminDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Enter admin PIN</label>
+                  <label className="text-sm font-medium text-white/72">Enter admin PIN</label>
                   <Input
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
                     type="password"
                     value={pin}
                     onChange={(event) => setPin(event.target.value)}
@@ -142,10 +149,10 @@ export function AdminDashboard() {
                     required
                   />
                 </div>
-                <Button className="w-full" type="submit">
+                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400" type="submit">
                   Unlock HQ Dashboard
                 </Button>
-                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {error ? <p className="text-sm text-red-400">{error}</p> : null}
               </form>
             </CardContent>
           </Card>
@@ -156,23 +163,30 @@ export function AdminDashboard() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
-      <Card className="grid gap-5">
+      <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               HQ Dashboard
             </p>
-            <h1 className="font-serif text-4xl">Release challenges, review proof, score teams.</h1>
-            <p className="max-w-3xl text-muted-foreground">
-              All changes write directly to the shared SQLite state and show up on
-              team dashboards plus the public leaderboard after polling.
+            <h1 className="font-serif text-4xl text-white">
+              Release challenges, review proof, score teams.
+            </h1>
+            <p className="max-w-3xl text-white/56">
+              All changes write to the shared game state and update team dashboards
+              plus the public leaderboard after polling.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="secondary">
+            <Button
+              asChild
+              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              variant="secondary"
+            >
               <Link href="/">Leaderboard</Link>
             </Button>
             <Button
+              className="bg-red-500/90 text-white hover:bg-red-500"
               variant="destructive"
               onClick={() =>
                 runAdminAction(
@@ -187,58 +201,67 @@ export function AdminDashboard() {
             >
               Reset Game
             </Button>
-            <Button variant="ghost" onClick={onLogout}>
+            <Button
+              className="text-white/72 hover:bg-white/6 hover:text-white"
+              variant="ghost"
+              onClick={onLogout}
+            >
               Log Out
             </Button>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Released
             </p>
-            <p className="text-2xl font-semibold">
+            <p className="text-2xl font-semibold text-white">
               {game.challenges.filter((challenge) => challenge.is_released).length}/5
             </p>
           </div>
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Leader
             </p>
-            <p className="text-2xl font-semibold">
+            <p className="text-2xl font-semibold text-white">
               {game.leaderboard[0]?.team_name ?? "TBD"}
             </p>
           </div>
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Team Pins
             </p>
-            <p className="text-2xl font-semibold">{game.pins.team_pin_count}</p>
+            <p className="text-2xl font-semibold text-white">{game.pins.team_pin_count}</p>
           </div>
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Finish
             </p>
-            <p className="text-xl font-semibold">Union Front Street</p>
+            <p className="text-xl font-semibold text-white">Union Front Street</p>
           </div>
         </div>
       </Card>
 
-      <Card>
+      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-3xl">Challenge Control</CardTitle>
-          <CardDescription>Edit the five prompts and release them one by one.</CardDescription>
+          <CardTitle className="text-3xl text-white">Challenge Control</CardTitle>
+          <CardDescription className="text-white/52">
+            Edit the five prompts and release them one by one.
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-2">
           {game.challenges.map((challenge) => (
-            <Card key={challenge.id} className="rounded-[24px] border border-border/80 bg-white/75 p-5">
+            <Card
+              key={challenge.id}
+              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
+            >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
                     Challenge {challenge.challenge_order}
                   </p>
-                  <h3 className="text-xl font-semibold">{challenge.title}</h3>
+                  <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
                 </div>
                 <Badge variant={challenge.is_released ? "success" : "warning"}>
                   {challenge.is_released ? "Released" : "Hidden"}
@@ -266,11 +289,22 @@ export function AdminDashboard() {
                   );
                 }}
               >
-                <Input name="title" defaultValue={challenge.title} />
-                <Textarea name="text" defaultValue={challenge.text} />
+                <Input
+                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                  name="title"
+                  defaultValue={challenge.title}
+                />
+                <Textarea
+                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                  name="text"
+                  defaultValue={challenge.text}
+                />
                 <div className="flex flex-wrap gap-3">
-                  <Button type="submit">Save Challenge</Button>
+                  <Button className="bg-orange-500 text-black hover:bg-orange-400" type="submit">
+                    Save Challenge
+                  </Button>
                   <Button
+                    className="border-white/10 bg-white/5 text-white hover:bg-white/10"
                     type="button"
                     variant="secondary"
                     onClick={() =>
@@ -298,14 +332,19 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-3xl">Team Review and Scoring</CardTitle>
-          <CardDescription>Review proof notes, assign arrival ranks, and award creativity points.</CardDescription>
+          <CardTitle className="text-3xl text-white">Team Review and Scoring</CardTitle>
+          <CardDescription className="text-white/52">
+            Review proof notes, assign arrival ranks, and award creativity points.
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 xl:grid-cols-2">
           {game.teams.map((teamView) => (
-            <Card key={teamView.team.id} className="rounded-[24px] border border-border/80 bg-white/75 p-5">
+            <Card
+              key={teamView.team.id}
+              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
+            >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex flex-wrap gap-2">
@@ -316,12 +355,12 @@ export function AdminDashboard() {
                     >
                       {teamView.team.badge_label}
                     </Badge>
-                    <Badge variant="secondary">
+                    <Badge className="border-white/10 bg-white/8 text-white/82" variant="secondary">
                       #{teamView.teamStats.leaderboard_rank} · {teamView.teamStats.total_points} pts
                     </Badge>
                   </div>
-                  <h3 className="text-xl font-semibold">{teamView.team.team_name}</h3>
-                  <p className="text-sm text-muted-foreground">{teamView.team.route_summary}</p>
+                  <h3 className="text-xl font-semibold text-white">{teamView.team.team_name}</h3>
+                  <p className="text-sm leading-7 text-white/54">{teamView.team.route_summary}</p>
                 </div>
               </div>
 
@@ -347,7 +386,7 @@ export function AdminDashboard() {
                 }}
               >
                 <select
-                  className="h-11 rounded-2xl border border-border bg-white/90 px-4 text-sm"
+                  className="h-11 rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
                   name="arrivalRank"
                   defaultValue={teamView.teamStats.arrival_rank ?? ""}
                 >
@@ -359,13 +398,16 @@ export function AdminDashboard() {
                   <option value="5">5th</option>
                 </select>
                 <Input
+                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
                   min={0}
                   max={20}
                   name="creativityScore"
                   type="number"
                   defaultValue={teamView.teamStats.creativity_score}
                 />
-                <Button type="submit">Save Score</Button>
+                <Button className="bg-orange-500 text-black hover:bg-orange-400" type="submit">
+                  Save Score
+                </Button>
               </form>
 
               <div className="space-y-3">
@@ -373,23 +415,23 @@ export function AdminDashboard() {
                   teamView.challenges.map((challenge) => (
                     <div
                       key={challenge.id}
-                      className="rounded-2xl border border-border/80 bg-white/80 p-4"
+                      className="rounded-2xl border border-white/8 bg-white/[0.06] p-4"
                     >
                       <div className="mb-2 flex items-center justify-between gap-3">
-                        <strong>
+                        <strong className="text-white">
                           {challenge.challenge_order}. {challenge.title}
                         </strong>
                         <Badge variant={challenge.status === "submitted" ? "success" : "warning"}>
                           {challenge.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm leading-7 text-white/56">
                         {challenge.proof_note || "No proof note submitted."}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No released challenges for this team yet.</p>
+                  <p className="text-sm text-white/46">No released challenges for this team yet.</p>
                 )}
               </div>
             </Card>

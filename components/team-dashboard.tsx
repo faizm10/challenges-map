@@ -95,33 +95,40 @@ export function TeamDashboard() {
   if (!dashboard) {
     return (
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
-        <Card className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-start">
+        <Card className="grid gap-6 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:grid-cols-[1fr_360px] lg:items-start">
           <div className="space-y-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Team Access
             </p>
-            <h1 className="max-w-[10ch] font-serif text-5xl leading-none sm:text-6xl">
+            <h1 className="max-w-[10ch] font-serif text-5xl leading-none text-white sm:text-6xl">
               Your route. Your challenge queue.
             </h1>
-            <p className="max-w-2xl text-base text-muted-foreground">
-              Enter the team name and PIN stored in Supabase to unlock only your
-              dashboard, released challenges, proof-note submission, and live standings.
+            <p className="max-w-2xl text-base leading-7 text-white/58">
+              Enter your team name and PIN to unlock your race dashboard, released
+              challenges, proof-note submissions, and live standings.
             </p>
-            <Button asChild variant="secondary">
+            <Button
+              asChild
+              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              variant="secondary"
+            >
               <Link href="/">Back to Leaderboard</Link>
             </Button>
           </div>
 
-          <Card className="rounded-[24px] bg-white/90 p-5">
+          <Card className="rounded-[28px] border-white/8 bg-white/[0.04] p-5 text-white">
             <CardHeader className="p-0">
-              <CardTitle className="text-2xl">Team PIN</CardTitle>
-              <CardDescription>Hardcoded for v1. One PIN unlocks one team.</CardDescription>
+              <CardTitle className="text-2xl text-white">Team Unlock</CardTitle>
+              <CardDescription className="text-white/48">
+                One team name and PIN unlocks one dashboard.
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0 pt-5">
               <form className="space-y-4" onSubmit={onLogin}>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Team name</label>
+                  <label className="text-sm font-medium text-white/72">Team name</label>
                   <Input
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
                     type="text"
                     value={teamName}
                     onChange={(event) => setTeamName(event.target.value)}
@@ -130,8 +137,9 @@ export function TeamDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Enter team PIN</label>
+                  <label className="text-sm font-medium text-white/72">Enter team PIN</label>
                   <Input
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
                     type="password"
                     value={pin}
                     onChange={(event) => setPin(event.target.value)}
@@ -139,10 +147,10 @@ export function TeamDashboard() {
                     required
                   />
                 </div>
-                <Button className="w-full" type="submit">
+                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400" type="submit">
                   Unlock Team Dashboard
                 </Button>
-                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {error ? <p className="text-sm text-red-400">{error}</p> : null}
               </form>
             </CardContent>
           </Card>
@@ -153,58 +161,70 @@ export function TeamDashboard() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-7 md:px-6 md:py-8">
-      <Card className="grid gap-5">
+      <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{dashboard.team.badge_label}</Badge>
-              <Badge variant="secondary">{dashboard.team.start_location_name}</Badge>
+              <Badge className="border-white/10 bg-white/8 text-white/88" variant="secondary">
+                {dashboard.team.badge_label}
+              </Badge>
+              <Badge className="border-white/10 bg-white/8 text-white/72" variant="secondary">
+                {dashboard.team.start_location_name}
+              </Badge>
             </div>
-            <h1 className="font-serif text-4xl">{dashboard.team.team_name}</h1>
-            <p className="max-w-3xl text-muted-foreground">{dashboard.team.route_summary}</p>
+            <h1 className="font-serif text-4xl text-white sm:text-5xl">{dashboard.team.team_name}</h1>
+            <p className="max-w-3xl text-lg leading-8 text-white/56">{dashboard.team.route_summary}</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="secondary">
+            <Button
+              asChild
+              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              variant="secondary"
+            >
               <Link href="/">Leaderboard</Link>
             </Button>
-            <Button variant="ghost" onClick={onLogout}>
+            <Button
+              className="text-white/72 hover:bg-white/6 hover:text-white"
+              variant="ghost"
+              onClick={onLogout}
+            >
               Log Out
             </Button>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Walk Time
             </p>
-            <p className="text-2xl font-semibold">{dashboard.team.walk_time}</p>
+            <p className="text-2xl font-semibold text-white">{dashboard.team.walk_time}</p>
           </div>
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Rank
             </p>
-            <p className="text-2xl font-semibold">#{dashboard.teamStats.leaderboard_rank}</p>
+            <p className="text-2xl font-semibold text-white">#{dashboard.teamStats.leaderboard_rank}</p>
           </div>
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Challenge Points
             </p>
-            <p className="text-2xl font-semibold">{dashboard.teamStats.challenge_points}</p>
+            <p className="text-2xl font-semibold text-white">{dashboard.teamStats.challenge_points}</p>
           </div>
-          <div className="rounded-[24px] bg-white/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
               Total
             </p>
-            <p className="text-2xl font-semibold">{dashboard.teamStats.total_points}</p>
+            <p className="text-2xl font-semibold text-white">{dashboard.teamStats.total_points}</p>
           </div>
         </div>
       </Card>
 
-      <Card>
+      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-3xl">Released Challenges</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-3xl text-white">Released Challenges</CardTitle>
+          <CardDescription className="text-white/52">
             Teams can only submit proof notes for challenges HQ has already released.
           </CardDescription>
         </CardHeader>
@@ -213,20 +233,20 @@ export function TeamDashboard() {
             dashboard.challenges.map((challenge) => (
               <Card
                 key={challenge.id}
-                className="rounded-[24px] border border-border/80 bg-white/75 p-5"
+                className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
               >
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
                       Challenge {challenge.challenge_order}
                     </p>
-                    <h3 className="text-xl font-semibold">{challenge.title}</h3>
+                    <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
                   </div>
                   <Badge variant={challenge.status === "submitted" ? "success" : "warning"}>
                     {challenge.status === "submitted" ? "Submitted" : "Not started"}
                   </Badge>
                 </div>
-                <p className="mb-4 text-sm text-muted-foreground">{challenge.text}</p>
+                <p className="mb-4 text-sm leading-7 text-white/58">{challenge.text}</p>
                 <form
                   className="space-y-3"
                   onSubmit={(event) => {
@@ -236,14 +256,19 @@ export function TeamDashboard() {
                   }}
                 >
                   <Textarea
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
                     name="proofNote"
                     defaultValue={challenge.proof_note}
                     placeholder="Paste a proof note or external video/photo link for HQ."
                   />
-                  <Button disabled={savingId === challenge.id} type="submit">
+                  <Button
+                    className="bg-orange-500 text-black hover:bg-orange-400"
+                    disabled={savingId === challenge.id}
+                    type="submit"
+                  >
                     {savingId === challenge.id ? "Saving..." : "Submit / Update"}
                   </Button>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-white/42">
                     {challenge.submitted_at
                       ? `Last submitted ${new Date(challenge.submitted_at).toLocaleString()}`
                       : "No proof submitted yet."}
@@ -252,17 +277,19 @@ export function TeamDashboard() {
               </Card>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">
-              HQ has not released any challenges yet.
+            <p className="text-sm text-white/46">
+              No live drops yet. HQ has not released any challenges.
             </p>
           )}
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-3xl">Live Leaderboard</CardTitle>
-          <CardDescription>Public standings update every few seconds.</CardDescription>
+          <CardTitle className="text-3xl text-white">Live Leaderboard</CardTitle>
+          <CardDescription className="text-white/52">
+            Public standings refresh every few seconds.
+          </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
