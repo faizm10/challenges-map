@@ -1,7 +1,5 @@
 import {
-  CHALLENGE_SCORE_MAX_POINTS,
-  CHALLENGE_SCORE_MIN_POINTS,
-  CHALLENGE_SCORE_WINDOW_MINUTES,
+  CHALLENGE_SUBMISSION_RANK_POINTS,
   TEAM_SEED,
   UNION_STATION,
 } from "@/lib/config";
@@ -43,6 +41,7 @@ type LocalState = {
     challenge_id: number;
     status: "not_started" | "submitted";
     proof_note: string;
+    awarded_points: number;
     submitted_at: string | null;
     review_status: "pending" | "verified" | "rejected";
     review_note: string;
@@ -105,23 +104,8 @@ function getMilestones(entry: {
   return milestones;
 }
 
-function clamp01(value: number) {
-  if (Number.isNaN(value)) return 0;
-  return Math.max(0, Math.min(1, value));
-}
-
-function timingPointsForSubmission(input: {
-  timerStartedAt: string | null;
-  submittedAt: string | null;
-}) {
-  const { timerStartedAt, submittedAt } = input;
-  if (!timerStartedAt || !submittedAt) return 0;
-
-  const windowSeconds = CHALLENGE_SCORE_WINDOW_MINUTES * 60;
-  const deltaSeconds = Math.max(0, (Date.parse(submittedAt) - Date.parse(timerStartedAt)) / 1000);
-  const t = clamp01(deltaSeconds / windowSeconds);
-  const span = CHALLENGE_SCORE_MAX_POINTS - CHALLENGE_SCORE_MIN_POINTS;
-  return Math.max(0, Math.ceil(CHALLENGE_SCORE_MAX_POINTS - t * span));
+function pointsForSubmissionRank(rank: number) {
+  return CHALLENGE_SUBMISSION_RANK_POINTS[rank] ?? 0;
 }
 
 function getTeamSeed(teamId: number) {
@@ -456,9 +440,6 @@ export function getLocalLeaderboard(): LeaderboardEntry[] {
   const releasedChallenges = state.challenges.filter((challenge) => Boolean(challenge.is_released));
   const releasedCount = releasedChallenges.length;
   const releasedChallengeIds = new Set(releasedChallenges.map((challenge) => challenge.id));
-  const timerByChallengeId = new Map<number, string | null>(
-    state.challenges.map((challenge) => [challenge.id, challenge.timer_started_at ?? null])
-  );
 
   const scored = state.teams.map((team) => {
     const statuses = state.teamChallengeStatus.filter(
@@ -476,14 +457,11 @@ export function getLocalLeaderboard(): LeaderboardEntry[] {
           lastSubmittedAt = submittedAt;
         }
       }
-      challengePoints += timingPointsForSubmission({
-        timerStartedAt: timerByChallengeId.get(item.challenge_id) ?? null,
-        submittedAt,
-      });
+      challengePoints += Number(item.awarded_points ?? 0);
     }
 
     const totalPoints = challengePoints;
-    const maxPoints = releasedCount * CHALLENGE_SCORE_MAX_POINTS;
+    const maxPoints = releasedCount * pointsForSubmissionRank(0);
     const progressPercent =
       maxPoints <= 0 ? 4 : Math.max(6, Math.min(100, Math.round((totalPoints / maxPoints) * 100)));
 
@@ -541,6 +519,7 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
       is_unlocked: isUnlocked,
       status: status?.status ?? "not_started",
       proof_note: status?.proof_note ?? "",
+      awarded_points: Number(status?.awarded_points ?? 0),
       submitted_at: status?.submitted_at ?? null,
       review_status: status?.review_status ?? "pending",
       review_note: status?.review_note ?? "",
@@ -621,7 +600,6 @@ export function createLocalChallenge(
     text: text.slice(0, 500),
     expected_location: expectedLocation.slice(0, 160),
     allow_media_upload: allowMediaUpload ? 1 : 0,
-    timer_started_at: null,
     is_released: 0,
   };
 
@@ -632,6 +610,7 @@ export function createLocalChallenge(
       challenge_id: id,
       status: "not_started" as const,
       proof_note: "",
+      awarded_points: 0,
       submitted_at: null,
       review_status: "pending" as const,
       review_note: "",
@@ -659,9 +638,6 @@ export function updateLocalChallengeRelease(challengeId: number, isReleased: boo
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.is_released = isReleased ? 1 : 0;
-  if (!isReleased) {
-    challenge.timer_started_at = null;
-  }
 }
 
 export function updateLocalChallengeSubmission(
@@ -685,13 +661,8 @@ export function updateLocalChallengeSubmission(
         : new Date().toISOString()
       : null;
   item.submitted_at = submittedAt;
-  if (status === "submitted") {
-    const challenge = getState().challenges.find((entry) => entry.id === challengeId);
-    if (challenge && !challenge.timer_started_at) {
-      challenge.timer_started_at = submittedAt;
-    }
-  }
   if (status === "not_started") {
+    item.awarded_points = 0;
     item.review_status = "pending";
     item.review_note = "";
     item.reviewed_at = null;
@@ -757,8 +728,27 @@ export function updateLocalChallengeReview(
   if (!item) return;
   item.review_status = reviewStatus;
   item.review_note = reviewNote.slice(0, 500);
+  item.awarded_points = 0;
   item.reviewed_at = reviewStatus === "pending" ? null : new Date().toISOString();
   item.reviewed_by = reviewStatus === "pending" ? null : reviewedBy;
+
+  const challengeRows = getState().teamChallengeStatus
+    .filter(
+      (entry) =>
+        entry.challenge_id === challengeId &&
+        entry.status === "submitted" &&
+        entry.review_status === "verified" &&
+        Boolean(entry.submitted_at)
+    )
+    .sort((a, b) => {
+      const timeDiff = Date.parse(a.submitted_at as string) - Date.parse(b.submitted_at as string);
+      if (timeDiff !== 0) return timeDiff;
+      return a.team_id - b.team_id;
+    });
+
+  challengeRows.forEach((entry, index) => {
+    entry.awarded_points = pointsForSubmissionRank(index);
+  });
 }
 
 export function createLocalCheckin(input: {

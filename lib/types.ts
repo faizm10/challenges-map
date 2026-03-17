@@ -31,7 +31,6 @@ export type Challenge = {
   text: string;
   expected_location: string;
   allow_media_upload: number;
-  timer_started_at: string | null;
   is_released: number;
 };
 
@@ -46,6 +45,7 @@ export type TeamChallengeStatus = {
   is_unlocked: boolean;
   status: "not_started" | "submitted";
   proof_note: string;
+  awarded_points: number;
   submitted_at: string | null;
   review_status: "pending" | "verified" | "rejected";
   review_note: string;

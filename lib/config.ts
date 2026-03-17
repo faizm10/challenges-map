@@ -6,10 +6,7 @@ export const CHALLENGE_PROOF_BUCKET = "challenge-proof";
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const MAX_FILES_PER_UPLOAD_REQUEST = 10;
 export const MAX_CHALLENGES = 5;
-
-export const CHALLENGE_SCORE_MAX_POINTS = 10;
-export const CHALLENGE_SCORE_MIN_POINTS = 2;
-export const CHALLENGE_SCORE_WINDOW_MINUTES = 45;
+export const CHALLENGE_SUBMISSION_RANK_POINTS = [10, 8, 4, 2] as const;
 
 export const UNION_STATION = {
   name: "Union Station",

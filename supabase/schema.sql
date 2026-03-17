@@ -43,6 +43,7 @@ create table if not exists public.team_challenge_status (
   challenge_id bigint not null references public.challenges(id) on delete cascade,
   status text not null default 'not_started' check (status in ('not_started', 'submitted')),
   proof_note text not null default '',
+  awarded_points integer not null default 0,
   submitted_at timestamptz,
   review_status text not null default 'pending' check (review_status in ('pending', 'verified', 'rejected')),
   review_note text not null default '',
@@ -50,6 +51,9 @@ create table if not exists public.team_challenge_status (
   reviewed_by text,
   primary key (team_id, challenge_id)
 );
+
+alter table public.team_challenge_status
+  add column if not exists awarded_points integer not null default 0;
 
 create table if not exists public.challenge_media (
   id bigint generated always as identity primary key,

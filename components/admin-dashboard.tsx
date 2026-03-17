@@ -21,7 +21,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 import { Textarea } from "@/components/ui/textarea";
-import { CHALLENGE_SCORE_WINDOW_MINUTES } from "@/lib/config";
 import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -750,20 +749,7 @@ export function AdminDashboard() {
                   </div>
                   <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
                   <p className="mt-2 text-xs text-white/52">
-                    {!challenge.is_released ? (
-                      "Timer: hidden"
-                    ) : !challenge.timer_started_at ? (
-                      "Timer: not started"
-                    ) : (() => {
-                        const remainingSeconds =
-                          CHALLENGE_SCORE_WINDOW_MINUTES * 60 -
-                          (Date.now() - Date.parse(challenge.timer_started_at)) / 1000;
-                        if (remainingSeconds <= 0) return "Timer: ended";
-                        return `Timer: ${Math.ceil(remainingSeconds / 60)}m left`;
-                      })()}
-                    {challenge.timer_started_at
-                      ? ` · first submit ${new Date(challenge.timer_started_at).toLocaleTimeString()}`
-                      : ""}
+                    Submission rank points: 10, 8, 4, 2, then 0.
                   </p>
                 </div>
                 <Badge variant={challenge.is_released ? "success" : "warning"}>

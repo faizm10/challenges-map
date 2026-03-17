@@ -1,9 +1,7 @@
 import {
   MAX_CHALLENGES,
   CHALLENGE_PROOF_BUCKET,
-  CHALLENGE_SCORE_MAX_POINTS,
-  CHALLENGE_SCORE_MIN_POINTS,
-  CHALLENGE_SCORE_WINDOW_MINUTES,
+  CHALLENGE_SUBMISSION_RANK_POINTS,
   MAX_FILES_PER_UPLOAD_REQUEST,
   MAX_UPLOAD_BYTES,
   TEAM_SEED,
@@ -71,6 +69,7 @@ type StatusRow = {
   challenge_id: number;
   status: "not_started" | "submitted";
   proof_note: string;
+  awarded_points: number;
   submitted_at: string | null;
   review_status: "pending" | "verified" | "rejected";
   review_note: string;
@@ -94,24 +93,8 @@ function getMilestones(entry: {
   return milestones;
 }
 
-function clamp01(value: number) {
-  if (Number.isNaN(value)) return 0;
-  return Math.max(0, Math.min(1, value));
-}
-
-function timingPointsForSubmission(input: {
-  timerStartedAt: string | null;
-  submittedAt: string | null;
-}) {
-  const { timerStartedAt, submittedAt } = input;
-  if (!timerStartedAt || !submittedAt) return 0;
-
-  const deltaSeconds = Math.max(0, (Date.parse(submittedAt) - Date.parse(timerStartedAt)) / 1000);
-  const windowSeconds = CHALLENGE_SCORE_WINDOW_MINUTES * 60;
-  const t = clamp01(deltaSeconds / windowSeconds);
-  const span = CHALLENGE_SCORE_MAX_POINTS - CHALLENGE_SCORE_MIN_POINTS;
-  const points = Math.ceil(CHALLENGE_SCORE_MAX_POINTS - t * span);
-  return Math.max(0, points);
+function pointsForSubmissionRank(rank: number) {
+  return CHALLENGE_SUBMISSION_RANK_POINTS[rank] ?? 0;
 }
 
 function sanitizeFileName(name: string) {
@@ -156,15 +139,6 @@ async function requireChallengeMediaEnabled(challengeId: number) {
   if (!challenge.allow_media_upload) {
     throw new GameError("Media upload is disabled for this challenge.", 409);
   }
-}
-
-async function maybeStartChallengeTimer(challengeId: number, startedAt: string) {
-  const { error } = await supabase
-    .from("challenges")
-    .update({ timer_started_at: startedAt })
-    .eq("id", challengeId)
-    .is("timer_started_at", null);
-  if (error) throw error;
 }
 
 function normalizeCheckinRow(row: CheckinRow): TeamCheckin {
@@ -494,7 +468,7 @@ async function getChallengeStatusRow(teamId: number, challengeId: number): Promi
   const { data, error } = await supabase
     .from("team_challenge_status")
     .select(
-      "team_id, challenge_id, status, proof_note, submitted_at, review_status, review_note, reviewed_at, reviewed_by"
+      "team_id, challenge_id, status, proof_note, awarded_points, submitted_at, review_status, review_note, reviewed_at, reviewed_by"
     )
     .eq("team_id", teamId)
     .eq("challenge_id", challengeId)
@@ -502,6 +476,49 @@ async function getChallengeStatusRow(teamId: number, challengeId: number): Promi
 
   if (error) throw error;
   return (data as StatusRow | null) ?? null;
+}
+
+async function recalculateChallengeAwardedPoints(challengeId: number) {
+  const { data, error } = await supabase
+    .from("team_challenge_status")
+    .select("team_id, challenge_id, status, awarded_points, submitted_at, review_status")
+    .eq("challenge_id", challengeId);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<{
+    team_id: number;
+    challenge_id: number;
+    status: "not_started" | "submitted";
+    awarded_points: number;
+    submitted_at: string | null;
+    review_status: "pending" | "verified" | "rejected";
+  }>;
+
+  const nextPoints = new Map<number, number>();
+
+  rows
+    .filter(
+      (row) => row.status === "submitted" && row.review_status === "verified" && Boolean(row.submitted_at)
+    )
+    .sort((a, b) => {
+      const timeDiff = Date.parse(a.submitted_at as string) - Date.parse(b.submitted_at as string);
+      if (timeDiff !== 0) return timeDiff;
+      return Number(a.team_id) - Number(b.team_id);
+    })
+    .forEach((row, index) => {
+      nextPoints.set(Number(row.team_id), pointsForSubmissionRank(index));
+    });
+
+  await Promise.all(
+    rows.map((row) =>
+      supabase
+        .from("team_challenge_status")
+        .update({ awarded_points: nextPoints.get(Number(row.team_id)) ?? 0 })
+        .eq("team_id", Number(row.team_id))
+        .eq("challenge_id", challengeId)
+    )
+  );
 }
 
 async function hasChallengeCheckin(teamId: number, challengeId: number) {
@@ -709,9 +726,7 @@ export async function getChallenges(includeHidden = true): Promise<Challenge[]> 
   try {
     let query = supabase
       .from("challenges")
-      .select(
-        "id, challenge_order, title, text, expected_location, allow_media_upload, timer_started_at, is_released"
-      )
+      .select("id, challenge_order, title, text, expected_location, allow_media_upload, is_released")
       .order("challenge_order", { ascending: true });
 
     if (!includeHidden) {
@@ -946,12 +961,12 @@ export async function getPublicMapData(): Promise<PublicMapResponse> {
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   try {
     const [challengesResult, teamsResult, statusResult] = await Promise.all([
-      supabase.from("challenges").select("id, is_released, timer_started_at"),
+      supabase.from("challenges").select("id, is_released"),
       supabase
         .from("teams")
         .select("id, team_name, start_location_name, walk_time, color, badge_label")
         .order("id", { ascending: true }),
-      supabase.from("team_challenge_status").select("team_id, challenge_id, status, submitted_at"),
+      supabase.from("team_challenge_status").select("team_id, challenge_id, status, awarded_points, submitted_at, review_status"),
     ]);
 
     if (challengesResult.error) throw challengesResult.error;
@@ -969,13 +984,9 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     const challenges = (challengesResult.data ?? []) as Array<{
       id: number;
       is_released: boolean;
-      timer_started_at: string | null;
     }>;
     const releasedChallengeIds = new Set(
       challenges.filter((item) => Boolean(item.is_released)).map((item) => Number(item.id))
-    );
-    const timerByChallengeId = new Map<number, string | null>(
-      challenges.map((item) => [Number(item.id), item.timer_started_at ?? null])
     );
     const totalChallenges = challenges.length;
     const releasedCount = challenges.filter((item) => Boolean(item.is_released)).length;
@@ -984,16 +995,26 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
       team_id: number;
       challenge_id: number;
       status: string;
+      awarded_points: number;
       submitted_at: string | null;
+      review_status: "pending" | "verified" | "rejected";
     }>;
-    const statusesByTeam = new Map<number, Array<{ challenge_id: number; status: string; submitted_at: string | null }>>();
+    const statusesByTeam = new Map<number, Array<{
+      challenge_id: number;
+      status: string;
+      awarded_points: number;
+      submitted_at: string | null;
+      review_status: "pending" | "verified" | "rejected";
+    }>>();
     for (const row of statusRows) {
       if (!releasedChallengeIds.has(Number(row.challenge_id))) continue;
       const current = statusesByTeam.get(Number(row.team_id)) ?? [];
       current.push({
         challenge_id: Number(row.challenge_id),
         status: row.status,
+        awarded_points: Number(row.awarded_points ?? 0),
         submitted_at: row.submitted_at ?? null,
+        review_status: row.review_status,
       });
       statusesByTeam.set(Number(row.team_id), current);
     }
@@ -1012,14 +1033,11 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
             lastSubmittedAt = submittedAt;
           }
         }
-        challengePoints += timingPointsForSubmission({
-          timerStartedAt: timerByChallengeId.get(item.challenge_id) ?? null,
-          submittedAt,
-        });
+        challengePoints += Number(item.awarded_points ?? 0);
       }
 
       const totalPoints = challengePoints;
-      const maxPoints = releasedCount * CHALLENGE_SCORE_MAX_POINTS;
+      const maxPoints = releasedCount * pointsForSubmissionRank(0);
       const progressPercent =
         maxPoints <= 0 ? 4 : Math.max(6, Math.min(100, Math.round((totalPoints / maxPoints) * 100)));
 
@@ -1075,7 +1093,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
         supabase
           .from("team_challenge_status")
           .select(
-            "challenge_id, status, proof_note, submitted_at, review_status, review_note, reviewed_at, reviewed_by"
+            "challenge_id, status, proof_note, awarded_points, submitted_at, review_status, review_note, reviewed_at, reviewed_by"
           )
           .eq("team_id", teamId),
         getTeamUploads(teamId),
@@ -1094,6 +1112,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
         challenge_id: number;
         status: "not_started" | "submitted";
         proof_note: string;
+        awarded_points: number;
         submitted_at: string | null;
         review_status: "pending" | "verified" | "rejected";
         review_note: string;
@@ -1113,6 +1132,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
         is_unlocked: isUnlocked,
         status: status?.status ?? "not_started",
         proof_note: status?.proof_note ?? "",
+        awarded_points: Number(status?.awarded_points ?? 0),
         submitted_at: status?.submitted_at ?? null,
         review_status: status?.review_status ?? "pending",
         review_note: status?.review_note ?? "",
@@ -1303,6 +1323,7 @@ export async function createChallenge(
       challenge_id: nextId,
       status: "not_started",
       proof_note: "",
+      awarded_points: 0,
       submitted_at: null,
       review_status: "pending",
       review_note: "",
@@ -1330,9 +1351,7 @@ export async function createChallenge(
 
 export async function updateChallengeRelease(challengeId: number, isReleased: boolean) {
   try {
-    const payload = isReleased
-      ? { is_released: true }
-      : { is_released: false, timer_started_at: null };
+    const payload = { is_released: isReleased };
     const { error } = await supabase
       .from("challenges")
       .update(payload)
@@ -1390,6 +1409,7 @@ export async function updateTeamChallengeSubmission(
       .update({
         status,
         proof_note: proofNote.slice(0, 500),
+        awarded_points: status === "submitted" ? current.awarded_points ?? 0 : 0,
         submitted_at: submittedAt,
         review_status: shouldResetReview ? "pending" : current.review_status,
         review_note: shouldResetReview ? "" : current.review_note,
@@ -1411,7 +1431,6 @@ export async function updateTeamChallengeSubmission(
         accuracyMeters: gps?.accuracyMeters ?? null,
         gpsCapturedAt: gps?.gpsCapturedAt ?? null,
       });
-      await maybeStartChallengeTimer(challengeId, submittedAt ?? new Date().toISOString());
     }
   } catch (error) {
     if (isGameError(error)) {
@@ -1571,6 +1590,7 @@ export async function reviewTeamChallenge(
       .update({
         review_status: reviewStatus,
         review_note: reviewNote.slice(0, 500),
+        awarded_points: 0,
         reviewed_at: reviewStatus === "pending" ? null : new Date().toISOString(),
         reviewed_by: reviewStatus === "pending" ? null : reviewedBy,
       })
@@ -1578,6 +1598,7 @@ export async function reviewTeamChallenge(
       .eq("challenge_id", challengeId);
 
     if (error) throw error;
+    await recalculateChallengeAwardedPoints(challengeId);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       updateLocalChallengeReview(teamId, challengeId, reviewStatus, reviewNote, reviewedBy);
