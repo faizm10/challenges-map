@@ -835,14 +835,14 @@ export function AdminDashboard() {
                           <video
                             className="h-[240px] w-full bg-black object-contain sm:h-[360px]"
                             controls
-                            src={activeRecentCheckin.uploads[activeProofIndex]?.public_url}
+                            src={activeRecentCheckin.uploads[activeProofIndex]?.signed_url}
                           />
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             alt={activeRecentCheckin.uploads[activeProofIndex]?.file_name ?? "Proof upload"}
                             className="h-[240px] w-full object-cover sm:h-[360px]"
-                            src={activeRecentCheckin.uploads[activeProofIndex]?.public_url}
+                            src={activeRecentCheckin.uploads[activeProofIndex]?.signed_url}
                           />
                         )}
                       </div>
@@ -927,7 +927,7 @@ export function AdminDashboard() {
                 {activeRecentCheckin.uploads[activeProofIndex] ? (
                   <a
                     className="inline-flex items-center gap-2 text-sm text-orange-200 hover:text-orange-100"
-                    href={activeRecentCheckin.uploads[activeProofIndex].public_url}
+                    href={activeRecentCheckin.uploads[activeProofIndex].signed_url}
                     rel="noreferrer"
                     target="_blank"
                   >
@@ -1316,14 +1316,14 @@ export function AdminDashboard() {
                                     <img
                                       alt={upload.file_name}
                                       className="h-full w-full object-cover"
-                                      src={upload.public_url}
+                                      src={upload.signed_url}
                                     />
                                   ) : (
                                     <video
                                       className="h-full w-full object-cover"
                                       controls
                                       preload="metadata"
-                                      src={upload.public_url}
+                                      src={upload.signed_url}
                                     />
                                   )}
                                 </div>

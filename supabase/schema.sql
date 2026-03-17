@@ -93,7 +93,7 @@ create index if not exists idx_team_checkins_team_created
   on public.team_checkins(team_id, created_at desc);
 
 insert into storage.buckets (id, name, public)
-values ('challenge-proof', 'challenge-proof', true)
+values ('challenge-proof', 'challenge-proof', false)
 on conflict (id) do update set public = excluded.public;
 
 truncate table
@@ -132,10 +132,10 @@ values
   (4, null, 0),
   (5, null, 0);
 
-alter table public.teams disable row level security;
-alter table public.access_credentials disable row level security;
-alter table public.challenges disable row level security;
-alter table public.team_challenge_status disable row level security;
-alter table public.challenge_media disable row level security;
-alter table public.team_checkins disable row level security;
-alter table public.team_scores disable row level security;
+alter table public.teams enable row level security;
+alter table public.access_credentials enable row level security;
+alter table public.challenges enable row level security;
+alter table public.team_challenge_status enable row level security;
+alter table public.challenge_media enable row level security;
+alter table public.team_checkins enable row level security;
+alter table public.team_scores enable row level security;

@@ -106,6 +106,7 @@ function normalizeUploadRow(row: UploadRow): ChallengeUpload {
     bucket_name: row.bucket_name,
     storage_path: row.storage_path,
     public_url: row.public_url,
+    signed_url: row.public_url,
     media_type: row.media_type,
     file_name: row.file_name,
     mime_type: row.mime_type,
@@ -410,8 +411,21 @@ function buildAdminTeamRoute(team: Team, checkins: TeamCheckin[], challenges: Ch
   };
 }
 
-function getPublicUrl(storagePath: string) {
-  return supabase.storage.from(CHALLENGE_PROOF_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+async function signUploadUrl(upload: ChallengeUpload) {
+  const { data, error } = await supabase.storage
+    .from(upload.bucket_name)
+    .createSignedUrl(upload.storage_path, 60 * 60);
+
+  if (error) throw error;
+
+  return {
+    ...upload,
+    signed_url: data.signedUrl,
+  };
+}
+
+async function signUploads(uploads: ChallengeUpload[]) {
+  return Promise.all(uploads.map(signUploadUrl));
 }
 
 async function getReleasedCount() {
@@ -483,7 +497,7 @@ async function getTeamUploads(teamId: number) {
     .order("uploaded_at", { ascending: false });
 
   if (error) throw error;
-  return ((data ?? []) as UploadRow[]).map(normalizeUploadRow);
+  return signUploads(((data ?? []) as UploadRow[]).map(normalizeUploadRow));
 }
 
 async function getTeamCheckinsFromDb(teamId: number) {
@@ -689,7 +703,8 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
       }>).map((status) => [`${status.team_id}:${status.challenge_id}`, status] as const)
     );
     const uploadsByKey = new Map<string, ChallengeUpload[]>();
-    for (const upload of ((uploadsResult.data ?? []) as UploadRow[]).map(normalizeUploadRow)) {
+    const signedUploads = await signUploads(((uploadsResult.data ?? []) as UploadRow[]).map(normalizeUploadRow));
+    for (const upload of signedUploads) {
       const key = `${upload.team_id}:${upload.challenge_id}`;
       const current = uploadsByKey.get(key) ?? [];
       current.push(upload);
@@ -1183,7 +1198,7 @@ export async function uploadTeamChallengeMedia(teamId: number, challengeId: numb
       challenge_id: challengeId,
       bucket_name: CHALLENGE_PROOF_BUCKET,
       storage_path: storagePath,
-      public_url: getPublicUrl(storagePath),
+      public_url: "",
       media_type: mediaType,
       file_name: fileName,
       mime_type: file.type,

@@ -58,6 +58,7 @@ export type ChallengeUpload = {
   bucket_name: string;
   storage_path: string;
   public_url: string;
+  signed_url: string;
   media_type: "image" | "video";
   file_name: string;
   mime_type: string;

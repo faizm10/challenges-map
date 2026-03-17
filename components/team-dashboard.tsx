@@ -1217,14 +1217,14 @@ export function TeamDashboard() {
                                 <img
                                   alt={upload.file_name}
                                   className="h-full w-full object-cover"
-                                  src={upload.public_url}
+                                  src={upload.signed_url}
                                 />
                               ) : (
                                 <video
                                   className="h-full w-full object-cover"
                                   controls
                                   preload="metadata"
-                                  src={upload.public_url}
+                                  src={upload.signed_url}
                                 />
                               )}
                             </div>
@@ -1244,7 +1244,7 @@ export function TeamDashboard() {
                               <div className="flex items-center justify-between gap-3">
                                 <a
                                   className="text-xs text-orange-300 hover:text-orange-200"
-                                  href={upload.public_url}
+                                  href={upload.signed_url}
                                   rel="noreferrer"
                                   target="_blank"
                                 >
