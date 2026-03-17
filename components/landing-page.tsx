@@ -1,556 +1,436 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Camera,
-  Flag,
-  Laugh,
-  MapPinned,
-  MessageCircleMore,
-  Play,
-  Sparkles,
-  Trophy,
-  Users,
-  WandSparkles,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { AnimatedCityMap } from "@/components/animated-city-map";
-import { CountdownTimer } from "@/components/countdown-timer";
 import { CreateRaceModal } from "@/components/create-race-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import type { PublicLeaderboardResponse, TeamSeed } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-type LandingPageProps = {
-  initialData: PublicLeaderboardResponse;
-  mapTeams: Array<Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color">>;
+type HeroMode = {
+  key: string;
+  label: string;
+  headline: string;
+  subline: string;
 };
 
-const steps = [
-  {
-    title: "Start across the city",
-    copy: "Five teams launch from different Toronto origins at the same time.",
-    icon: MapPinned,
-  },
-  {
-    title: "Catch live HQ prompts",
-    copy: "Challenges drop mid-race, forcing teams to adapt, improvise, and commit.",
-    icon: WandSparkles,
-  },
-  {
-    title: "Walk, film, perform",
-    copy: "Every block becomes part race, part social experiment, part cinematic memory.",
-    icon: Camera,
-  },
-  {
-    title: "All paths hit Union",
-    copy: "The city folds inward as every team converges on one final finish line.",
-    icon: Flag,
-  },
-];
-
-const challengeCards = [
-  {
-    title: "Recreate a meme",
-    copy: "Take over the sidewalk with a frame-perfect recreation using whatever the city gives you.",
-    icon: Laugh,
-  },
-  {
-    title: "Talk to a stranger",
-    copy: "Break the bubble, recruit a cameo, and turn a random moment into live proof.",
-    icon: MessageCircleMore,
-  },
-  {
-    title: "Capture a cinematic shot",
-    copy: "Find your angle, use the skyline, and make the race feel like a trailer.",
-    icon: Play,
-  },
-];
-
-const testimonials = [
-  {
-    quote: "Best night in Toronto. It felt like the city had turned into a multiplayer level.",
-    author: "Maya, Team Captain",
-  },
-  {
-    quote: "Half scavenger hunt, half street film, all adrenaline.",
-    author: "Jordan, HQ",
-  },
-  {
-    quote: "It felt like a real-life game with just enough chaos to stay unforgettable.",
-    author: "Alex, First to Union",
-  },
-];
-
-const teamMapPositions = [
-  { x: 20, y: 16 },
-  { x: 28, y: 28 },
-  { x: 12, y: 66 },
-  { x: 82, y: 36 },
-  { x: 72, y: 18 },
-];
-
-function SectionReveal({
-  children,
-  className,
-  id,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  id?: string;
-}) {
+function GridFieldLight() {
   return (
-    <motion.section
-      id={id}
-      className={className}
-      initial={{ opacity: 0, y: 30 }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      viewport={{ once: true, amount: 0.22 }}
-      whileInView={{ opacity: 1, y: 0 }}
-    >
-      {children}
-    </motion.section>
+    <>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,0,0,0.05),transparent_35%),radial-gradient(circle_at_85%_30%,rgba(0,0,0,0.03),transparent_40%)]" />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-80"
+        animate={{ backgroundPosition: ["0px 0px", "0px -64px"] }}
+        transition={{ duration: 22, ease: "linear", repeat: Number.POSITIVE_INFINITY }}
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(0,0,0,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.045) 1px, transparent 1px)",
+          backgroundSize: "38px 38px",
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(circle_at_center,black_0%,black_55%,transparent_82%)]">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.06)_1px,transparent_1px)] bg-[size:152px_152px]" />
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[#fbfaf8] to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#fbfaf8] to-transparent" />
+    </>
   );
 }
 
-export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
-  const [data, setData] = useState(initialData);
-  const [isCreateRaceOpen, setIsCreateRaceOpen] = useState(false);
+function PointerSpotlight() {
+  const reduceMotion = useReducedMotion();
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const sx = useSpring(x, { stiffness: 120, damping: 20, mass: 0.4 });
+  const sy = useSpring(y, { stiffness: 120, damping: 20, mass: 0.4 });
 
   useEffect(() => {
-    const poll = window.setInterval(async () => {
-      const response = await fetch("/api/public/leaderboard", { cache: "no-store" });
-      if (!response.ok) return;
-      const next = (await response.json()) as PublicLeaderboardResponse;
-      setData(next);
-    }, 5000);
+    if (reduceMotion) return;
 
-    return () => window.clearInterval(poll);
-  }, []);
+    const onMove = (event: PointerEvent) => {
+      x.set(event.clientX);
+      y.set(event.clientY);
+    };
 
-  const animatedTeams = mapTeams.map((team, index) => ({
-    ...team,
-    mapPosition: teamMapPositions[index] ?? { x: 20 + index * 10, y: 20 + index * 10 },
-  }));
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [reduceMotion, x, y]);
+
+  if (reduceMotion) return null;
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#070607] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.1),transparent_22%),radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(255,255,255,0.015),transparent_18%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
+    <motion.div
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{
+        background:
+          "radial-gradient(260px 260px at var(--x) var(--y), rgba(0,0,0,0.10), transparent 60%)",
+        ["--x" as any]: sx,
+        ["--y" as any]: sy,
+      }}
+    />
+  );
+}
 
-      <header className="sticky top-0 z-50 border-b border-white/8 bg-[#090809]/72 backdrop-blur-xl">
+function MagneticWrap({
+  children,
+  strength = 14,
+}: {
+  children: React.ReactNode;
+  strength?: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const ref = useRef<HTMLDivElement | null>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const sx = useSpring(x, { stiffness: 220, damping: 18, mass: 0.25 });
+  const sy = useSpring(y, { stiffness: 220, damping: 18, mass: 0.25 });
+
+  return (
+    <motion.div
+      ref={ref}
+      style={reduceMotion ? undefined : { x: sx, y: sy }}
+      onPointerMove={(event) => {
+        if (reduceMotion) return;
+        const el = ref.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const px = (event.clientX - rect.left) / rect.width - 0.5;
+        const py = (event.clientY - rect.top) / rect.height - 0.5;
+        x.set(px * strength);
+        y.set(py * strength);
+      }}
+      onPointerLeave={() => {
+        x.set(0);
+        y.set(0);
+      }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function ConvergePlot() {
+  const reduceMotion = useReducedMotion();
+  const points = useMemo(
+    () => [
+      { x: 20, y: 28 },
+      { x: 78, y: 22 },
+      { x: 86, y: 60 },
+      { x: 26, y: 78 },
+      { x: 12, y: 58 },
+    ],
+    []
+  );
+
+  return (
+    <div className="relative overflow-hidden rounded-[28px] border border-black/10 bg-white/55 p-5 shadow-[0_30px_120px_rgba(0,0,0,0.08)] backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4">
+        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-black/55">
+          Live convergence preview
+        </div>
+        <div className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-medium text-black/70">
+          Toronto
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-[22px] border border-black/10 bg-white/70 p-4">
+        <svg
+          className="h-[220px] w-full"
+          viewBox="0 0 100 100"
+          fill="none"
+          role="img"
+          aria-label="Teams converging toward Union Station"
+        >
+          <defs>
+            <linearGradient id="fade" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="rgba(0,0,0,0.22)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.06)" />
+            </linearGradient>
+            <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="0.8" />
+            </filter>
+          </defs>
+
+          <rect x="0" y="0" width="100" height="100" rx="10" fill="transparent" />
+          <g opacity="0.32">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <path
+                key={`g1-${i}`}
+                d={`M ${i * 10} 0 V 100`}
+                stroke="rgba(0,0,0,0.12)"
+                strokeWidth="0.6"
+              />
+            ))}
+            {Array.from({ length: 10 }).map((_, i) => (
+              <path
+                key={`g2-${i}`}
+                d={`M 0 ${i * 10} H 100`}
+                stroke="rgba(0,0,0,0.12)"
+                strokeWidth="0.6"
+              />
+            ))}
+          </g>
+
+          <g filter="url(#soft)">
+            <circle cx="50" cy="50" r="11.5" fill="rgba(0,0,0,0.06)" />
+          </g>
+          <circle cx="50" cy="50" r="7.2" fill="rgba(0,0,0,0.86)" />
+          <circle cx="50" cy="50" r="13" stroke="rgba(0,0,0,0.14)" strokeWidth="0.8" />
+
+          {points.map((p, i) => (
+            <g key={`p-${i}`}>
+              <path
+                d={`M ${p.x} ${p.y} L 50 50`}
+                stroke="url(#fade)"
+                strokeWidth="1"
+              />
+              <motion.circle
+                cx={p.x}
+                cy={p.y}
+                r="2.6"
+                fill="rgba(0,0,0,0.72)"
+                animate={
+                  reduceMotion
+                    ? undefined
+                    : {
+                        opacity: [0.55, 0.85, 0.55],
+                      }
+                }
+                transition={
+                  reduceMotion
+                    ? undefined
+                    : { duration: 2.6 + i * 0.4, ease: "easeInOut", repeat: Infinity }
+                }
+              />
+            </g>
+          ))}
+
+          <text
+            x="50"
+            y="79"
+            textAnchor="middle"
+            fontSize="4.6"
+            fill="rgba(0,0,0,0.62)"
+            fontFamily="var(--font-geist)"
+          >
+            UNION
+          </text>
+        </svg>
+      </div>
+
+      <div className="mt-4 text-sm text-black/55">
+        A clean HQ view of routes, check-ins, and proof. Built for phones.
+      </div>
+    </div>
+  );
+}
+
+export function LandingPage() {
+  const [isCreateRaceOpen, setIsCreateRaceOpen] = useState(false);
+  const [modeKey, setModeKey] = useState("run");
+
+  const modes: HeroMode[] = useMemo(
+    () => [
+      {
+        key: "run",
+        label: "Race",
+        headline: "Start apart. End together.",
+        subline: "Teams spread across Toronto, then converge at Union.",
+      },
+      {
+        key: "hq",
+        label: "HQ Drops",
+        headline: "HQ keeps it moving.",
+        subline: "New prompts land mid-walk. Submit proof and keep going.",
+      },
+      {
+        key: "proof",
+        label: "Proof",
+        headline: "Proof-first progress.",
+        subline: "Upload photos or leave a note. HQ verifies live.",
+      },
+    ],
+    []
+  );
+
+  const activeMode = modes.find((m) => m.key === modeKey) ?? modes[0];
+
+  return (
+    <main className="relative min-h-screen overflow-x-hidden bg-[#fbfaf8] text-[#0c0c0f]">
+      <GridFieldLight />
+      <PointerSpotlight />
+
+      <header className="sticky top-0 z-50 border-b border-black/10 bg-[#fbfaf8]/80 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-6">
           <Link className="flex items-center gap-3" href="/">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/95 font-serif text-xl text-black shadow-[0_0_30px_rgba(249,115,22,0.24)]">
-              U
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-black text-lg font-semibold text-white shadow-[0_22px_80px_rgba(0,0,0,0.18)]">
+              C
             </span>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/38">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-black/45">
                 Toronto Team City Challenge
               </div>
-              <div className="text-sm font-medium text-white">Converge</div>
+              <div className="text-sm font-medium text-black">Converge</div>
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-7 text-sm text-white/52 md:flex">
-            <a href="#how-it-works" className="transition hover:text-white">
-              How it works
-            </a>
-            <a href="#live-map" className="transition hover:text-white">
-              Live map
-            </a>
-            <a href="#challenges" className="transition hover:text-white">
-              Challenges
-            </a>
-            <a href="#finale" className="transition hover:text-white">
-              Finale
-            </a>
-          </nav>
-
           <div className="flex items-center gap-3">
-            <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
+            <Button
+              asChild
+              className="hidden rounded-full border border-black/10 bg-transparent text-black hover:bg-black/[0.04] md:inline-flex"
+              variant="secondary"
+            >
               <Link href="/team">Team Login</Link>
             </Button>
-            {/* <Button
-              className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
+            <Button
+              className="h-11 rounded-full bg-black px-5 text-sm font-semibold text-white hover:bg-black/90"
               onClick={() => setIsCreateRaceOpen(true)}
             >
               Start Converge
-            </Button> */}
+            </Button>
           </div>
         </div>
       </header>
 
-      <section className="relative mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-7xl items-center px-4 py-16 md:px-6 md:py-24">
-        <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div className="relative z-10">
-            <motion.div
-              animate={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 28 }}
-              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <Badge className="mb-6 border-orange-400/18 bg-orange-500/8 px-4 py-1.5 text-orange-100/90">
-                Premium team city challenge
-              </Badge>
-              <h1 className="max-w-4xl font-serif text-5xl leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-8xl">
-                Converge on the city.
-              </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-white/54 sm:text-xl">
-                Five teams. Live HQ prompts. Checkpoints, proof, and cinematic
-                city movement built for a premium Toronto night out.
-              </p>
-            </motion.div>
+      <section className="relative mx-auto w-full max-w-7xl px-4 pb-20 pt-14 md:px-6 md:pb-28 md:pt-20">
+        <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+          <motion.div
+            className="relative z-10"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Badge className="mb-6 border-black/10 bg-black/[0.04] px-4 py-1.5 text-black/70">
+              Toronto team city challenge
+            </Badge>
 
-            <motion.div
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-10 flex flex-col gap-4 sm:flex-row sm:flex-wrap"
-              initial={{ opacity: 0, y: 24 }}
-              transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <Button
-                className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
-                onClick={() => setIsCreateRaceOpen(true)}
-              >
-                Start Converge
-              </Button>
+            <h1 className="font-serif text-[clamp(3.2rem,9vw,6.6rem)] leading-[0.9] tracking-[-0.07em]">
+              Converge.
+            </h1>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {modes.map((mode) => (
+                <button
+                  key={mode.key}
+                  type="button"
+                  onClick={() => setModeKey(mode.key)}
+                  className={cn(
+                    "relative rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.18em] uppercase transition",
+                    mode.key === activeMode.key
+                      ? "border-black/10 text-black"
+                      : "border-black/10 bg-white/70 text-black/60 hover:bg-white"
+                  )}
+                >
+                  {mode.key === activeMode.key ? (
+                    <motion.span
+                      layoutId="hero-mode"
+                      className="absolute inset-0 rounded-full bg-black/[0.06]"
+                      transition={{ type: "spring", stiffness: 360, damping: 30, mass: 0.4 }}
+                    />
+                  ) : null}
+                  <span className="relative">{mode.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeMode.key}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="text-2xl font-semibold tracking-[-0.02em] text-black sm:text-3xl">
+                    {activeMode.headline}
+                  </div>
+                  <p className="mt-3 max-w-xl text-lg leading-8 text-black/60 sm:text-xl">
+                    {activeMode.subline}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <MagneticWrap>
+                <Button
+                  className="h-12 rounded-full bg-black px-6 text-sm font-semibold text-white hover:bg-black/90"
+                  onClick={() => setIsCreateRaceOpen(true)}
+                >
+                  Start Converge
+                </Button>
+              </MagneticWrap>
               <Button
                 asChild
-                className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
+                className={cn(
+                  "h-12 rounded-full border border-black/10 bg-transparent px-6 text-black hover:bg-black/[0.04]"
+                )}
                 variant="secondary"
               >
-                <a href="#how-it-works">
-                  See how it works
+                <Link href="/team">
+                  Team login
                   <ArrowRight className="h-4 w-4" />
-                </a>
+                </Link>
               </Button>
-            </motion.div>
+            </div>
 
-            <motion.div
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-12 grid max-w-3xl gap-4 sm:grid-cols-3"
-              initial={{ opacity: 0, y: 24 }}
-              transition={{ duration: 0.7, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {[
-                { label: "Team Origins", value: "5 across Toronto" },
-                { label: "Challenge Style", value: "Live, social, cinematic" },
-                { label: "Finish Point", value: "Union Station" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5 backdrop-blur-md"
-                >
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-white/34">
-                    {item.label}
-                  </div>
-                  <div className="mt-3 text-lg font-semibold text-white">{item.value}</div>
-                </div>
-              ))}
-            </motion.div>
-          </div>
+            <div className="mt-5 text-xs text-black/45">
+              Best on mobile. For GPS, use Chrome if you can.
+            </div>
+          </motion.div>
 
           <motion.div
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="relative"
-            initial={{ opacity: 0, scale: 0.96, y: 24 }}
-            transition={{ duration: 0.8, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="absolute -left-10 top-16 h-36 w-36 rounded-full bg-orange-500/12 blur-3xl" />
-            <div className="absolute -right-8 bottom-12 h-40 w-40 rounded-full bg-white/4 blur-3xl" />
-            <Card className="relative overflow-hidden rounded-[36px] border-white/8 !bg-[#161214]/88 p-0 shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
-              <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.05),transparent_36%),radial-gradient(circle_at_72%_18%,rgba(249,115,22,0.12),transparent_24%)]" />
-              <div className="relative p-6 sm:p-8">
-                <div className="mb-8 flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.22em] text-white/30">
-                      Mission pulse
-                    </div>
-                    <div className="mt-2 text-2xl font-semibold text-white">
-                      The next Converge starts soon.
-                    </div>
-                  </div>
-                  <Badge className="border-white/8 bg-white/6 text-white/76" variant="secondary">
-                    Premium chaos
-                  </Badge>
-                </div>
-
-                <CountdownTimer />
-
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-[28px] border border-white/8 bg-black/16 p-5">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-white/52">
-                      <Users className="h-4 w-4 text-orange-300" />
-                      Live team selection
-                    </div>
-                    <div className="grid gap-2">
-                      {animatedTeams.slice(0, 3).map((team) => (
-                        <div
-                          key={team.id}
-                          className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span
-                              className="h-3 w-3 rounded-full"
-                              style={{ backgroundColor: team.color }}
-                            />
-                            <span className="text-sm text-white">{team.teamName}</span>
-                          </div>
-                          <span className="text-xs uppercase tracking-[0.18em] text-white/28">
-                            Ready
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[28px] border border-white/8 bg-black/16 p-5">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-white/52">
-                      <Sparkles className="h-4 w-4 text-orange-300" />
-                      HQ challenge cadence
-                    </div>
-                    <div className="space-y-3">
-                      {["Drop 01 · Icebreaker", "Drop 02 · Social", "Drop 03 · Cinematic"].map(
-                        (item, index) => (
-                          <motion.div
-                            key={item}
-                            animate={{ opacity: [0.55, 1, 0.55] }}
-                            className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-white/68"
-                            transition={{
-                              duration: 2.6,
-                              delay: index * 0.35,
-                              repeat: Number.POSITIVE_INFINITY,
-                            }}
-                          >
-                            {item}
-                          </motion.div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
+            <ConvergePlot />
           </motion.div>
         </div>
-
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#070607]" />
       </section>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-24 px-4 pb-24 md:px-6">
-        <SectionReveal id="how-it-works" className="scroll-mt-28">
-          <div className="mb-8 max-w-3xl">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-              How it works
-            </p>
-            <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-              A city walk turned into a live social game.
-            </h2>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              return (
-                <motion.div
-                  key={step.title}
-                  className="group rounded-[30px] border border-white/10 bg-white/[0.045] p-6 backdrop-blur-md"
-                  initial={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.55, delay: index * 0.08 }}
-                  viewport={{ once: true }}
-                  whileHover={{ y: -6 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                >
-                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/12 text-orange-300 transition group-hover:bg-orange-500/20">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">
-                    Step {index + 1}
-                  </div>
-                  <h3 className="mt-3 text-2xl font-semibold text-white">{step.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-white/58">{step.copy}</p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </SectionReveal>
-
-        <SectionReveal id="live-map" className="scroll-mt-28">
-          <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-                Live map
-              </p>
-              <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-                Watch five teams move through Toronto toward one final convergence.
-              </h2>
+      <footer className="relative border-t border-black/10 bg-[#fbfaf8]">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-10 md:px-6 md:py-12">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-black/45">
+                Converge
+              </div>
+              <div className="mt-2 text-sm text-black/60">
+                Toronto team city challenge with HQ control and live checkpoints.
+              </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Badge className="border-white/10 bg-white/6 px-4 py-2 text-white/80" variant="secondary">
-                {data.event.total_challenges
-                  ? `${data.event.released_count}/${data.event.total_challenges} challenges released`
-                  : "No challenges live yet"}
-              </Badge>
-              <Badge className="border-white/10 bg-white/6 px-4 py-2 text-white/80" variant="secondary">
-                {data.event.finish_point}
-              </Badge>
-            </div>
-          </div>
-
-          <AnimatedCityMap teams={animatedTeams} leaderboard={data.leaderboard} />
-        </SectionReveal>
-
-        <SectionReveal id="challenges" className="scroll-mt-28">
-          <div className="mb-8 max-w-3xl">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-              Challenge design
-            </p>
-            <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-              Built for cinematic moments, social risk, and controlled chaos.
-            </h2>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-3">
-            {challengeCards.map((card, index) => {
-              const Icon = card.icon;
-              return (
-                <motion.div
-                  key={card.title}
-                  className="rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.03] p-6 backdrop-blur-md"
-                  initial={{ opacity: 0, y: 24 }}
-                  transition={{ duration: 0.55, delay: index * 0.08 }}
-                  viewport={{ once: true }}
-                  whileHover={{ y: -8, rotateX: 4, rotateY: index === 1 ? 0 : index % 2 === 0 ? -3 : 3 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                >
-                  <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-orange-500/10 text-orange-300">
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-2xl font-semibold text-white">{card.title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-white/58">{card.copy}</p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </SectionReveal>
-
-        <SectionReveal>
-          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-            <Card className="rounded-[34px] border-white/10 bg-white/[0.045] p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-                Social proof
-              </p>
-              <h2 className="mt-4 font-serif text-4xl leading-tight">
-                The vibe is half campaign, half city memory.
-              </h2>
-              <p className="mt-5 max-w-lg text-base leading-8 text-white/60">
-                People remember the route, the clips, the strangers, the near wins,
-                and the final sprint more than a normal night out because every block
-                gives them something to do.
-              </p>
-            </Card>
-
-            <div className="grid gap-5 md:grid-cols-3">
-              {testimonials.map((item, index) => (
-                <motion.div
-                  key={item.author}
-                  className="rounded-[30px] border border-white/10 bg-white/[0.045] p-6"
-                  initial={{ opacity: 0, y: 24 }}
-                  transition={{ duration: 0.55, delay: index * 0.08 }}
-                  viewport={{ once: true }}
-                  whileHover={{ y: -6 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                >
-                  <div className="mb-5 text-3xl text-orange-300">“</div>
-                  <p className="text-base leading-8 text-white/80">{item.quote}</p>
-                  <div className="mt-6 text-sm text-white/45">{item.author}</div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </SectionReveal>
-
-        <SectionReveal id="finale" className="scroll-mt-28">
-          <div className="overflow-hidden rounded-[40px] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.18),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-8 sm:p-10 lg:p-14">
-            <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end">
-              <div>
-                <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">
-                  Final moment
-                </p>
-                <h2 className="max-w-4xl font-serif text-5xl leading-[0.98] sm:text-6xl lg:text-7xl">
-                  All paths lead to Union.
-                </h2>
-                <p className="mt-6 max-w-2xl text-lg leading-8 text-white/62">
-                  The ending is the product. Every team hits the same station with
-                  different footage, different stories, and the same sense that the
-                  entire city bent toward one dramatic finish.
-                </p>
-              </div>
-
-              <div className="grid gap-4">
-                <div className="rounded-[30px] border border-white/10 bg-black/20 p-5 backdrop-blur-md">
-                  <div className="mb-3 flex items-center gap-2 text-sm text-orange-200">
-                    <Trophy className="h-4 w-4" />
-                    Final convergence energy
-                  </div>
-                  <div className="text-3xl font-semibold text-white">1 finish line</div>
-                  <div className="mt-2 text-sm text-white/50">
-                    Shared climax. Shared story. Shared winner.
-                  </div>
-                </div>
-                <div className="rounded-[30px] border border-white/10 bg-black/20 p-5 backdrop-blur-md">
-                  <div className="mb-3 flex items-center gap-2 text-sm text-orange-200">
-                    <Sparkles className="h-4 w-4" />
-                    City-scale payoff
-                  </div>
-                  <div className="text-3xl font-semibold text-white">∞ replay value</div>
-                  <div className="mt-2 text-sm text-white/50">
-                    New routes, new prompts, same iconic destination.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </SectionReveal>
-
-        <SectionReveal>
-          <div className="rounded-[40px] border border-white/10 bg-white/[0.045] px-6 py-10 text-center sm:px-10 sm:py-14">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">
-              Start your own Converge
-            </p>
-            <h2 className="mx-auto max-w-4xl font-serif text-4xl leading-tight sm:text-5xl lg:text-6xl">
-              Build a night people will talk about the whole ride home.
-            </h2>
-            <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/58">
-              Launch your own Converge with live HQ prompts, team routes,
-              social challenge drops, and a finish at Union that feels earned.
-            </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Button
-                className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
+                className="h-11 rounded-full bg-black px-5 text-sm font-semibold text-white hover:bg-black/90"
                 onClick={() => setIsCreateRaceOpen(true)}
               >
                 Start Converge
               </Button>
               <Button
                 asChild
-                className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
+                className="h-11 rounded-full border border-black/10 bg-transparent px-5 text-black hover:bg-black/[0.04]"
                 variant="secondary"
               >
-                <Link href="/admin">Open HQ Dashboard</Link>
+                <Link href="/team">Team login</Link>
               </Button>
             </div>
           </div>
-        </SectionReveal>
-      </div>
 
-      <CreateRaceModal
-        open={isCreateRaceOpen}
-        onOpenChange={setIsCreateRaceOpen}
-      />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-6 text-xs text-black/45">
+            <span>© {new Date().getFullYear()} Converge</span>
+            <span>Union Station finish</span>
+          </div>
+        </div>
+      </footer>
+
+      <CreateRaceModal open={isCreateRaceOpen} onOpenChange={setIsCreateRaceOpen} />
     </main>
   );
 }

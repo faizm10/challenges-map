@@ -23,7 +23,11 @@ function getRemainingParts(target: Date) {
   return { days, hours, minutes, seconds };
 }
 
-export function CountdownTimer() {
+export function CountdownTimer({
+  variant = "dark",
+}: {
+  variant?: "dark" | "light";
+} = {}) {
   const target = useMemo(() => getNextSaturdayAtSeven(), []);
   const [remaining, setRemaining] = useState(() => getRemainingParts(target));
 
@@ -42,17 +46,35 @@ export function CountdownTimer() {
     { label: "Seconds", value: remaining.seconds },
   ];
 
+  const isLight = variant === "light";
+
   return (
     <div className="grid grid-cols-4 gap-2 sm:gap-3">
       {units.map((unit) => (
         <div
           key={unit.label}
-          className="rounded-2xl border border-white/8 bg-black/18 px-3 py-4 text-center backdrop-blur-sm"
+          className={
+            isLight
+              ? "rounded-2xl border border-black/10 bg-black/[0.03] px-3 py-4 text-center"
+              : "rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-center backdrop-blur-sm"
+          }
         >
-          <div className="text-2xl font-semibold text-white/96 sm:text-3xl">
+          <div
+            className={
+              isLight
+                ? "text-2xl font-semibold text-black sm:text-3xl"
+                : "text-2xl font-semibold text-white/96 sm:text-3xl"
+            }
+          >
             {String(unit.value).padStart(2, "0")}
           </div>
-          <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/32 sm:text-xs">
+          <div
+            className={
+              isLight
+                ? "mt-1 text-[10px] uppercase tracking-[0.2em] text-black/40 sm:text-xs"
+                : "mt-1 text-[10px] uppercase tracking-[0.2em] text-white/32 sm:text-xs"
+            }
+          >
             {unit.label}
           </div>
         </div>
