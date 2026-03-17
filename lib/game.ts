@@ -47,6 +47,7 @@ import type {
   Challenge,
   ChallengeUpload,
   LeaderboardEntry,
+  PublicMapResponse,
   Team,
   TeamCheckin,
   TeamCheckpoint,
@@ -157,11 +158,10 @@ async function requireChallengeMediaEnabled(challengeId: number) {
   }
 }
 
-async function maybeStartChallengeTimer(challengeId: number) {
-  const nowIso = new Date().toISOString();
+async function maybeStartChallengeTimer(challengeId: number, startedAt: string) {
   const { error } = await supabase
     .from("challenges")
-    .update({ timer_started_at: nowIso })
+    .update({ timer_started_at: startedAt })
     .eq("id", challengeId)
     .is("timer_started_at", null);
   if (error) throw error;
@@ -891,6 +891,58 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
   }
 }
 
+export async function getPublicMapData(): Promise<PublicMapResponse> {
+  try {
+    const [teamsResult, challenges, latestLocations, allCheckins] = await Promise.all([
+      supabase
+        .from("teams")
+        .select("id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label")
+        .order("id", { ascending: true }),
+      getChallenges(true),
+      getLatestLocations(),
+      getAllCheckinsFromDb(),
+    ]);
+
+    if (teamsResult.error) throw teamsResult.error;
+
+    const teams = ((teamsResult.data ?? []) as Team[]) ?? [];
+    const checkinsByTeam = new Map<number, TeamCheckin[]>();
+    for (const checkin of allCheckins) {
+      const current = checkinsByTeam.get(checkin.team_id) ?? [];
+      current.push(checkin);
+      checkinsByTeam.set(checkin.team_id, current);
+    }
+
+    return {
+      latestLocations,
+      teamRoutes: teams.map((team) =>
+        buildAdminTeamRoute(team, checkinsByTeam.get(team.id) ?? [], challenges)
+      ),
+      union: {
+        name: UNION_STATION.name,
+        latitude: UNION_STATION.coordinates[1],
+        longitude: UNION_STATION.coordinates[0],
+        label: UNION_STATION.finishPoint,
+      },
+    };
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      const adminGame = getLocalAdminGame();
+      return {
+        latestLocations: adminGame.latestLocations,
+        teamRoutes: adminGame.teamRoutes,
+        union: {
+          name: UNION_STATION.name,
+          latitude: UNION_STATION.coordinates[1],
+          longitude: UNION_STATION.coordinates[0],
+          label: UNION_STATION.finishPoint,
+        },
+      };
+    }
+    throw error;
+  }
+}
+
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   try {
     const [challengesResult, teamsResult, statusResult] = await Promise.all([
@@ -1327,12 +1379,18 @@ export async function updateTeamChallengeSubmission(
     }
 
     const shouldResetReview = status === "not_started" || current.review_status === "rejected";
+    const submittedAt =
+      status === "submitted"
+        ? current.status === "submitted" && current.submitted_at
+          ? current.submitted_at
+          : new Date().toISOString()
+        : null;
     const { error } = await supabase
       .from("team_challenge_status")
       .update({
         status,
         proof_note: proofNote.slice(0, 500),
-        submitted_at: status === "submitted" ? new Date().toISOString() : null,
+        submitted_at: submittedAt,
         review_status: shouldResetReview ? "pending" : current.review_status,
         review_note: shouldResetReview ? "" : current.review_note,
         reviewed_at: shouldResetReview ? null : current.reviewed_at,
@@ -1353,7 +1411,7 @@ export async function updateTeamChallengeSubmission(
         accuracyMeters: gps?.accuracyMeters ?? null,
         gpsCapturedAt: gps?.gpsCapturedAt ?? null,
       });
-      await maybeStartChallengeTimer(challengeId);
+      await maybeStartChallengeTimer(challengeId, submittedAt ?? new Date().toISOString());
     }
   } catch (error) {
     if (isGameError(error)) {

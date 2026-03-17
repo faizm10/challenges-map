@@ -674,9 +674,16 @@ export function updateLocalChallengeSubmission(
     (entry) => entry.team_id === teamId && entry.challenge_id === challengeId
   );
   if (!item) return;
+  const wasSubmitted = item.status === "submitted";
+  const previousSubmittedAt = item.submitted_at;
   item.status = status;
   item.proof_note = proofNote.slice(0, 500);
-  const submittedAt = status === "submitted" ? new Date().toISOString() : null;
+  const submittedAt =
+    status === "submitted"
+      ? wasSubmitted && previousSubmittedAt
+        ? previousSubmittedAt
+        : new Date().toISOString()
+      : null;
   item.submitted_at = submittedAt;
   if (status === "submitted") {
     const challenge = getState().challenges.find((entry) => entry.id === challengeId);

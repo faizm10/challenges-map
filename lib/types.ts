@@ -184,6 +184,17 @@ export type PublicLeaderboardResponse = {
   leaderboard: LeaderboardEntry[];
 };
 
+export type PublicMapResponse = {
+  latestLocations: TeamLatestLocation[];
+  teamRoutes: AdminTeamRoute[];
+  union: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    label: string;
+  };
+};
+
 export type TeamDashboardResponse = {
   team: Team;
   challenges: TeamChallengeStatus[];
