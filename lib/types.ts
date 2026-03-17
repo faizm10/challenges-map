@@ -13,14 +13,6 @@ export type TeamSeed = {
   routeLine: [number, number][];
 };
 
-export type ChallengeSeed = {
-  id: number;
-  challengeOrder: number;
-  title: string;
-  text: string;
-  isReleased: 0 | 1;
-};
-
 export type Team = {
   id: number;
   team_name: string;
@@ -37,6 +29,7 @@ export type Challenge = {
   challenge_order: number;
   title: string;
   text: string;
+  expected_location: string;
   is_released: number;
 };
 
@@ -45,6 +38,7 @@ export type TeamChallengeStatus = {
   challenge_order: number;
   title: string;
   text: string;
+  expected_location: string;
   is_released: number;
   status: "not_started" | "submitted";
   proof_note: string;
@@ -93,6 +87,8 @@ export type TeamCheckpoint = {
   challenge_id: number | null;
   label: string;
   description: string;
+  expected_location_label: string;
+  expected_location_description?: string | null;
   status: "not_started" | "pending" | "verified" | "rejected";
   latest_checkin: TeamCheckin | null;
 };
@@ -137,6 +133,7 @@ export type LeaderboardEntry = {
   challenge_points: number;
   total_points: number;
   released_count: number;
+  total_challenges: number;
   progress_percent: number;
   milestones: string[];
   leaderboard_rank: number;

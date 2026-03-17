@@ -1,4 +1,6 @@
-import { CHALLENGE_SEED, TEAM_SEED } from "@/lib/config";
+import type { Challenge, Team, TeamScore } from "@/lib/types";
+
+import { TEAM_SEED } from "@/lib/config";
 
 export const ACCESS_SEED = [
   {
@@ -15,7 +17,7 @@ export const ACCESS_SEED = [
   })),
 ] as const;
 
-export const TEAM_ROWS = TEAM_SEED.map((team) => ({
+export const TEAM_ROWS: Team[] = TEAM_SEED.map((team) => ({
   id: team.id,
   team_name: team.teamName,
   start_location_name: team.startLocationName,
@@ -26,30 +28,24 @@ export const TEAM_ROWS = TEAM_SEED.map((team) => ({
   badge_label: team.badgeLabel,
 }));
 
-export const CHALLENGE_ROWS = CHALLENGE_SEED.map((challenge) => ({
-  id: challenge.id,
-  challenge_order: challenge.challengeOrder,
-  title: challenge.title,
-  text: challenge.text,
-  is_released: challenge.isReleased,
-}));
-
-export const TEAM_SCORE_ROWS = TEAM_SEED.map((team) => ({
+export const TEAM_SCORE_ROWS: TeamScore[] = TEAM_SEED.map((team) => ({
   team_id: team.id,
   arrival_rank: null,
   creativity_score: 0,
 }));
 
-export const TEAM_CHALLENGE_STATUS_ROWS = TEAM_SEED.flatMap((team) =>
-  CHALLENGE_SEED.map((challenge) => ({
-    team_id: team.id,
-    challenge_id: challenge.id,
-    status: "not_started",
-    proof_note: "",
-    submitted_at: null,
-    review_status: "pending",
-    review_note: "",
-    reviewed_at: null,
-    reviewed_by: null,
-  }))
-);
+export const EMPTY_CHALLENGE_ROWS: Challenge[] = [];
+
+export type TeamChallengeStatusSeedRow = {
+  team_id: number;
+  challenge_id: number;
+  status: "not_started" | "submitted";
+  proof_note: string;
+  submitted_at: string | null;
+  review_status: "pending" | "verified" | "rejected";
+  review_note: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+};
+
+export const EMPTY_TEAM_CHALLENGE_STATUS_ROWS: TeamChallengeStatusSeedRow[] = [];

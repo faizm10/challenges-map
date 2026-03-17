@@ -452,6 +452,15 @@ export function TeamDashboard() {
                 <div>
                   <p className="text-lg font-semibold text-white">{checkpoint.label}</p>
                   <p className="mt-1 text-sm leading-7 text-white/56">{checkpoint.description}</p>
+                  <p className="mt-2 text-sm text-white/76">
+                    <span className="text-white/46">Expected location:</span>{" "}
+                    {checkpoint.expected_location_label}
+                  </p>
+                  {checkpoint.expected_location_description ? (
+                    <p className="text-xs text-white/42">
+                      {checkpoint.expected_location_description}
+                    </p>
+                  ) : null}
                 </div>
                 <Badge variant={checkpointVariant(checkpoint.status)}>
                   {checkpointLabel(checkpoint.status)}
@@ -496,11 +505,15 @@ export function TeamDashboard() {
                   {checkpoint.latest_checkin.latitude !== null ? (
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" />
-                      GPS captured
+                      {checkpoint.latest_checkin.latitude.toFixed(5)},{" "}
+                      {checkpoint.latest_checkin.longitude?.toFixed(5)}
                     </span>
                   ) : (
                     <span>No GPS captured</span>
                   )}
+                  {checkpoint.latest_checkin.accuracy_meters !== null ? (
+                    <span>Accuracy {Math.round(checkpoint.latest_checkin.accuracy_meters)}m</span>
+                  ) : null}
                   {checkpoint.latest_checkin.review_note ? (
                     <span>HQ note: {checkpoint.latest_checkin.review_note}</span>
                   ) : null}
@@ -712,7 +725,7 @@ export function TeamDashboard() {
                   <TableCell className="font-semibold">{entry.team_name}</TableCell>
                   <TableCell>#{entry.leaderboard_rank}</TableCell>
                   <TableCell>{entry.total_points}</TableCell>
-                  <TableCell>{entry.completed_count}/5</TableCell>
+                  <TableCell>{entry.completed_count}/{entry.total_challenges}</TableCell>
                   <TableCell>{entry.speed_points}</TableCell>
                   <TableCell>{entry.creativity_score}</TableCell>
                 </TableRow>

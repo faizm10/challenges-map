@@ -47,7 +47,9 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
           </p>
           <div className="flex flex-wrap gap-2">
             <Badge className="border-white/10 bg-white/8 text-white/80" variant="secondary">
-              {data.event.released_count}/5 challenges released
+              {data.event.total_challenges
+                ? `${data.event.released_count}/${data.event.total_challenges} challenges released`
+                : "No challenges created yet"}
             </Badge>
             <Badge className="border-white/10 bg-white/8 text-white/70" variant="secondary">
               {data.event.finish_point}
@@ -160,7 +162,7 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
 
                 <div className="mb-3 flex flex-wrap gap-2">
                   <Badge className="border-white/10 bg-white/8 text-white/78" variant="secondary">
-                    {team.completed_count}/5 complete
+                    {team.completed_count}/{team.total_challenges} complete
                   </Badge>
                   {team.arrival_rank ? (
                     <Badge variant="success">

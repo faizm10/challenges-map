@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { LandingPage } from "@/components/landing-page";
-import { CHALLENGE_SEED, TEAM_SEED, UNION_STATION } from "@/lib/config";
+import { TEAM_SEED, UNION_STATION } from "@/lib/config";
 import { getChallenges, getLeaderboard } from "@/lib/game";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export default async function HomePage() {
       title: "Converge",
       finish_point: UNION_STATION.finishPoint,
       released_count: challenges.filter((challenge) => challenge.is_released).length,
-      total_challenges: CHALLENGE_SEED.length,
+      total_challenges: challenges.length,
     },
     leaderboard: await getLeaderboard(),
   };

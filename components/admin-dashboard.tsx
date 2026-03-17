@@ -245,7 +245,8 @@ export function AdminDashboard() {
               Released
             </p>
             <p className="text-2xl font-semibold text-white">
-              {game.challenges.filter((challenge) => challenge.is_released).length}/5
+              {game.challenges.filter((challenge) => challenge.is_released).length}/
+              {game.challenges.length || 0}
             </p>
           </div>
           <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
@@ -380,10 +381,75 @@ export function AdminDashboard() {
         <CardHeader>
           <CardTitle className="text-2xl text-white sm:text-3xl">Challenge Control</CardTitle>
           <CardDescription className="text-white/52">
-            Edit the five prompts and release them one by one.
+            Create up to five prompts, then edit and release them one by one.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-2">
+        <CardContent className="grid gap-4">
+          <Card className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.04] p-4 text-white sm:p-5">
+            <div className="mb-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                Create Challenge
+              </p>
+              <p className="text-sm text-white/52">
+                HQ creates the live challenge queue from scratch. {game.challenges.length}/{5} added.
+              </p>
+            </div>
+            <form
+              className="space-y-3"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const formData = new FormData(form);
+                await runAdminAction(
+                  async () => {
+                    await api("/api/admin/challenges", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        title: formData.get("title"),
+                        text: formData.get("text"),
+                        expectedLocation: formData.get("expectedLocation"),
+                      }),
+                    });
+                    form.reset();
+                    await loadGame();
+                  },
+                  "Challenge created",
+                  "A new challenge was added to the Converge queue."
+                );
+              }}
+            >
+              <Input
+                className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                disabled={game.challenges.length >= 5}
+                name="title"
+                placeholder="Challenge title"
+                required
+              />
+              <Input
+                className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                disabled={game.challenges.length >= 5}
+                name="expectedLocation"
+                placeholder="Expected checkpoint location"
+                required
+              />
+              <Textarea
+                className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                disabled={game.challenges.length >= 5}
+                name="text"
+                placeholder="Challenge prompt"
+                required
+              />
+              <Button
+                className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
+                disabled={game.challenges.length >= 5}
+                type="submit"
+              >
+                {game.challenges.length >= 5 ? "Challenge Limit Reached" : "Create Challenge"}
+              </Button>
+            </form>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
           {game.challenges.map((challenge) => (
             <Card
               key={challenge.id}
@@ -413,6 +479,7 @@ export function AdminDashboard() {
                         body: JSON.stringify({
                           title: formData.get("title"),
                           text: formData.get("text"),
+                          expectedLocation: formData.get("expectedLocation"),
                         }),
                       });
                       await loadGame();
@@ -426,6 +493,12 @@ export function AdminDashboard() {
                   className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
                   defaultValue={challenge.title}
                   name="title"
+                />
+                <Input
+                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                  defaultValue={challenge.expected_location}
+                  name="expectedLocation"
+                  placeholder="Expected checkpoint location"
                 />
                 <Textarea
                   className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
@@ -462,6 +535,12 @@ export function AdminDashboard() {
               </form>
             </Card>
           ))}
+          </div>
+          {!game.challenges.length ? (
+            <p className="text-sm text-white/46">
+              No challenges created yet. Add the first live prompt above.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -518,6 +597,14 @@ export function AdminDashboard() {
                           <div>
                             <p className="font-medium text-white">{checkpoint.label}</p>
                             <p className="text-xs text-white/42">{checkpoint.description}</p>
+                            <p className="mt-2 text-xs text-white/68">
+                              Expected location: {checkpoint.expected_location_label}
+                            </p>
+                            {checkpoint.expected_location_description ? (
+                              <p className="text-[11px] text-white/40">
+                                {checkpoint.expected_location_description}
+                              </p>
+                            ) : null}
                           </div>
                           <Badge variant={badge.variant}>{badge.label}</Badge>
                         </div>
@@ -650,6 +737,9 @@ export function AdminDashboard() {
                             <strong className="text-white">
                               {challenge.challenge_order}. {challenge.title}
                             </strong>
+                            <p className="mt-1 text-xs text-white/50">
+                              Expected location: {challenge.expected_location}
+                            </p>
                             <p className="mt-1 text-xs text-white/44">
                               {challenge.uploads.length} file{challenge.uploads.length === 1 ? "" : "s"}
                               {latestUploadAt

@@ -23,8 +23,12 @@ create table if not exists public.challenges (
   challenge_order integer not null unique,
   title text not null,
   text text not null,
+  expected_location text not null default '',
   is_released boolean not null default false
 );
+
+alter table public.challenges
+  add column if not exists expected_location text not null default '';
 
 create table if not exists public.team_challenge_status (
   team_id bigint not null references public.teams(id) on delete cascade,
@@ -120,14 +124,6 @@ values
   ('team', 'Team 4', 'TEAM4GO', 4),
   ('team', 'Team 5', 'TEAM5GO', 5);
 
-insert into public.challenges (id, challenge_order, title, text, is_released)
-values
-  (1, 1, 'Movie Trailer Shot', 'Film a 10-second dramatic trailer for your team''s race to Union.', false),
-  (2, 2, 'Toronto Meme', 'Recreate a meme using something you find on the street.', false),
-  (3, 3, 'Stranger Cameo', 'Get a stranger to say your team name on video.', false),
-  (4, 4, 'Landmark Proof', 'Take a creative photo with a recognizable Toronto landmark.', false),
-  (5, 5, 'Chaotic Commercial', 'Film a fake ad for a random everyday object.', false);
-
 insert into public.team_scores (team_id, arrival_rank, creativity_score)
 values
   (1, null, 0),
@@ -135,44 +131,6 @@ values
   (3, null, 0),
   (4, null, 0),
   (5, null, 0);
-
-insert into public.team_challenge_status (
-  team_id,
-  challenge_id,
-  status,
-  proof_note,
-  submitted_at,
-  review_status,
-  review_note,
-  reviewed_at,
-  reviewed_by
-)
-values
-  (1, 1, 'not_started', '', null, 'pending', '', null, null),
-  (1, 2, 'not_started', '', null, 'pending', '', null, null),
-  (1, 3, 'not_started', '', null, 'pending', '', null, null),
-  (1, 4, 'not_started', '', null, 'pending', '', null, null),
-  (1, 5, 'not_started', '', null, 'pending', '', null, null),
-  (2, 1, 'not_started', '', null, 'pending', '', null, null),
-  (2, 2, 'not_started', '', null, 'pending', '', null, null),
-  (2, 3, 'not_started', '', null, 'pending', '', null, null),
-  (2, 4, 'not_started', '', null, 'pending', '', null, null),
-  (2, 5, 'not_started', '', null, 'pending', '', null, null),
-  (3, 1, 'not_started', '', null, 'pending', '', null, null),
-  (3, 2, 'not_started', '', null, 'pending', '', null, null),
-  (3, 3, 'not_started', '', null, 'pending', '', null, null),
-  (3, 4, 'not_started', '', null, 'pending', '', null, null),
-  (3, 5, 'not_started', '', null, 'pending', '', null, null),
-  (4, 1, 'not_started', '', null, 'pending', '', null, null),
-  (4, 2, 'not_started', '', null, 'pending', '', null, null),
-  (4, 3, 'not_started', '', null, 'pending', '', null, null),
-  (4, 4, 'not_started', '', null, 'pending', '', null, null),
-  (4, 5, 'not_started', '', null, 'pending', '', null, null),
-  (5, 1, 'not_started', '', null, 'pending', '', null, null),
-  (5, 2, 'not_started', '', null, 'pending', '', null, null),
-  (5, 3, 'not_started', '', null, 'pending', '', null, null),
-  (5, 4, 'not_started', '', null, 'pending', '', null, null),
-  (5, 5, 'not_started', '', null, 'pending', '', null, null);
 
 alter table public.teams disable row level security;
 alter table public.access_credentials disable row level security;

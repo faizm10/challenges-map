@@ -14,8 +14,8 @@ import type {
 } from "@/lib/types";
 import {
   ACCESS_SEED,
-  CHALLENGE_ROWS,
-  TEAM_CHALLENGE_STATUS_ROWS,
+  EMPTY_CHALLENGE_ROWS,
+  EMPTY_TEAM_CHALLENGE_STATUS_ROWS,
   TEAM_ROWS,
   TEAM_SCORE_ROWS,
 } from "@/lib/seed";
@@ -39,6 +39,7 @@ type LocalState = {
   challengeMedia: ChallengeUpload[];
   teamCheckins: TeamCheckin[];
   nextCheckinId: number;
+  nextChallengeId: number;
   teamScores: TeamScore[];
   accessCredentials: AccessCredential[];
 };
@@ -51,8 +52,8 @@ declare global {
 function cloneState(): LocalState {
   return {
     teams: TEAM_ROWS.map((team) => ({ ...team })),
-    challenges: CHALLENGE_ROWS.map((challenge) => ({ ...challenge })),
-    teamChallengeStatus: TEAM_CHALLENGE_STATUS_ROWS.map((status) => ({
+    challenges: EMPTY_CHALLENGE_ROWS.map((challenge) => ({ ...challenge })),
+    teamChallengeStatus: EMPTY_TEAM_CHALLENGE_STATUS_ROWS.map((status) => ({
       ...status,
       status: status.status as "not_started" | "submitted",
       review_status: status.review_status as "pending" | "verified" | "rejected",
@@ -60,6 +61,7 @@ function cloneState(): LocalState {
     challengeMedia: [],
     teamCheckins: [],
     nextCheckinId: 1,
+    nextChallengeId: 1,
     teamScores: TEAM_SCORE_ROWS.map((score) => ({ ...score })),
     accessCredentials: ACCESS_SEED.map((credential) => ({ ...credential })),
   };
@@ -76,10 +78,13 @@ function getState() {
 function getMilestones(entry: {
   completed_count: number;
   arrival_rank: number | null;
+  total_challenges: number;
 }) {
   const milestones: string[] = [];
   if (entry.completed_count > 0) milestones.push("First Submission");
-  if (entry.completed_count === 5) milestones.push("All 5 Complete");
+  if (entry.total_challenges > 0 && entry.completed_count === entry.total_challenges) {
+    milestones.push(`All ${entry.total_challenges} Complete`);
+  }
   if (entry.arrival_rank === 1) milestones.push("First to Union");
   return milestones;
 }
@@ -108,6 +113,31 @@ function buildCheckpointDescription(
   return challenge
     ? `Check in when your team completes Challenge ${challenge.challenge_order}.`
     : "Check in when the challenge is completed.";
+}
+
+function buildExpectedLocation(
+  type: "start" | "challenge" | "finish",
+  team: Team,
+  challenge?: Challenge
+) {
+  if (type === "start") {
+    return {
+      label: team.start_location_name,
+      description: team.address,
+    };
+  }
+
+  if (type === "finish") {
+    return {
+      label: UNION_STATION.name,
+      description: UNION_STATION.finishPoint,
+    };
+  }
+
+  return {
+    label: challenge?.expected_location?.trim() || "Location set by HQ",
+    description: null,
+  };
 }
 
 function deriveTeamLatestLocation(teamId: number): TeamLatestLocation | null {
@@ -169,17 +199,22 @@ function deriveCheckpoints(teamId: number): TeamCheckpoint[] {
       challenge_id: null,
       label: "Start Check-In",
       description: buildCheckpointDescription("start", team),
+      expected_location_label: buildExpectedLocation("start", team).label,
+      expected_location_description: buildExpectedLocation("start", team).description,
       status: makeLatest("start", null)?.status ?? "not_started",
       latest_checkin: makeLatest("start", null),
     },
     ...releasedChallenges.map((challenge) => {
       const latest = makeLatest("challenge", challenge.id);
+      const expected = buildExpectedLocation("challenge", team, challenge);
       return {
         key: `challenge-${challenge.id}`,
         checkin_type: "challenge" as const,
         challenge_id: challenge.id,
         label: `${challenge.title} Check-In`,
         description: buildCheckpointDescription("challenge", team, challenge),
+        expected_location_label: expected.label,
+        expected_location_description: expected.description,
         status: latest?.status ?? "not_started",
         latest_checkin: latest,
       };
@@ -190,6 +225,8 @@ function deriveCheckpoints(teamId: number): TeamCheckpoint[] {
       challenge_id: null,
       label: "Finish Check-In",
       description: buildCheckpointDescription("finish", team),
+      expected_location_label: buildExpectedLocation("finish", team).label,
+      expected_location_description: buildExpectedLocation("finish", team).description,
       status: makeLatest("finish", null)?.status ?? "not_started",
       latest_checkin: makeLatest("finish", null),
     },
@@ -280,7 +317,9 @@ export function getLocalLeaderboard(): LeaderboardEntry[] {
       milestones: getMilestones({
         completed_count: completedCount,
         arrival_rank: arrivalRank,
+        total_challenges: state.challenges.length,
       }),
+      total_challenges: state.challenges.length,
     };
   });
 
@@ -357,6 +396,42 @@ export function updateLocalChallenge(challengeId: number, title: string, text: s
   if (!challenge) return;
   challenge.title = title.slice(0, 120);
   challenge.text = text.slice(0, 500);
+}
+
+export function createLocalChallenge(title: string, text: string, expectedLocation: string) {
+  const state = getState();
+  const id = state.nextChallengeId++;
+  const challenge = {
+    id,
+    challenge_order: state.challenges.length + 1,
+    title: title.slice(0, 120),
+    text: text.slice(0, 500),
+    expected_location: expectedLocation.slice(0, 160),
+    is_released: 0,
+  };
+
+  state.challenges.push(challenge);
+  state.teamChallengeStatus.push(
+    ...state.teams.map((team) => ({
+      team_id: team.id,
+      challenge_id: id,
+      status: "not_started" as const,
+      proof_note: "",
+      submitted_at: null,
+      review_status: "pending" as const,
+      review_note: "",
+      reviewed_at: null,
+      reviewed_by: null,
+    }))
+  );
+
+  return { ...challenge };
+}
+
+export function updateLocalChallengeExpectedLocation(challengeId: number, expectedLocation: string) {
+  const challenge = getState().challenges.find((item) => item.id === challengeId);
+  if (!challenge) return;
+  challenge.expected_location = expectedLocation.slice(0, 160);
 }
 
 export function updateLocalChallengeRelease(challengeId: number, isReleased: boolean) {

@@ -1,10 +1,11 @@
-import type { ChallengeSeed, TeamSeed } from "@/lib/types";
+import type { TeamSeed } from "@/lib/types";
 
 export const COOKIE_NAME = "race_to_union_session";
 export const SESSION_SECRET = "race-to-union-next-session-secret-v1";
 export const CHALLENGE_PROOF_BUCKET = "challenge-proof";
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const MAX_FILES_PER_UPLOAD_REQUEST = 10;
+export const MAX_CHALLENGES = 5;
 
 export const UNION_STATION = {
   name: "Union Station",
@@ -106,43 +107,5 @@ export const TEAM_SEED: TeamSeed[] = [
       [-79.3816, 43.6487],
       [-79.3807, 43.6453],
     ],
-  },
-];
-
-export const CHALLENGE_SEED: ChallengeSeed[] = [
-  {
-    id: 1,
-    challengeOrder: 1,
-    title: "Movie Trailer Shot",
-    text: "Film a 10-second dramatic trailer for your team's race to Union.",
-    isReleased: 0,
-  },
-  {
-    id: 2,
-    challengeOrder: 2,
-    title: "Toronto Meme",
-    text: "Recreate a meme using something you find on the street.",
-    isReleased: 0,
-  },
-  {
-    id: 3,
-    challengeOrder: 3,
-    title: "Stranger Cameo",
-    text: "Get a stranger to say your team name on video.",
-    isReleased: 0,
-  },
-  {
-    id: 4,
-    challengeOrder: 4,
-    title: "Landmark Proof",
-    text: "Take a creative photo with a recognizable Toronto landmark.",
-    isReleased: 0,
-  },
-  {
-    id: 5,
-    challengeOrder: 5,
-    title: "Chaotic Commercial",
-    text: "Film a fake ad for a random everyday object.",
-    isReleased: 0,
   },
 ];

@@ -390,7 +390,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             </div>
             <div className="flex flex-wrap gap-3">
               <Badge className="border-white/10 bg-white/6 px-4 py-2 text-white/80" variant="secondary">
-                {data.event.released_count}/5 challenges released
+                {data.event.total_challenges
+                  ? `${data.event.released_count}/${data.event.total_challenges} challenges released`
+                  : "No challenges live yet"}
               </Badge>
               <Badge className="border-white/10 bg-white/6 px-4 py-2 text-white/80" variant="secondary">
                 {data.event.finish_point}

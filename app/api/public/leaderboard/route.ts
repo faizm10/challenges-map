@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { CHALLENGE_SEED, UNION_STATION } from "@/lib/config";
+import { UNION_STATION } from "@/lib/config";
 import { getChallenges, getLeaderboard } from "@/lib/game";
 
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
       title: "Converge",
       finish_point: UNION_STATION.finishPoint,
       released_count: challenges.filter((challenge) => challenge.is_released).length,
-      total_challenges: CHALLENGE_SEED.length,
+      total_challenges: challenges.length,
     },
     leaderboard: await getLeaderboard(),
   });

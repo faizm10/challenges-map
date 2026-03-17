@@ -1,4 +1,5 @@
 import {
+  MAX_CHALLENGES,
   CHALLENGE_PROOF_BUCKET,
   MAX_FILES_PER_UPLOAD_REQUEST,
   MAX_UPLOAD_BYTES,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/config";
 import { isSupabaseUnavailable } from "@/lib/data-source";
 import {
+  createLocalChallenge,
   createLocalCheckin,
   getLocalAdminGame,
   getLocalChallenges,
@@ -19,6 +21,7 @@ import {
   resetLocalState,
   reviewLocalCheckin,
   updateLocalChallenge,
+  updateLocalChallengeExpectedLocation,
   updateLocalChallengeRelease,
   updateLocalChallengeReview,
   updateLocalChallengeSubmission,
@@ -26,8 +29,6 @@ import {
 } from "@/lib/local-store";
 import {
   ACCESS_SEED,
-  CHALLENGE_ROWS,
-  TEAM_CHALLENGE_STATUS_ROWS,
   TEAM_ROWS,
   TEAM_SCORE_ROWS,
 } from "@/lib/seed";
@@ -75,10 +76,13 @@ type CheckinRow = TeamCheckin;
 function getMilestones(entry: {
   completed_count: number;
   arrival_rank: number | null;
+  total_challenges: number;
 }): string[] {
   const milestones: string[] = [];
   if (entry.completed_count > 0) milestones.push("First Submission");
-  if (entry.completed_count === 5) milestones.push("All 5 Complete");
+  if (entry.total_challenges > 0 && entry.completed_count === entry.total_challenges) {
+    milestones.push(`All ${entry.total_challenges} Complete`);
+  }
   if (entry.arrival_rank === 1) milestones.push("First to Union");
   return milestones;
 }
@@ -204,6 +208,31 @@ function checkpointDescription(
     : "Check in after completing the challenge.";
 }
 
+function checkpointExpectedLocation(
+  type: "start" | "challenge" | "finish",
+  team: Team,
+  challenge?: Challenge
+) {
+  if (type === "start") {
+    return {
+      label: team.start_location_name,
+      description: team.address,
+    };
+  }
+
+  if (type === "finish") {
+    return {
+      label: UNION_STATION.name,
+      description: UNION_STATION.finishPoint,
+    };
+  }
+
+  return {
+    label: challenge?.expected_location?.trim() || "Location set by HQ",
+    description: null,
+  };
+}
+
 function deriveCheckpoints(
   team: Team,
   releasedChallenges: Challenge[],
@@ -221,17 +250,22 @@ function deriveCheckpoints(
       challenge_id: null,
       label: "Start Check-In",
       description: checkpointDescription("start", team),
+      expected_location_label: checkpointExpectedLocation("start", team).label,
+      expected_location_description: checkpointExpectedLocation("start", team).description,
       status: startLatest?.status ?? "not_started",
       latest_checkin: startLatest,
     },
     ...releasedChallenges.map((challenge) => {
       const latest = byKey.get(`challenge:${challenge.id}`)?.[0] ?? null;
+      const expected = checkpointExpectedLocation("challenge", team, challenge);
       return {
         key: `challenge-${challenge.id}`,
         checkin_type: "challenge" as const,
         challenge_id: challenge.id,
         label: checkpointLabel("challenge", challenge.title),
         description: checkpointDescription("challenge", team, challenge),
+        expected_location_label: expected.label,
+        expected_location_description: expected.description,
         status: (latest?.status ?? "not_started") as TeamCheckpoint["status"],
         latest_checkin: latest,
       };
@@ -242,6 +276,8 @@ function deriveCheckpoints(
       challenge_id: null,
       label: "Finish Check-In",
       description: checkpointDescription("finish", team),
+      expected_location_label: checkpointExpectedLocation("finish", team).label,
+      expected_location_description: checkpointExpectedLocation("finish", team).description,
       status: finishLatest?.status ?? "not_started",
       latest_checkin: finishLatest,
     },
@@ -388,7 +424,7 @@ export async function getChallenges(includeHidden = true): Promise<Challenge[]> 
   try {
     let query = supabase
       .from("challenges")
-      .select("id, challenge_order, title, text, is_released")
+      .select("id, challenge_order, title, text, expected_location, is_released")
       .order("challenge_order", { ascending: true });
 
     if (!includeHidden) {
@@ -506,8 +542,8 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   try {
-    const [releasedCount, teamsResult, scoresResult, statusResult] = await Promise.all([
-      getReleasedCount(),
+    const [challengesResult, teamsResult, scoresResult, statusResult] = await Promise.all([
+      supabase.from("challenges").select("id, is_released"),
       supabase
         .from("teams")
         .select("id, team_name, start_location_name, walk_time, color, badge_label")
@@ -519,6 +555,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
       supabase.from("team_challenge_status").select("team_id, status"),
     ]);
 
+    if (challengesResult.error) throw challengesResult.error;
     if (teamsResult.error) throw teamsResult.error;
     if (scoresResult.error) throw scoresResult.error;
     if (statusResult.error) throw statusResult.error;
@@ -540,6 +577,11 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
       if (row.status !== "submitted") continue;
       completedCounts.set(row.team_id, (completedCounts.get(row.team_id) ?? 0) + 1);
     }
+
+    const totalChallenges = (challengesResult.data ?? []).length;
+    const releasedCount = ((challengesResult.data ?? []) as Array<{ is_released: boolean }>).filter(
+      (challenge) => Boolean(challenge.is_released)
+    ).length;
 
     const scored = teams.map((row) => {
       const score = scores.get(row.id);
@@ -564,11 +606,13 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
         creativity_score: creativityScore,
         total_points: totalPoints,
         released_count: releasedCount,
+        total_challenges: totalChallenges,
         progress_percent:
           releasedCount === 0 ? 4 : Math.max(10, Math.min(100, Math.round(totalPoints))),
         milestones: getMilestones({
           completed_count: completedCount,
           arrival_rank: arrivalRank,
+          total_challenges: totalChallenges,
         }),
       };
     });
@@ -707,21 +751,96 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
   }
 }
 
-export async function updateChallenge(challengeId: number, title: string, text: string) {
+export async function updateChallenge(
+  challengeId: number,
+  title: string,
+  text: string,
+  expectedLocation: string
+) {
+  const cleanTitle = title.trim();
+  const cleanText = text.trim();
+  const cleanExpectedLocation = expectedLocation.trim();
+  if (!cleanTitle || !cleanText || !cleanExpectedLocation) {
+    throw new GameError("Title, prompt, and expected location are all required.", 400);
+  }
+
   try {
     const { error } = await supabase
       .from("challenges")
       .update({
-        title: title.slice(0, 120),
-        text: text.slice(0, 500),
+        title: cleanTitle.slice(0, 120),
+        text: cleanText.slice(0, 500),
+        expected_location: cleanExpectedLocation.slice(0, 160),
       })
       .eq("id", challengeId);
 
     if (error) throw error;
     return getChallenges(true);
   } catch (error) {
+    if (isGameError(error)) throw error;
     if (isSupabaseUnavailable(error)) {
-      updateLocalChallenge(challengeId, title, text);
+      updateLocalChallenge(challengeId, cleanTitle, cleanText);
+      updateLocalChallengeExpectedLocation(challengeId, cleanExpectedLocation);
+      return getLocalChallenges(true);
+    }
+    throw error;
+  }
+}
+
+export async function createChallenge(title: string, text: string, expectedLocation: string) {
+  const cleanTitle = title.trim();
+  const cleanText = text.trim();
+  const cleanExpectedLocation = expectedLocation.trim();
+  if (!cleanTitle || !cleanText || !cleanExpectedLocation) {
+    throw new GameError("Title, prompt, and expected location are all required.", 400);
+  }
+
+  try {
+    const existing = await getChallenges(true);
+    if (existing.length >= MAX_CHALLENGES) {
+      throw new GameError(`You can create up to ${MAX_CHALLENGES} challenges.`, 409);
+    }
+
+    const nextOrder = existing.length + 1;
+    const nextId =
+      existing.reduce((max, challenge) => Math.max(max, challenge.id), 0) + 1;
+
+    const payload = {
+      id: nextId,
+      challenge_order: nextOrder,
+      title: cleanTitle.slice(0, 120),
+      text: cleanText.slice(0, 500),
+      expected_location: cleanExpectedLocation.slice(0, 160),
+      is_released: false,
+    };
+
+    const { error: challengeError } = await supabase.from("challenges").insert(payload);
+    if (challengeError) throw challengeError;
+
+    const statusRows = TEAM_ROWS.map((team) => ({
+      team_id: team.id,
+      challenge_id: nextId,
+      status: "not_started",
+      proof_note: "",
+      submitted_at: null,
+      review_status: "pending",
+      review_note: "",
+      reviewed_at: null,
+      reviewed_by: null,
+    }));
+
+    const { error: statusError } = await supabase.from("team_challenge_status").insert(statusRows);
+    if (statusError) throw statusError;
+
+    return getChallenges(true);
+  } catch (error) {
+    if (isGameError(error)) throw error;
+    if (isSupabaseUnavailable(error)) {
+      const existing = getLocalChallenges(true);
+      if (existing.length >= MAX_CHALLENGES) {
+        throw new GameError(`You can create up to ${MAX_CHALLENGES} challenges.`, 409);
+      }
+      createLocalChallenge(cleanTitle, cleanText, cleanExpectedLocation);
       return getLocalChallenges(true);
     }
     throw error;
@@ -1087,9 +1206,7 @@ export async function resetGame() {
 
     const inserts = await Promise.all([
       supabase.from("teams").insert(TEAM_ROWS),
-      supabase.from("challenges").insert(CHALLENGE_ROWS),
       supabase.from("team_scores").insert(TEAM_SCORE_ROWS),
-      supabase.from("team_challenge_status").insert(TEAM_CHALLENGE_STATUS_ROWS),
       supabase.from("access_credentials").insert(ACCESS_SEED),
     ]);
 
