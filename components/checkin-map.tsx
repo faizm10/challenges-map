@@ -6,18 +6,20 @@ import {
   Map,
   MapControls,
   MapMarker,
+  MapRoute,
   MarkerContent,
   MarkerPopup,
 } from "@/components/ui/map";
 import { Card } from "@/components/ui/card";
 import { UNION_STATION } from "@/lib/config";
-import type { TeamLatestLocation } from "@/lib/types";
+import type { AdminTeamRoute, TeamLatestLocation } from "@/lib/types";
 
 type CheckinMapProps = {
   latestLocations: TeamLatestLocation[];
+  teamRoutes: AdminTeamRoute[];
 };
 
-export function CheckinMap({ latestLocations }: CheckinMapProps) {
+export function CheckinMap({ latestLocations, teamRoutes }: CheckinMapProps) {
   return (
     <Card className="overflow-hidden border-white/8 bg-[#120f10]/88 p-0">
       <div className="h-[320px] w-full sm:h-[380px] lg:h-[420px]">
@@ -40,6 +42,19 @@ export function CheckinMap({ latestLocations }: CheckinMapProps) {
               </div>
             </MarkerPopup>
           </MapMarker>
+
+          {teamRoutes.map((route) =>
+            route.points.length >= 2 ? (
+              <MapRoute
+                key={`route-${route.team_id}`}
+                color={route.color}
+                coordinates={route.points.map((point) => [point.longitude, point.latitude])}
+                id={`team-progress-${route.team_id}`}
+                opacity={0.88}
+                width={4}
+              />
+            ) : null
+          )}
 
           {latestLocations.map((location) => (
             <MapMarker
@@ -65,6 +80,10 @@ export function CheckinMap({ latestLocations }: CheckinMapProps) {
                   <p className="text-muted-foreground">{location.label}</p>
                   <p className="mt-1 font-mono text-xs text-slate-600">
                     {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {teamRoutes.find((route) => route.team_id === location.team_id)?.completed_labels.join(" -> ") ??
+                      "No mapped route yet"}
                   </p>
                 </div>
               </MarkerPopup>

@@ -37,6 +37,8 @@ import { supabase } from "@/lib/supabase";
 import type {
   AdminCheckinFeedItem,
   AdminGameResponse,
+  AdminRoutePoint,
+  AdminTeamRoute,
   Challenge,
   ChallengeUpload,
   LeaderboardEntry,
@@ -309,6 +311,102 @@ function getLatestLocationForTeam(
     checkin_type: latest.checkin_type,
     challenge_id: latest.challenge_id,
     label: checkpointLabel(latest.checkin_type, challenge?.title),
+  };
+}
+
+function buildAdminTeamRoute(team: Team, checkins: TeamCheckin[], challenges: Challenge[]): AdminTeamRoute {
+  const start = checkins
+    .filter(
+      (item) =>
+        item.checkin_type === "start" &&
+        item.latitude !== null &&
+        item.longitude !== null
+    )
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+
+  const challengePoints = challenges
+    .slice()
+    .sort((a, b) => a.challenge_order - b.challenge_order)
+    .map((challenge) => {
+      const latest = checkins
+        .filter(
+          (item) =>
+            item.checkin_type === "challenge" &&
+            item.challenge_id === challenge.id &&
+            item.latitude !== null &&
+            item.longitude !== null
+        )
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+
+      if (!latest || latest.latitude === null || latest.longitude === null) return null;
+
+      const point: AdminRoutePoint = {
+        team_id: team.id,
+        team_name: team.team_name,
+        color: team.color,
+        badge_label: team.badge_label,
+        latitude: latest.latitude,
+        longitude: latest.longitude,
+        checkin_type: "challenge",
+        challenge_id: challenge.id,
+        label: `Challenge ${challenge.challenge_order}`,
+        created_at: latest.created_at,
+      };
+
+      return point;
+    })
+    .filter(Boolean) as AdminRoutePoint[];
+
+  const finish = checkins
+    .filter(
+      (item) =>
+        item.checkin_type === "finish" &&
+        item.latitude !== null &&
+        item.longitude !== null
+    )
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+
+  const points: AdminRoutePoint[] = [];
+
+  if (start && start.latitude !== null && start.longitude !== null) {
+    points.push({
+      team_id: team.id,
+      team_name: team.team_name,
+      color: team.color,
+      badge_label: team.badge_label,
+      latitude: start.latitude,
+      longitude: start.longitude,
+      checkin_type: "start",
+      challenge_id: null,
+      label: "Start",
+      created_at: start.created_at,
+    });
+  }
+
+  points.push(...challengePoints);
+
+  if (finish && finish.latitude !== null && finish.longitude !== null) {
+    points.push({
+      team_id: team.id,
+      team_name: team.team_name,
+      color: team.color,
+      badge_label: team.badge_label,
+      latitude: finish.latitude,
+      longitude: finish.longitude,
+      checkin_type: "finish",
+      challenge_id: null,
+      label: "Finish",
+      created_at: finish.created_at,
+    });
+  }
+
+  return {
+    team_id: team.id,
+    team_name: team.team_name,
+    color: team.color,
+    badge_label: team.badge_label,
+    points,
+    completed_labels: points.map((point) => point.label),
   };
 }
 
@@ -712,7 +810,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
 
 export async function getAdminGame(): Promise<AdminGameResponse> {
   try {
-    const [teamsResult, challenges, scoresResult, leaderboard, latestLocations, recentCheckins, credentialsResult] =
+    const [teamsResult, challenges, scoresResult, leaderboard, latestLocations, recentCheckins, credentialsResult, allCheckins] =
       await Promise.all([
         supabase.from("teams").select("id").order("id", { ascending: true }),
         getChallenges(true),
@@ -727,6 +825,7 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
           .from("access_credentials")
           .select("team_id, display_name, pin")
           .eq("role", "team"),
+        getAllCheckinsFromDb(),
       ]);
 
     if (teamsResult.error) throw teamsResult.error;
@@ -760,10 +859,25 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
       })
     );
 
+    const teamMap = new Map(
+      (teams.filter(Boolean) as TeamDashboardResponse[]).map((teamView) => [teamView.team.id, teamView.team])
+    );
+    const checkinsByTeam = new Map<number, TeamCheckin[]>();
+    for (const checkin of allCheckins) {
+      const current = checkinsByTeam.get(checkin.team_id) ?? [];
+      current.push(checkin);
+      checkinsByTeam.set(checkin.team_id, current);
+    }
+
+    const teamRoutes = Array.from(teamMap.values()).map((team) =>
+      buildAdminTeamRoute(team, checkinsByTeam.get(team.id) ?? [], challenges)
+    );
+
     return {
       challenges,
       teams: teams.filter(Boolean) as TeamDashboardResponse[],
       latestLocations,
+      teamRoutes,
       recentCheckins,
       scores: (scoresResult.data ?? []) as TeamScore[],
       leaderboard,

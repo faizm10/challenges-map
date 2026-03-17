@@ -2,6 +2,8 @@ import { TEAM_SEED, UNION_STATION } from "@/lib/config";
 import type {
   AdminCheckinFeedItem,
   AdminGameResponse,
+  AdminRoutePoint,
+  AdminTeamRoute,
   Challenge,
   ChallengeUpload,
   LeaderboardEntry,
@@ -177,6 +179,109 @@ function deriveTeamLatestLocation(teamId: number): TeamLatestLocation | null {
     checkin_type: latest.checkin_type,
     challenge_id: latest.challenge_id,
     label: buildCheckpointLabel(latest.checkin_type, challenge?.title),
+  };
+}
+
+function deriveAdminTeamRoute(teamId: number): AdminTeamRoute | null {
+  const state = getState();
+  const team = state.teams.find((item) => item.id === teamId);
+  if (!team) return null;
+
+  const start = state.teamCheckins
+    .filter(
+      (item) =>
+        item.team_id === teamId &&
+        item.checkin_type === "start" &&
+        item.latitude !== null &&
+        item.longitude !== null
+    )
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+
+  const challengePoints = state.challenges
+    .slice()
+    .sort((a, b) => a.challenge_order - b.challenge_order)
+    .map((challenge) => {
+      const latest = state.teamCheckins
+        .filter(
+          (item) =>
+            item.team_id === teamId &&
+            item.checkin_type === "challenge" &&
+            item.challenge_id === challenge.id &&
+            item.latitude !== null &&
+            item.longitude !== null
+        )
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+
+      if (!latest || latest.latitude === null || latest.longitude === null) return null;
+
+      const point: AdminRoutePoint = {
+        team_id: team.id,
+        team_name: team.team_name,
+        color: team.color,
+        badge_label: team.badge_label,
+        latitude: latest.latitude,
+        longitude: latest.longitude,
+        checkin_type: "challenge",
+        challenge_id: challenge.id,
+        label: `Challenge ${challenge.challenge_order}`,
+        created_at: latest.created_at,
+      };
+
+      return point;
+    })
+    .filter(Boolean) as AdminRoutePoint[];
+
+  const finish = state.teamCheckins
+    .filter(
+      (item) =>
+        item.team_id === teamId &&
+        item.checkin_type === "finish" &&
+        item.latitude !== null &&
+        item.longitude !== null
+    )
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+
+  const points: AdminRoutePoint[] = [];
+
+  if (start && start.latitude !== null && start.longitude !== null) {
+    points.push({
+      team_id: team.id,
+      team_name: team.team_name,
+      color: team.color,
+      badge_label: team.badge_label,
+      latitude: start.latitude,
+      longitude: start.longitude,
+      checkin_type: "start",
+      challenge_id: null,
+      label: "Start",
+      created_at: start.created_at,
+    });
+  }
+
+  points.push(...challengePoints);
+
+  if (finish && finish.latitude !== null && finish.longitude !== null) {
+    points.push({
+      team_id: team.id,
+      team_name: team.team_name,
+      color: team.color,
+      badge_label: team.badge_label,
+      latitude: finish.latitude,
+      longitude: finish.longitude,
+      checkin_type: "finish",
+      challenge_id: null,
+      label: "Finish",
+      created_at: finish.created_at,
+    });
+  }
+
+  return {
+    team_id: team.id,
+    team_name: team.team_name,
+    color: team.color,
+    badge_label: team.badge_label,
+    points,
+    completed_labels: points.map((point) => point.label),
   };
 }
 
@@ -402,6 +507,9 @@ export function getLocalAdminGame(): AdminGameResponse {
       .map((team) => getLocalTeamDashboard(team.id))
       .filter(Boolean) as TeamDashboardResponse[],
     latestLocations: getLocalLatestLocations(),
+    teamRoutes: state.teams
+      .map((team) => deriveAdminTeamRoute(team.id))
+      .filter(Boolean) as AdminTeamRoute[],
     recentCheckins: getLocalRecentCheckins(),
     scores: state.teamScores.map((score) => ({ ...score })),
     leaderboard: getLocalLeaderboard(),

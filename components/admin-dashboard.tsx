@@ -313,7 +313,7 @@ export function AdminDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CheckinMap latestLocations={game.latestLocations} />
+            <CheckinMap latestLocations={game.latestLocations} teamRoutes={game.teamRoutes} />
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {game.latestLocations.length ? (
                 game.latestLocations.map((location) => (
@@ -346,6 +346,36 @@ export function AdminDashboard() {
                 ))
               ) : (
                 <p className="text-sm text-white/46">No GPS check-ins yet.</p>
+              )}
+            </div>
+            <div className="mt-4 grid gap-3">
+              {game.teamRoutes.filter((route) => route.points.length).length ? (
+                game.teamRoutes
+                  .filter((route) => route.points.length)
+                  .map((route) => (
+                    <div
+                      key={`route-summary-${route.team_id}`}
+                      className="rounded-[18px] border border-white/8 bg-white/[0.05] p-4"
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <Badge
+                          className="border-transparent text-white"
+                          style={{ backgroundColor: route.color }}
+                          variant="secondary"
+                        >
+                          {route.team_name}
+                        </Badge>
+                        <span className="text-xs text-white/44">
+                          {route.points.length} GPS checkpoint{route.points.length === 1 ? "" : "s"} mapped
+                        </span>
+                      </div>
+                      <p className="text-sm text-white/64">
+                        {route.completed_labels.join(" -> ")}
+                      </p>
+                    </div>
+                  ))
+              ) : (
+                <p className="text-sm text-white/46">Routes will appear here as teams submit GPS check-ins.</p>
               )}
             </div>
           </CardContent>

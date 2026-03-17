@@ -113,6 +113,28 @@ export type AdminCheckinFeedItem = TeamCheckin & {
   badge_label: string;
 };
 
+export type AdminRoutePoint = {
+  team_id: number;
+  team_name: string;
+  color: string;
+  badge_label: string;
+  latitude: number;
+  longitude: number;
+  checkin_type: "start" | "challenge" | "finish";
+  challenge_id: number | null;
+  label: string;
+  created_at: string;
+};
+
+export type AdminTeamRoute = {
+  team_id: number;
+  team_name: string;
+  color: string;
+  badge_label: string;
+  points: AdminRoutePoint[];
+  completed_labels: string[];
+};
+
 export type TeamScore = {
   team_id: number;
   arrival_rank: number | null;
@@ -167,6 +189,7 @@ export type AdminGameResponse = {
   challenges: Challenge[];
   teams: TeamDashboardResponse[];
   latestLocations: TeamLatestLocation[];
+  teamRoutes: AdminTeamRoute[];
   recentCheckins: AdminCheckinFeedItem[];
   scores: TeamScore[];
   leaderboard: LeaderboardEntry[];
