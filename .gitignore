@@ -1,7 +1,11 @@
 .next
 node_modules
+.env
+.env.*
+!.env.example
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
+supabase/.temp
 out
 dist
