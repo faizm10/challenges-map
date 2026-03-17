@@ -173,6 +173,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
 
           <div className="flex items-center gap-3">
             <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
+              <Link href="/map">Map</Link>
+            </Button>
+            <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
               <Link href="/team">Team Login</Link>
             </Button>
             {/* <Button
@@ -216,6 +219,13 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 onClick={() => setIsCreateRaceOpen(true)}
               >
                 Start Converge
+              </Button>
+              <Button
+                asChild
+                className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
+                variant="secondary"
+              >
+                <Link href="/map">Open map</Link>
               </Button>
               <Button
                 asChild
