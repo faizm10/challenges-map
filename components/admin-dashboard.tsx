@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Clock3, Image as ImageIcon, MapPin, Video } from "lucide-react";
 
-import { TEAM_SEED } from "@/lib/config";
-import { RaceMap } from "@/components/race-map";
+import { CheckinMap } from "@/components/checkin-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -190,15 +189,6 @@ export function AdminDashboard() {
     );
   }
 
-  const mapTeams = TEAM_SEED.map((team) => ({
-    id: team.id,
-    teamName: team.teamName,
-    startLocationName: team.startLocationName,
-    color: team.color,
-    routeLine: team.routeLine,
-    coordinates: team.coordinates,
-  }));
-
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
       <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
@@ -282,13 +272,47 @@ export function AdminDashboard() {
       <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
           <CardHeader>
-            <CardTitle className="text-2xl text-white sm:text-3xl">Live Progress Map</CardTitle>
+            <CardTitle className="text-2xl text-white sm:text-3xl">Check-In Map</CardTitle>
             <CardDescription className="text-white/52">
-              Latest known team locations from one-tap checkpoint GPS captures.
+              Latest known coordinates from checkpoint GPS captures.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RaceMap latestLocations={game.latestLocations} teams={mapTeams} />
+            <CheckinMap latestLocations={game.latestLocations} />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {game.latestLocations.length ? (
+                game.latestLocations.map((location) => (
+                  <div
+                    key={`coord-${location.team_id}`}
+                    className="rounded-[18px] border border-white/8 bg-white/[0.05] p-4"
+                  >
+                    <div className="mb-2 flex items-center gap-2">
+                      <Badge
+                        className="border-transparent text-white"
+                        style={{ backgroundColor: location.color }}
+                        variant="secondary"
+                      >
+                        {location.team_name}
+                      </Badge>
+                      <Badge className="border-white/10 bg-white/8 text-white/76" variant="secondary">
+                        {location.label}
+                      </Badge>
+                    </div>
+                    <p className="font-mono text-sm text-white">
+                      {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+                    </p>
+                    <p className="mt-1 text-xs text-white/44">
+                      Accuracy{" "}
+                      {location.accuracy_meters !== null
+                        ? `${Math.round(location.accuracy_meters)}m`
+                        : "unknown"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-white/46">No GPS check-ins yet.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
