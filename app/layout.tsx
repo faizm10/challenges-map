@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Fraunces, Space_Grotesk } from "next/font/google";
+import { Geist, Sora } from "next/font/google";
 
 import "@/app/globals.css";
 import { ToasterProvider } from "@/components/ui/toaster";
 
-const spaceGrotesk = Space_Grotesk({
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  variable: "--font-geist",
 });
 
-const fraunces = Fraunces({
+const sora = Sora({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  variable: "--font-sora",
 });
 
 export const metadata: Metadata = {
@@ -55,7 +55,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${fraunces.variable} font-sans antialiased`}>
+      <body className={`${geist.variable} ${sora.variable} font-sans antialiased`}>
         <ToasterProvider>{children}</ToasterProvider>
       </body>
     </html>
