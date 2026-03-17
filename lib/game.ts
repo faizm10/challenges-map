@@ -549,6 +549,17 @@ async function getChallengeUploadCount(teamId: number, challengeId: number) {
   return count ?? 0;
 }
 
+async function getSubmittedChallengeCount(teamId: number) {
+  const { count, error } = await supabase
+    .from("team_challenge_status")
+    .select("*", { count: "exact", head: true })
+    .eq("team_id", teamId)
+    .eq("status", "submitted");
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 async function upsertChallengeCheckinOnSubmit(input: {
   teamId: number;
   challengeId: number;
@@ -1483,6 +1494,13 @@ export async function createTeamCheckin(input: {
   }
 
   try {
+    if (input.checkinType === "finish") {
+      const completedCount = await getSubmittedChallengeCount(input.teamId);
+      if (completedCount < 5) {
+        throw new GameError("Finish check-in unlocks only after all 5 challenges are completed.", 409);
+      }
+    }
+
     const payload = {
       team_id: input.teamId,
       checkin_type: input.checkinType,
@@ -1510,6 +1528,15 @@ export async function createTeamCheckin(input: {
       throw error;
     }
     if (isSupabaseUnavailable(error)) {
+      if (input.checkinType === "finish") {
+        const localDashboard = getLocalTeamDashboard(input.teamId);
+        if ((localDashboard?.teamStats.completed_count ?? 0) < 5) {
+          throw new GameError(
+            "Finish check-in unlocks only after all 5 challenges are completed.",
+            409
+          );
+        }
+      }
       return createLocalCheckin(input);
     }
     throw error;

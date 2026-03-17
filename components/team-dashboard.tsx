@@ -853,6 +853,29 @@ export function TeamDashboard() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 md:px-6 md:py-8">
+      {newChallengeBanner ? (
+        <div className="rounded-[24px] border border-orange-300/18 bg-orange-500/[0.08] p-5 text-white shadow-[0_18px_50px_rgba(255,120,0,0.12)]">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-200">
+            Challenge Drop Is Out
+          </p>
+          <div className="mt-2 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-2xl font-semibold text-white">{newChallengeBanner.title}</p>
+              <p className="mt-1 text-sm leading-6 text-white/62">
+                A new challenge just landed. Open the card below to upload proof and submit.
+              </p>
+            </div>
+            <button
+              className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
+              type="button"
+              onClick={() => setNewChallengeBanner(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
@@ -1152,34 +1175,11 @@ export function TeamDashboard() {
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
           <CardTitle className="text-3xl text-white">Released Challenges</CardTitle>
-          <CardDescription className="text-white/52">
-            Upload photos or videos for HQ review, then add an optional proof note.
-          </CardDescription>
+        <CardDescription className="text-white/52">
+          Upload photos or videos for HQ review, then add an optional proof note.
+        </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          {newChallengeBanner ? (
-            <div className="md:col-span-2 rounded-[24px] border border-orange-300/18 bg-orange-500/[0.08] p-5 text-white shadow-[0_18px_50px_rgba(255,120,0,0.12)]">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-200">
-                Challenge Drop Is Out
-              </p>
-              <div className="mt-2 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-2xl font-semibold text-white">{newChallengeBanner.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-white/62">
-                    A new challenge just landed. Open the card below to upload proof and submit.
-                  </p>
-                </div>
-                <button
-                  className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
-                  type="button"
-                  onClick={() => setNewChallengeBanner(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           {!hasStartedRace ? (
             <p className="text-sm text-white/46">
               Start the race with your first check-in to reveal challenge cards.

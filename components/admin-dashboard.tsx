@@ -95,6 +95,27 @@ function getNextOpenCheckpointKey(checkpoints: TeamCheckpoint[], currentKey: str
   return null;
 }
 
+function extractTrailingNumber(value: string) {
+  const match = value.match(/(\d+)(?!.*\d)/);
+  return match ? Number(match[1]) : null;
+}
+
+function challengeNumberClasses(challengeNumber: number | null) {
+  const palette = [
+    "border-orange-400/20 bg-orange-500/12 text-orange-200",
+    "border-sky-400/20 bg-sky-500/12 text-sky-200",
+    "border-emerald-400/20 bg-emerald-500/12 text-emerald-200",
+    "border-fuchsia-400/20 bg-fuchsia-500/12 text-fuchsia-200",
+    "border-amber-300/20 bg-amber-500/12 text-amber-100",
+  ];
+
+  if (!challengeNumber || challengeNumber < 1) {
+    return "border-white/10 bg-white/[0.06] text-white/72";
+  }
+
+  return palette[(challengeNumber - 1) % palette.length];
+}
+
 export function AdminDashboard() {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
   const [adminName, setAdminName] = useState("");
@@ -493,6 +514,23 @@ export function AdminDashboard() {
                         >
                           {item.team_name}
                         </Badge>
+                        {extractTrailingNumber(item.team_name) ? (
+                          <span
+                            className="inline-flex h-7 items-center rounded-full border border-white/10 px-3 text-xs font-semibold text-white/80"
+                            style={{ backgroundColor: `${item.color}22` }}
+                          >
+                            Team {extractTrailingNumber(item.team_name)}
+                          </span>
+                        ) : null}
+                        {item.challenge?.challenge_order ? (
+                          <span
+                            className={`inline-flex h-7 items-center rounded-full border px-3 text-xs font-semibold ${challengeNumberClasses(
+                              item.challenge.challenge_order
+                            )}`}
+                          >
+                            Challenge {item.challenge.challenge_order}
+                          </span>
+                        ) : null}
                         <Badge variant={feedBadge(item)}>{item.status}</Badge>
                       </div>
                       <p className="font-medium text-white">
@@ -700,9 +738,15 @@ export function AdminDashboard() {
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-                    Challenge {challenge.challenge_order}
-                  </p>
+                  <div className="mb-2">
+                    <span
+                      className={`inline-flex h-7 items-center rounded-full border px-3 text-xs font-bold uppercase tracking-[0.14em] ${challengeNumberClasses(
+                        challenge.challenge_order
+                      )}`}
+                    >
+                      Challenge {challenge.challenge_order}
+                    </span>
+                  </div>
                   <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
                 </div>
                 <Badge variant={challenge.is_released ? "success" : "warning"}>
@@ -1099,7 +1143,18 @@ export function AdminDashboard() {
                           }
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-white">{checkpoint.label}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {checkpoint.checkin_type === "challenge" && checkpoint.challenge_id ? (
+                                <span
+                                  className={`inline-flex h-6 items-center rounded-full border px-2.5 text-[11px] font-semibold ${challengeNumberClasses(
+                                    extractTrailingNumber(checkpoint.label)
+                                  )}`}
+                                >
+                                  Challenge {extractTrailingNumber(checkpoint.label)}
+                                </span>
+                              ) : null}
+                              <p className="font-medium text-white">{checkpoint.label}</p>
+                            </div>
                             <p className="text-xs text-white/42">{checkpoint.description}</p>
                             <p className="mt-2 text-xs text-white/68">
                               Expected location: {checkpoint.expected_location_label}
@@ -1298,9 +1353,16 @@ export function AdminDashboard() {
                       >
                         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                           <div>
-                            <strong className="text-white">
-                              {challenge.challenge_order}. {challenge.title}
-                            </strong>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`inline-flex h-7 items-center rounded-full border px-3 text-xs font-semibold ${challengeNumberClasses(
+                                  challenge.challenge_order
+                                )}`}
+                              >
+                                Challenge {challenge.challenge_order}
+                              </span>
+                              <strong className="text-white">{challenge.title}</strong>
+                            </div>
                             <p className="mt-1 text-xs text-white/50">
                               Expected location: {challenge.expected_location}
                             </p>
