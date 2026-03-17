@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "next build"
+    "test": "next build",
+    "coords": "node scripts/set-team-start-coordinates.mjs"
   },
   "repository": {
     "type": "git",

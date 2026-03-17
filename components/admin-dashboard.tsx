@@ -444,7 +444,7 @@ export function AdminDashboard() {
                       </Badge>
                     </div>
                     <p className="font-mono text-sm text-white">
-                      {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+                      {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
                     </p>
                     <p className="mt-1 text-xs text-white/44">
                       Accuracy{" "}

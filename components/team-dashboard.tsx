@@ -1066,8 +1066,8 @@ export function TeamDashboard() {
                             {checkpoint.latest_checkin.latitude !== null ? (
                               <span className="inline-flex items-center gap-1">
                                 <MapPin className="h-3.5 w-3.5" />
-                                {checkpoint.latest_checkin.latitude.toFixed(5)},{" "}
-                                {checkpoint.latest_checkin.longitude?.toFixed(5)}
+                                {checkpoint.latest_checkin.latitude.toFixed(6)},{" "}
+                                {checkpoint.latest_checkin.longitude?.toFixed(6)}
                               </span>
                             ) : (
                               <span>No GPS captured</span>

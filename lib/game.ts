@@ -117,6 +117,13 @@ function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120);
 }
 
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function normalizeUploadRow(row: UploadRow): ChallengeUpload {
   return {
     id: Number(row.id),
@@ -168,9 +175,9 @@ function normalizeCheckinRow(row: CheckinRow): TeamCheckin {
     challenge_id: row.challenge_id === null ? null : Number(row.challenge_id),
     status: row.status,
     checkin_note: row.checkin_note ?? "",
-    latitude: row.latitude === null ? null : Number(row.latitude),
-    longitude: row.longitude === null ? null : Number(row.longitude),
-    accuracy_meters: row.accuracy_meters === null ? null : Number(row.accuracy_meters),
+    latitude: toFiniteNumber((row as any).latitude),
+    longitude: toFiniteNumber((row as any).longitude),
+    accuracy_meters: toFiniteNumber((row as any).accuracy_meters),
     gps_captured_at: row.gps_captured_at,
     created_at: row.created_at,
     review_note: row.review_note ?? "",

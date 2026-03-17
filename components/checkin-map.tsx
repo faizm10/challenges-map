@@ -110,7 +110,7 @@ export function CheckinMap({ latestLocations, teamRoutes }: CheckinMapProps) {
                           <p className="text-muted-foreground">{point.label}</p>
                           <p className="mt-1 text-xs text-slate-500">{new Date(point.created_at).toLocaleString()}</p>
                           <p className="mt-1 font-mono text-xs text-slate-600">
-                            {point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}
+                            {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
                             {route.completed_labels.length ? route.completed_labels.join(" -> ") : "No mapped route yet"}
