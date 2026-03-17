@@ -30,6 +30,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toaster";
 import type { TeamChallengeStatus, TeamCheckpoint, TeamDashboardResponse } from "@/lib/types";
 
+type LocationPermissionState =
+  | "unsupported"
+  | "idle"
+  | "prompt"
+  | "requesting"
+  | "granted"
+  | "denied"
+  | "error";
+
+type LocationPlatform =
+  | "ios-safari"
+  | "ios-chrome"
+  | "android-chrome"
+  | "desktop"
+  | "generic";
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -101,6 +117,113 @@ function getNextOpenCheckpointKey(checkpoints: TeamCheckpoint[], currentKey: str
   return null;
 }
 
+function detectLocationPlatform(): LocationPlatform {
+  if (typeof navigator === "undefined") return "generic";
+
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  const isChrome = /CriOS|Chrome/i.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/CriOS|Chrome|FxiOS|EdgiOS/i.test(ua);
+
+  if (isIOS && isSafari) return "ios-safari";
+  if (isIOS && isChrome) return "ios-chrome";
+  if (isAndroid && isChrome) return "android-chrome";
+  if (!isIOS && !isAndroid) return "desktop";
+  return "generic";
+}
+
+function getPlatformPermissionCopy(platform: LocationPlatform, status: LocationPermissionState) {
+  if (status === "unsupported") {
+    return {
+      badge: "Unavailable",
+      title: "Location is not available on this device",
+      message: "Check-ins still work without GPS, but HQ will need to review them manually.",
+      actionLabel: "Location Unavailable",
+      actionMode: "disabled" as const,
+      help:
+        "This browser or device does not expose geolocation to the app. You can still submit check-ins without GPS.",
+    };
+  }
+
+  if (status === "granted") {
+    return {
+      badge: "Enabled",
+      title: "Location is enabled",
+      message: "GPS can be sent with your check-ins whenever your device can capture it.",
+      actionLabel: "Location Enabled",
+      actionMode: "granted" as const,
+      help:
+        "You can go straight into check-ins. If GPS is weak indoors, the check-in still goes through.",
+    };
+  }
+
+  if (status === "denied") {
+    const helpByPlatform: Record<LocationPlatform, string> = {
+      "ios-safari":
+        "On iPhone Safari, tap aA > Website Settings > Location > Allow, then return here.",
+      "ios-chrome":
+        "On iPhone Chrome, location still depends on iPhone browser/site permissions. Re-enable location for the browser in iOS settings, then reopen this page.",
+      "android-chrome":
+        "In Chrome on Android, open site settings for this page and allow Location, then try again.",
+      desktop:
+        "Use your browser site permissions to allow Location for this page, then refresh or try again.",
+      generic:
+        "Re-enable location for this site in your browser settings, then return here.",
+    };
+
+    return {
+      badge: "Denied",
+      title: "Location is currently blocked",
+      message: "Check-ins still work without GPS, but HQ will only see a manual submission.",
+      actionLabel: "Open Location Help",
+      actionMode: "help" as const,
+      help: helpByPlatform[platform],
+    };
+  }
+
+  if (status === "requesting") {
+    return {
+      badge: "Requesting",
+      title: "Waiting for location permission",
+      message: "Watch your browser prompt and choose Allow if you want GPS attached to check-ins.",
+      actionLabel: "Requesting location...",
+      actionMode: "requesting" as const,
+      help: "If no prompt appears, check whether location was already blocked in your browser settings.",
+    };
+  }
+
+  if (status === "error") {
+    return {
+      badge: "Check settings",
+      title: "Location could not be requested",
+      message: "Check-ins still work without GPS if your device refuses the request.",
+      actionLabel: "Enable Location",
+      actionMode: "request" as const,
+      help:
+        platform === "ios-safari"
+          ? "Make sure Safari and iPhone Location Services are enabled, then try again."
+          : "Check your device location settings and browser site permissions, then try again.",
+    };
+  }
+
+  return {
+    badge: status === "prompt" ? "Ready" : "Waiting",
+    title: "Enable location before check-ins",
+    message: "Allow location once and the app will attach GPS whenever your phone can provide it.",
+    actionLabel: "Enable Location",
+    actionMode: "request" as const,
+    help:
+      platform === "ios-safari"
+        ? "Safari will show a permission prompt. Choose Allow when it appears."
+        : platform === "ios-chrome"
+          ? "Chrome on iPhone still uses iPhone/browser location permissions. Allow the prompt if it appears."
+          : platform === "android-chrome"
+            ? "Chrome should show a location prompt for this site. Tap Allow to send GPS with check-ins."
+            : "Your browser should show a location prompt for this page. Allow it to attach GPS to check-ins.",
+  };
+}
+
 export function TeamDashboard() {
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
   const [teamName, setTeamName] = useState("");
@@ -112,8 +235,9 @@ export function TeamDashboard() {
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [removingUploadId, setRemovingUploadId] = useState<number | null>(null);
   const [checkingInKey, setCheckingInKey] = useState<string | null>(null);
-  const [isRequestingLocationAccess, setIsRequestingLocationAccess] = useState(false);
-  const [locationAccessMessage, setLocationAccessMessage] = useState<string>("");
+  const [locationPermissionState, setLocationPermissionState] =
+    useState<LocationPermissionState>("idle");
+  const [locationPlatform, setLocationPlatform] = useState<LocationPlatform>("generic");
   const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
   const [openCheckpointKey, setOpenCheckpointKey] = useState<string | null>(null);
   const { toast } = useToast();
@@ -128,12 +252,49 @@ export function TeamDashboard() {
   }, []);
 
   useEffect(() => {
+    setLocationPlatform(detectLocationPlatform());
+  }, []);
+
+  useEffect(() => {
     if (!dashboard) return;
     const poll = window.setInterval(() => {
       loadDashboard().catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(poll);
   }, [dashboard]);
+
+  async function refreshLocationPermissionState() {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setLocationPermissionState("unsupported");
+      return "unsupported" as const;
+    }
+
+    if (typeof window === "undefined" || !("permissions" in navigator)) {
+      setLocationPermissionState("prompt");
+      return "prompt" as const;
+    }
+
+    try {
+      const permissions = navigator.permissions as Permissions;
+      const result = await permissions.query({ name: "geolocation" as PermissionName });
+      const nextState =
+        result.state === "granted"
+          ? "granted"
+          : result.state === "denied"
+            ? "denied"
+            : "prompt";
+
+      setLocationPermissionState(nextState);
+      return nextState;
+    } catch {
+      setLocationPermissionState("prompt");
+      return "prompt" as const;
+    }
+  }
+
+  useEffect(() => {
+    void refreshLocationPermissionState();
+  }, []);
 
   const startCheckpoint =
     dashboard?.checkpoints.find((checkpoint) => checkpoint.checkin_type === "start") ?? null;
@@ -144,6 +305,10 @@ export function TeamDashboard() {
         return hasStartedRace;
       })
     : [];
+  const locationPermissionCopy = getPlatformPermissionCopy(
+    locationPlatform,
+    locationPermissionState
+  );
 
   useEffect(() => {
     if (!visibleCheckpoints.length) {
@@ -299,34 +464,26 @@ export function TeamDashboard() {
 
   async function requestLocationAccess() {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-      setLocationAccessMessage("Location is unavailable on this device.");
+      setLocationPermissionState("unsupported");
       return;
     }
 
-    setIsRequestingLocationAccess(true);
+    setLocationPermissionState("requesting");
 
     try {
       await new Promise<void>((resolve) => {
         navigator.geolocation.getCurrentPosition(
           () => {
-            setLocationAccessMessage(
-              "Location access is enabled. You can now tap Check in and send GPS with your submission."
-            );
+            setLocationPermissionState("granted");
             resolve();
           },
           (geoError) => {
             if (geoError.code === geoError.PERMISSION_DENIED) {
-              setLocationAccessMessage(
-                "Location is denied in Safari. On iPhone, open aA > Website Settings > Location > Allow, then return here and try again."
-              );
+              setLocationPermissionState("denied");
             } else if (geoError.code === geoError.TIMEOUT) {
-              setLocationAccessMessage(
-                "Location request timed out. Make sure Location Services are on, then try again."
-              );
+              setLocationPermissionState("error");
             } else {
-              setLocationAccessMessage(
-                "Location could not be requested. Check iPhone Location Services and Safari site permissions, then try again."
-              );
+              setLocationPermissionState("error");
             }
             resolve();
           },
@@ -338,13 +495,17 @@ export function TeamDashboard() {
         );
       });
     } finally {
-      setIsRequestingLocationAccess(false);
+      await refreshLocationPermissionState();
     }
   }
 
   async function capturePosition(checkpointKey: string) {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-      setGpsMessages((current) => ({ ...current, [checkpointKey]: "Location unavailable on this device." }));
+      setLocationPermissionState("unsupported");
+      setGpsMessages((current) => ({
+        ...current,
+        [checkpointKey]: "Location unavailable on this device.",
+      }));
       return {
         latitude: null,
         longitude: null,
@@ -361,9 +522,10 @@ export function TeamDashboard() {
     }>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          setLocationPermissionState("granted");
           setGpsMessages((current) => ({
             ...current,
-            [checkpointKey]: `Location captured within ${Math.round(position.coords.accuracy)}m.`,
+            [checkpointKey]: `GPS captured within ${Math.round(position.coords.accuracy)}m.`,
           }));
           resolve({
             latitude: position.coords.latitude,
@@ -375,10 +537,13 @@ export function TeamDashboard() {
         (geoError) => {
           const message =
             geoError.code === geoError.PERMISSION_DENIED
-              ? "Location permission denied. Check-in still sent without GPS."
+              ? "Permission denied, check-in sent without GPS."
               : geoError.code === geoError.TIMEOUT
-                ? "Location timed out. Check-in still sent without GPS."
-                : "Location unavailable. Check-in still sent without GPS.";
+                ? "Location timed out, check-in sent without GPS."
+                : "Location unavailable on this device.";
+          setLocationPermissionState(
+            geoError.code === geoError.PERMISSION_DENIED ? "denied" : "error"
+          );
           setGpsMessages((current) => ({ ...current, [checkpointKey]: message }));
           resolve({
             latitude: null,
@@ -436,6 +601,7 @@ export function TeamDashboard() {
         variant: "error",
       });
     } finally {
+      await refreshLocationPermissionState();
       setCheckingInKey(null);
     }
   }
@@ -604,39 +770,57 @@ export function TeamDashboard() {
                 <LocateFixed className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Location check-ins work best on your phone</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-white">{locationPermissionCopy.title}</p>
+                  <Badge className="border-orange-300/18 bg-orange-300/10 text-orange-100" variant="secondary">
+                    {locationPermissionCopy.badge}
+                  </Badge>
+                </div>
                 <p className="mt-1 text-sm leading-6 text-white/62">
-                  Tap Enable Location first and allow Safari access when your phone asks. Your GPS
-                  status will appear right inside each checkpoint card.
+                  {locationPermissionCopy.message}
                 </p>
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
                 className="h-11 w-full bg-white/8 text-white hover:bg-white/12 sm:w-auto"
-                disabled={isRequestingLocationAccess}
+                disabled={
+                  locationPermissionCopy.actionMode === "disabled" ||
+                  locationPermissionCopy.actionMode === "granted" ||
+                  locationPermissionState === "requesting"
+                }
                 type="button"
                 variant="secondary"
                 onClick={() => void requestLocationAccess()}
               >
-                {isRequestingLocationAccess ? (
+                {locationPermissionState === "requesting" ? (
                   <>
                     <LoaderCircle className="h-4 w-4 animate-spin" />
-                    Requesting location...
+                    {locationPermissionCopy.actionLabel}
                   </>
                 ) : (
                   <>
                     <LocateFixed className="h-4 w-4" />
-                    Enable Location
+                    {locationPermissionCopy.actionLabel}
                   </>
                 )}
               </Button>
               <p className="text-sm leading-6 text-white/62">
-                {locationAccessMessage ||
-                  "If Safari shows a permission prompt, choose Allow. If it was denied earlier, use Safari website settings to turn it back on."}
+                {locationPermissionCopy.help}
               </p>
             </div>
           </div>
+
+          {locationPermissionState === "denied" ? (
+            <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4 text-white">
+              <p className="text-sm font-semibold text-white">Location help</p>
+              <p className="mt-1 text-sm leading-6 text-white/58">
+                GPS is blocked right now. You can still check in without it, but HQ will only see a
+                manual update until location is enabled again.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-white/72">{locationPermissionCopy.help}</p>
+            </div>
+          ) : null}
 
           <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-3 sm:p-4">
             <div className="grid gap-2">
