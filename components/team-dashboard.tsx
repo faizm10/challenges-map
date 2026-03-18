@@ -279,12 +279,15 @@ export function TeamDashboard() {
 
   useEffect(() => {
     if (!dashboard) return;
+    const visibleChallengeRows = dashboard.challenges.filter((challenge) => challenge.is_visible);
 
-    const currentIds = dashboard.challenges.map((challenge) => challenge.id);
+    const currentIds = visibleChallengeRows.map((challenge) => challenge.id);
     const previousIds = seenChallengeIdsRef.current;
 
     if (previousIds) {
-      const newChallenge = dashboard.challenges.find((challenge) => !previousIds.includes(challenge.id));
+      const newChallenge = visibleChallengeRows.find(
+        (challenge) => !previousIds.includes(challenge.id)
+      );
       if (newChallenge) {
         setNewChallengeBanner(newChallenge);
       }
@@ -350,6 +353,7 @@ export function TeamDashboard() {
     dashboard?.checkpoints.find((checkpoint) => checkpoint.checkin_type === "start") ?? null;
   const hasStartedRace = Boolean(startCheckpoint?.latest_checkin);
   const isFinishUnlocked = (dashboard?.teamStats.completed_count ?? 0) >= 5;
+  const visibleChallenges = dashboard?.challenges.filter((challenge) => challenge.is_visible) ?? [];
   const visibleCheckpoints = dashboard
     ? dashboard.checkpoints.filter((checkpoint) => {
         if (checkpoint.checkin_type === "start") return true;
@@ -1164,8 +1168,8 @@ export function TeamDashboard() {
             <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4 text-white">
               <p className="text-sm font-semibold text-white">Challenges unlock after the start check-in</p>
               <p className="mt-1 text-sm leading-6 text-white/58">
-                Complete your start check-in first. Once the race has started, challenge check-ins
-                and challenge proof cards will appear automatically.
+                Complete your start check-in first. Once the race has started, the first challenge
+                card will appear automatically.
               </p>
             </div>
           ) : null}
@@ -1174,18 +1178,22 @@ export function TeamDashboard() {
 
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
-          <CardTitle className="text-3xl text-white">Released Challenges</CardTitle>
-        <CardDescription className="text-white/52">
-          Upload photos or videos for HQ review, then add an optional proof note.
-        </CardDescription>
+          <CardTitle className="text-3xl text-white">Challenge Queue</CardTitle>
+          <CardDescription className="text-white/52">
+            Only the next unlocked challenge appears here. Submit it to reveal the next one.
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           {!hasStartedRace ? (
             <p className="text-sm text-white/46">
               Start the race with your first check-in to reveal challenge cards.
             </p>
-          ) : dashboard.challenges.length ? (
-            dashboard.challenges.map((challenge) => {
+          ) : !dashboard.challenges.length ? (
+            <p className="text-sm text-white/46">
+              HQ has not released any challenges yet.
+            </p>
+          ) : visibleChallenges.length ? (
+            visibleChallenges.map((challenge) => {
               const isLocked = challenge.review_status === "verified";
               const latestUploadAt = challenge.uploads[0]?.uploaded_at;
               const showMediaSection =
@@ -1378,7 +1386,7 @@ export function TeamDashboard() {
             })
           ) : (
             <p className="text-sm text-white/46">
-              No live drops yet. HQ has not released any challenges.
+              Your next challenge will appear as soon as the current submission lands.
             </p>
           )}
         </CardContent>

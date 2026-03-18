@@ -20,6 +20,7 @@ import {
   getLocalRecentCheckins,
   getLocalTeamDashboard,
   isLocalChallengeReleased,
+  releaseAllLocalChallenges,
   resetLocalState,
   reviewLocalCheckin,
   updateLocalChallenge,
@@ -319,6 +320,33 @@ function deriveCheckpoints(
       latest_checkin: finishLatest,
     },
   ];
+}
+
+function deriveVisibleChallengeIds(releasedChallenges: Challenge[], checkins: TeamCheckin[]) {
+  const hasStartedRace = checkins.some((item) => item.checkin_type === "start");
+  if (!hasStartedRace) return new Set<number>();
+
+  const challengeCheckins = new Set(
+    checkins
+      .filter((item) => item.checkin_type === "challenge" && item.challenge_id !== null)
+      .map((item) => Number(item.challenge_id))
+  );
+
+  const visibleIds = new Set<number>();
+  for (let index = 0; index < releasedChallenges.length; index += 1) {
+    const challenge = releasedChallenges[index];
+    if (index === 0) {
+      visibleIds.add(challenge.id);
+      continue;
+    }
+
+    const previousChallenge = releasedChallenges[index - 1];
+    if (challengeCheckins.has(previousChallenge.id)) {
+      visibleIds.add(challenge.id);
+    }
+  }
+
+  return visibleIds;
 }
 
 function getLatestLocationForTeam(
@@ -1136,6 +1164,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
     );
     const uploadsByChallenge = buildUploadsByChallenge(uploads);
     const latestLocation = getLatestLocationForTeam(team, checkins, releasedChallenges);
+    const visibleChallengeIds = deriveVisibleChallengeIds(releasedChallenges, checkins);
 
     const challenges = await Promise.all(
       releasedChallenges.map(async (challenge) => {
@@ -1143,6 +1172,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
       const isUnlocked = await hasChallengeCheckin(teamId, challenge.id);
       return {
         ...challenge,
+        is_visible: visibleChallengeIds.has(challenge.id),
         is_unlocked: isUnlocked,
         status: status?.status ?? "not_started",
         proof_note: status?.proof_note ?? "",
@@ -1379,6 +1409,24 @@ export async function updateChallengeRelease(challengeId: number, isReleased: bo
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       updateLocalChallengeRelease(challengeId, isReleased);
+      return getLocalChallenges(true);
+    }
+    throw error;
+  }
+}
+
+export async function releaseAllChallenges() {
+  try {
+    const { error } = await supabase
+      .from("challenges")
+      .update({ is_released: true })
+      .eq("is_released", false);
+
+    if (error) throw error;
+    return getChallenges(true);
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      releaseAllLocalChallenges();
       return getLocalChallenges(true);
     }
     throw error;

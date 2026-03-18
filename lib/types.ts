@@ -42,6 +42,7 @@ export type TeamChallengeStatus = {
   expected_location: string;
   allow_media_upload: number;
   is_released: number;
+  is_visible: boolean;
   is_unlocked: boolean;
   status: "not_started" | "submitted";
   proof_note: string;

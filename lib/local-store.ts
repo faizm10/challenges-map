@@ -155,6 +155,44 @@ function buildExpectedLocation(
   };
 }
 
+function deriveVisibleChallengeIds(teamId: number) {
+  const state = getState();
+  const hasStartedRace = state.teamCheckins.some(
+    (item) => item.team_id === teamId && item.checkin_type === "start"
+  );
+
+  if (!hasStartedRace) return new Set<number>();
+
+  const challengeCheckins = new Set(
+    state.teamCheckins
+      .filter(
+        (item) =>
+          item.team_id === teamId &&
+          item.checkin_type === "challenge" &&
+          item.challenge_id !== null
+      )
+      .map((item) => Number(item.challenge_id))
+  );
+
+  const releasedChallenges = getLocalChallenges(false);
+  const visibleIds = new Set<number>();
+
+  for (let index = 0; index < releasedChallenges.length; index += 1) {
+    const challenge = releasedChallenges[index];
+    if (index === 0) {
+      visibleIds.add(challenge.id);
+      continue;
+    }
+
+    const previousChallenge = releasedChallenges[index - 1];
+    if (challengeCheckins.has(previousChallenge.id)) {
+      visibleIds.add(challenge.id);
+    }
+  }
+
+  return visibleIds;
+}
+
 function deriveTeamLatestLocation(teamId: number): TeamLatestLocation | null {
   const state = getState();
   const team = state.teams.find((item) => item.id === teamId);
@@ -502,6 +540,7 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
   const state = getState();
   const team = state.teams.find((item) => item.id === teamId);
   if (!team) return null;
+  const visibleChallengeIds = deriveVisibleChallengeIds(teamId);
 
   const challenges = getLocalChallenges(false).map((challenge) => {
     const status = state.teamChallengeStatus.find(
@@ -517,6 +556,7 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
     return {
       ...challenge,
       is_unlocked: isUnlocked,
+      is_visible: visibleChallengeIds.has(challenge.id),
       status: status?.status ?? "not_started",
       proof_note: status?.proof_note ?? "",
       awarded_points: Number(status?.awarded_points ?? 0),
@@ -638,6 +678,13 @@ export function updateLocalChallengeRelease(challengeId: number, isReleased: boo
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.is_released = isReleased ? 1 : 0;
+}
+
+export function releaseAllLocalChallenges() {
+  const state = getState();
+  for (const challenge of state.challenges) {
+    challenge.is_released = 1;
+  }
 }
 
 export function updateLocalChallengeSubmission(

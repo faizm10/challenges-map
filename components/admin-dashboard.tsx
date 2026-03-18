@@ -647,18 +647,51 @@ export function AdminDashboard() {
         <CardHeader>
           <CardTitle className="text-2xl text-white sm:text-3xl">Challenge Control</CardTitle>
           <CardDescription className="text-white/52">
-            Create up to five prompts, then edit and release them one by one.
+            Create up to five prompts, then release the current challenge queue in one action.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <Card className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.04] p-4 text-white sm:p-5">
-            <div className="mb-4">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-                Create Challenge
-              </p>
-              <p className="text-sm text-white/52">
-                HQ creates the live challenge queue from scratch. {game.challenges.length}/{5} added.
-              </p>
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                  Create Challenge
+                </p>
+                <p className="text-sm text-white/52">
+                  HQ creates the live challenge queue from scratch. {game.challenges.length}/5 added.
+                </p>
+              </div>
+              <Button
+                className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
+                disabled={
+                  !game.challenges.some((challenge) => !challenge.is_released) ||
+                  pendingAction === "release-all-challenges"
+                }
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  runAdminAction(
+                    "release-all-challenges",
+                    async () => {
+                      await api("/api/admin/challenges/release-all", {
+                        method: "PATCH",
+                      });
+                      await loadGame();
+                    },
+                    "All challenges released",
+                    "Teams can now move through the full challenge queue."
+                  )
+                }
+              >
+                {pendingAction === "release-all-challenges" ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Releasing...
+                  </>
+                ) : (
+                  "Release All Challenges"
+                )}
+              </Button>
             </div>
             <form
               className="space-y-3"
@@ -806,7 +839,10 @@ export function AdminDashboard() {
                   Allow media upload
                 </label>
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Button className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto" type="submit">
+                  <Button
+                    className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
+                    type="submit"
+                  >
                     {pendingAction === `save-challenge:${challenge.id}` ? (
                       <>
                         <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -814,39 +850,6 @@ export function AdminDashboard() {
                       </>
                     ) : (
                       "Save Challenge"
-                    )}
-                  </Button>
-                  <Button
-                    className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
-                    disabled={pendingAction === `toggle-release:${challenge.id}`}
-                    type="button"
-                    variant="secondary"
-                    onClick={() =>
-                      runAdminAction(
-                        `toggle-release:${challenge.id}`,
-                        async () => {
-                          await api(`/api/admin/challenges/${challenge.id}/release`, {
-                            method: "PATCH",
-                            body: JSON.stringify({ isReleased: !challenge.is_released }),
-                          });
-                          await loadGame();
-                        },
-                        challenge.is_released ? "Challenge hidden" : "Challenge released",
-                        `Challenge ${challenge.challenge_order} is now ${
-                          challenge.is_released ? "hidden from" : "visible to"
-                        } teams.`
-                      )
-                    }
-                  >
-                    {pendingAction === `toggle-release:${challenge.id}` ? (
-                      <>
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        {challenge.is_released ? "Hiding..." : "Releasing..."}
-                      </>
-                    ) : challenge.is_released ? (
-                      "Hide"
-                    ) : (
-                      "Release"
                     )}
                   </Button>
                 </div>
