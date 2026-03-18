@@ -264,7 +264,7 @@ export function AdminDashboard() {
               className="border-white/10 bg-white/5 text-white hover:bg-white/10"
               variant="secondary"
             >
-              <Link href="/">Back to Leaderboard</Link>
+              <Link href="/leaderboard">Back to Leaderboard</Link>
             </Button>
           </div>
 
@@ -344,7 +344,7 @@ export function AdminDashboard() {
               className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
               variant="secondary"
             >
-              <Link href="/">Leaderboard</Link>
+              <Link href="/leaderboard">Leaderboard</Link>
             </Button>
             <Button
               className="w-full bg-red-500/90 text-white hover:bg-red-500 sm:w-auto"
