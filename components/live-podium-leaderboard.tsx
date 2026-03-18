@@ -20,9 +20,9 @@ type PodiumSlot = {
 };
 
 const podiumSlots: PodiumSlot[] = [
-  { rank: 3, label: "3rd", heightClass: "h-44 md:h-56", alignClass: "md:translate-y-10" },
-  { rank: 1, label: "1st", heightClass: "h-64 md:h-80", alignClass: "" },
-  { rank: 2, label: "2nd", heightClass: "h-56 md:h-68", alignClass: "md:translate-y-6" },
+  { rank: 3, label: "3rd", heightClass: "h-30 md:h-56", alignClass: "md:translate-y-10" },
+  { rank: 1, label: "1st", heightClass: "h-40 md:h-80", alignClass: "" },
+  { rank: 2, label: "2nd", heightClass: "h-35 md:h-68", alignClass: "md:translate-y-6" },
 ];
 
 function formatOrdinal(rank: number) {
@@ -41,13 +41,13 @@ function PodiumBlock({
 }) {
   return (
     <div className={`flex min-w-0 flex-col justify-end ${slot.alignClass}`}>
-      <div className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.22em] text-white/34">
+      <div className="mb-2 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-white/34 md:mb-3 md:text-[11px] md:tracking-[0.22em]">
         {slot.label}
       </div>
       <motion.div
         layout
         transition={{ type: "spring", stiffness: 240, damping: 24 }}
-        className={`relative flex ${slot.heightClass} min-h-[11rem] flex-col justify-between overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.05] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.3)] md:p-5`}
+        className={`relative flex ${slot.heightClass} min-h-[7.5rem] flex-col justify-between overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.05] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.3)] md:min-h-[11rem] md:rounded-[30px] md:p-5`}
       >
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-28 opacity-90 blur-2xl"
@@ -62,7 +62,7 @@ function PodiumBlock({
             className="h-3.5 w-3.5 rounded-full border border-white/20 shadow-[0_0_24px_rgba(255,255,255,0.14)]"
             style={{ backgroundColor: team?.color ?? "rgba(255,255,255,0.24)" }}
           />
-          <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/48">
+          <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/48 md:px-3 md:text-[10px] md:tracking-[0.18em]">
             {team ? `${team.total_points} pts` : "Open"}
           </div>
         </div>
@@ -77,13 +77,13 @@ function PodiumBlock({
                 initial={{ opacity: 0, y: 14 }}
                 transition={{ duration: 0.28, ease: "easeOut" }}
               >
-                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/38">
+                <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/38 md:text-[10px] md:tracking-[0.18em]">
                   {team.badge_label}
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-white md:text-3xl">
+                <div className="mt-1.5 text-lg font-semibold text-white md:mt-2 md:text-3xl">
                   {team.team_name}
                 </div>
-                <div className="mt-2 text-sm text-white/52">
+                <div className="mt-1 text-xs text-white/52 md:mt-2 md:text-sm">
                   {team.completed_count}/{team.total_challenges} complete
                 </div>
               </motion.div>
@@ -110,7 +110,7 @@ function FourthPlaceBlock({ team }: { team: LeaderboardEntry | undefined }) {
     <motion.div
       layout
       transition={{ type: "spring", stiffness: 240, damping: 24 }}
-      className="relative overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.05] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.22)]"
+      className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.05] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.22)] md:rounded-[30px] md:p-5"
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-24 opacity-90 blur-2xl"
@@ -132,7 +132,7 @@ function FourthPlaceBlock({ team }: { team: LeaderboardEntry | undefined }) {
                   className="h-3.5 w-3.5 rounded-full border border-white/20"
                   style={{ backgroundColor: team.color }}
                 />
-                <span className="truncate text-xl font-semibold text-white">{team.team_name}</span>
+                <span className="truncate text-lg font-semibold text-white md:text-xl">{team.team_name}</span>
               </div>
               <div className="mt-2 text-sm text-white/52">
                 {team.badge_label} · {team.completed_count}/{team.total_challenges} complete
@@ -151,7 +151,7 @@ function FourthPlaceBlock({ team }: { team: LeaderboardEntry | undefined }) {
               initial={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.24 }}
             >
-              <div className="text-3xl font-semibold text-white">{team?.total_points ?? 0}</div>
+              <div className="text-2xl font-semibold text-white md:text-3xl">{team?.total_points ?? 0}</div>
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/38">
                 points
               </div>
@@ -253,7 +253,7 @@ export function LivePodiumLeaderboard({ initialData }: LivePodiumLeaderboardProp
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-[1fr_1.15fr_1fr] md:items-end">
+            <div className="grid gap-3 md:grid-cols-[1fr_1.15fr_1fr] md:items-end md:gap-4">
               {podiumSlots.map((slot) => (
                 <PodiumBlock key={slot.rank} slot={slot} team={rankMap.get(slot.rank)} />
               ))}
