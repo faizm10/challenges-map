@@ -46,9 +46,9 @@ export function ToasterProvider({ children }: { children: React.ReactNode }) {
           <div
             key={item.id}
             className={cn(
-              "pointer-events-auto rounded-3xl border bg-white/95 p-4 shadow-xl backdrop-blur-md transition",
+              "pointer-events-auto rounded-3xl border bg-stone-50/96 p-4 text-stone-950 shadow-xl backdrop-blur-md transition",
               item.variant === "success"
-                ? "border-emerald-200"
+                ? "border-emerald-200/90"
                 : "border-red-200"
             )}
           >
@@ -66,13 +66,13 @@ export function ToasterProvider({ children }: { children: React.ReactNode }) {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                <p className="text-sm font-semibold text-stone-950">{item.title}</p>
                 {item.description ? (
-                  <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                  <p className="mt-1 text-sm leading-6 text-stone-500">{item.description}</p>
                 ) : null}
               </div>
               <button
-                className="rounded-full p-1 text-muted-foreground transition hover:bg-black/5"
+                className="rounded-full p-1 text-stone-400 transition hover:bg-black/5 hover:text-stone-700"
                 onClick={() => dismiss(item.id)}
                 type="button"
               >
