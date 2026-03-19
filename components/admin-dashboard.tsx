@@ -149,6 +149,7 @@ export function AdminDashboard() {
   const [openCheckpointByTeam, setOpenCheckpointByTeam] = useState<Record<number, string | null>>({});
   const [activeRecentCheckinId, setActiveRecentCheckinId] = useState<number | null>(null);
   const [activeProofIndex, setActiveProofIndex] = useState(0);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const { toast } = useToast();
   const lastCheckInSlotRef = useRef<number | null>(null);
 
@@ -388,6 +389,7 @@ export function AdminDashboard() {
   }
 
   return (
+    <>
     <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
       <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1624,11 +1626,17 @@ export function AdminDashboard() {
                               >
                                 <div className="aspect-[4/3] bg-black/30">
                                   {upload.media_type === "image" ? (
-                                    <img
-                                      alt={upload.file_name}
-                                      className="h-full w-full object-cover"
-                                      src={upload.signed_url}
-                                    />
+                                    <button
+                                      className="h-full w-full"
+                                      type="button"
+                                      onClick={() => setLightboxUrl(upload.signed_url)}
+                                    >
+                                      <img
+                                        alt={upload.file_name}
+                                        className="h-full w-full object-cover transition hover:opacity-80"
+                                        src={upload.signed_url}
+                                      />
+                                    </button>
                                   ) : (
                                     <video
                                       className="h-full w-full object-cover"
@@ -1646,7 +1654,14 @@ export function AdminDashboard() {
                                     </p>
                                   </div>
                                   {upload.media_type === "image" ? (
-                                    <ImageIcon className="h-4 w-4 shrink-0 text-white/40" />
+                                    <button
+                                      className="text-white/40 transition hover:text-white/80"
+                                      title="View fullscreen"
+                                      type="button"
+                                      onClick={() => setLightboxUrl(upload.signed_url)}
+                                    >
+                                      <ImageIcon className="h-4 w-4 shrink-0" />
+                                    </button>
                                   ) : (
                                     <Video className="h-4 w-4 shrink-0 text-white/40" />
                                   )}
@@ -1719,5 +1734,28 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
     </main>
+
+    {/* Lightbox */}
+    {lightboxUrl ? (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
+        onClick={() => setLightboxUrl(null)}
+      >
+        <button
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          type="button"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <img
+          alt="Full size proof"
+          className="max-h-full max-w-full rounded-[12px] object-contain shadow-2xl"
+          src={lightboxUrl}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    ) : null}
+    </>
   );
 }

@@ -301,6 +301,7 @@ export function TeamDashboard() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [removingUploadId, setRemovingUploadId] = useState<number | null>(null);
   const [checkingInKey, setCheckingInKey] = useState<string | null>(null);
   const [locationPermissionState, setLocationPermissionState] =
@@ -653,6 +654,7 @@ export function TeamDashboard() {
     if (!fileList?.length) return;
 
     setUploadingId(challengeId);
+    setUploadingCount(fileList.length);
     try {
       const formData = new FormData();
       Array.from(fileList).forEach((file) => formData.append("files", file));
@@ -688,6 +690,7 @@ export function TeamDashboard() {
       });
     } finally {
       setUploadingId(null);
+      setUploadingCount(0);
     }
   }
 
@@ -1703,7 +1706,7 @@ export function TeamDashboard() {
                           </p>
                         </div>
                         {Boolean(challenge.allow_media_upload) ? (
-                          <label className="inline-flex">
+                          <label className="block">
                             <input
                               accept="image/*,video/*"
                               className="hidden"
@@ -1716,14 +1719,27 @@ export function TeamDashboard() {
                               }}
                             />
                             <span
-                              className={`inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-white transition ${
+                              className={`flex w-full items-center gap-3 rounded-[18px] border px-4 py-3 transition ${
                                 isLocked || uploadingId === challenge.id
-                                  ? "cursor-not-allowed bg-white/[0.03] text-white/40"
-                                  : "cursor-pointer bg-white/5 hover:bg-white/10"
+                                  ? "cursor-not-allowed border-white/6 bg-white/[0.02] text-white/30"
+                                  : "cursor-pointer border-white/10 bg-white/5 active:bg-white/10"
                               }`}
                             >
-                              <ImagePlus className="h-4 w-4" />
-                              {uploadingId === challenge.id ? "Uploading media..." : "Add media"}
+                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isLocked || uploadingId === challenge.id ? "bg-white/5" : "bg-orange-500/15"}`}>
+                                <ImagePlus className={`h-4 w-4 ${isLocked || uploadingId === challenge.id ? "text-white/30" : "text-orange-300"}`} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium text-white/90">
+                                  {uploadingId === challenge.id
+                                    ? `Uploading ${uploadingCount} photo${uploadingCount !== 1 ? "s" : ""}…`
+                                    : "Add photos or videos"}
+                                </span>
+                                {!(isLocked || uploadingId === challenge.id) && (
+                                  <span className="block text-xs text-white/40">
+                                    Tap to choose — select multiple at once
+                                  </span>
+                                )}
+                              </span>
                             </span>
                           </label>
                         ) : null}
