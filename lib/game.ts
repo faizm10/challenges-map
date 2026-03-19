@@ -12,6 +12,7 @@ import { isSupabaseUnavailable } from "@/lib/data-source";
 import {
   createLocalChallenge,
   createLocalCheckin,
+  deleteLocalChallenge,
   getLocalAdminGame,
   getLocalChallenges,
   getLocalCheckins,
@@ -1427,6 +1428,65 @@ export async function releaseAllChallenges() {
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       releaseAllLocalChallenges();
+      return getLocalChallenges(true);
+    }
+    throw error;
+  }
+}
+
+export async function deleteChallenge(challengeId: number) {
+  try {
+    const challenge = await getChallengeById(challengeId);
+    if (!challenge) {
+      throw new GameError("Challenge was not found.", 404);
+    }
+
+    const { data: mediaRows, error: mediaError } = await supabase
+      .from("challenge_media")
+      .select("bucket_name, storage_path")
+      .eq("challenge_id", challengeId);
+
+    if (mediaError) throw mediaError;
+
+    const uploadsByBucket = new Map<string, string[]>();
+    for (const row of mediaRows ?? []) {
+      const bucketName = String(row.bucket_name);
+      const storagePath = String(row.storage_path);
+      const current = uploadsByBucket.get(bucketName) ?? [];
+      current.push(storagePath);
+      uploadsByBucket.set(bucketName, current);
+    }
+
+    for (const [bucketName, storagePaths] of uploadsByBucket.entries()) {
+      if (storagePaths.length === 0) continue;
+      const { error: removeError } = await supabase.storage.from(bucketName).remove(storagePaths);
+      if (removeError) throw removeError;
+    }
+
+    const { error: deleteError } = await supabase.from("challenges").delete().eq("id", challengeId);
+    if (deleteError) throw deleteError;
+
+    const remainingChallenges = await getChallenges(true);
+    for (const [index, remainingChallenge] of remainingChallenges.entries()) {
+      const nextOrder = index + 1;
+      if (remainingChallenge.challenge_order === nextOrder) continue;
+
+      const { error: reorderError } = await supabase
+        .from("challenges")
+        .update({ challenge_order: nextOrder })
+        .eq("id", remainingChallenge.id);
+
+      if (reorderError) throw reorderError;
+    }
+
+    return getChallenges(true);
+  } catch (error) {
+    if (isGameError(error)) throw error;
+    if (isSupabaseUnavailable(error)) {
+      const deleted = deleteLocalChallenge(challengeId);
+      if (!deleted) {
+        throw new GameError("Challenge was not found.", 404);
+      }
       return getLocalChallenges(true);
     }
     throw error;

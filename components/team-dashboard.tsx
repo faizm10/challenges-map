@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   ChevronDown,
+  Copy,
   ImagePlus,
   LoaderCircle,
   LocateFixed,
@@ -250,6 +251,7 @@ export function TeamDashboard() {
   const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
   const [openCheckpointKey, setOpenCheckpointKey] = useState<string | null>(null);
   const [newChallengeBanner, setNewChallengeBanner] = useState<TeamChallengeStatus | null>(null);
+  const [pendingContractCheckpoint, setPendingContractCheckpoint] = useState<TeamCheckpoint | null>(null);
   const seenChallengeIdsRef = useRef<number[] | null>(null);
   const { toast } = useToast();
 
@@ -303,6 +305,27 @@ export function TeamDashboard() {
     }, 9000);
     return () => window.clearTimeout(timeout);
   }, [newChallengeBanner]);
+
+  async function copyAddress(address: string) {
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard) {
+        throw new Error("Clipboard unavailable");
+      }
+
+      await navigator.clipboard.writeText(address);
+      toast({
+        title: "Address copied",
+        description: "Location copied to your clipboard.",
+        variant: "success",
+      });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Clipboard access is unavailable on this device.",
+        variant: "error",
+      });
+    }
+  }
 
   async function refreshLocationPermissionState() {
     if (
@@ -777,6 +800,19 @@ export function TeamDashboard() {
     }
   }
 
+  async function onStartContractAccept() {
+    if (!pendingContractCheckpoint) return;
+    toast({
+      title: "Welcome to the challenge of death",
+      description: "Ahha just joking. Best of luck!",
+      variant: "success",
+      durationMs: 10000,
+    });
+    const nextCheckpoint = pendingContractCheckpoint;
+    setPendingContractCheckpoint(null);
+    await onCheckpointCheckin(nextCheckpoint);
+  }
+
   if (!dashboard) {
     return (
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 md:px-6 md:py-8">
@@ -817,7 +853,7 @@ export function TeamDashboard() {
                     type="text"
                     value={teamName}
                     onChange={(event) => setTeamName(event.target.value)}
-                    placeholder="Team 1"
+                    placeholder="Enter access name"
                     required
                   />
                 </div>
@@ -828,7 +864,7 @@ export function TeamDashboard() {
                     type="password"
                     value={pin}
                     onChange={(event) => setPin(event.target.value)}
-                    placeholder="TEAM1GO"
+                    placeholder="Enter access code"
                     required
                   />
                 </div>
@@ -1082,10 +1118,25 @@ export function TeamDashboard() {
                           </div>
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-end gap-2">
                         <Badge variant={checkpointVariant(checkpoint.status)}>
                           {checkpointLabel(checkpoint.status)}
                         </Badge>
+                        {checkpoint.expected_location_description ? (
+                          <button
+                            className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-medium text-white/64 transition hover:bg-white/[0.08] hover:text-white"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const address = checkpoint.expected_location_description;
+                              if (!address) return;
+                              void copyAddress(address);
+                            }}
+                          >
+                            <Copy className="h-3 w-3 shrink-0" />
+                            Copy address
+                          </button>
+                        ) : null}
                         <ChevronDown
                           className={`mt-0.5 h-4 w-4 shrink-0 text-white/52 transition ${
                             isOpen ? "rotate-180" : ""
@@ -1100,6 +1151,13 @@ export function TeamDashboard() {
                           className="space-y-3"
                           onSubmit={(event) => {
                             event.preventDefault();
+                            if (
+                              checkpoint.checkin_type === "start" &&
+                              !checkpoint.latest_checkin
+                            ) {
+                              setPendingContractCheckpoint(checkpoint);
+                              return;
+                            }
                             void onCheckpointCheckin(checkpoint);
                           }}
                         >
@@ -1145,7 +1203,9 @@ export function TeamDashboard() {
                                 Checking in...
                               </>
                             ) : (
-                              "Check in now"
+                              checkpoint.checkin_type === "start" && !checkpoint.latest_checkin
+                                ? "Accept contract and start"
+                                : "Check in now"
                             )}
                           </Button>
                         </form>
@@ -1422,6 +1482,61 @@ export function TeamDashboard() {
           </Table>
         </CardContent>
       </Card>
+
+      {pendingContractCheckpoint ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/72 p-4 sm:items-center">
+          <div className="w-full max-w-2xl rounded-[30px] border border-white/10 bg-[#151112] text-white shadow-[0_24px_90px_rgba(0,0,0,0.5)]">
+            <div className="border-b border-white/8 px-5 py-4 sm:px-6">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-300">
+                Converge Contract
+              </p>
+              <h3 className="mt-2 font-serif text-3xl text-white sm:text-4xl">
+                Start Terms
+              </h3>
+            </div>
+
+            <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
+              <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4 sm:p-5">
+                <p className="text-sm uppercase tracking-[0.18em] text-white/38">Agreement</p>
+                <p className="mt-3 text-base leading-8 text-white/80 sm:text-lg">
+                  The winning team gets to decide the losing team&apos;s consequence:
+                  either interview people with a question from the winners, or complete a dare set by them.
+                </p>
+              </div>
+
+              <div className="rounded-[24px] border border-orange-400/14 bg-orange-500/[0.06] p-4 sm:p-5">
+                <p className="text-sm font-semibold text-white">Acceptance required to begin</p>
+                <p className="mt-2 text-sm leading-7 text-white/64">
+                  Accepting this contract starts your team officially. Until it is accepted,
+                  the race stays locked and challenge cards will not open.
+                </p>
+                <p className="mt-3 text-sm leading-7 text-white/64">
+                  You cannot cheat on the challenges or submit random check-ins. Adelynn will be
+                  reviewing and approving them.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setPendingContractCheckpoint(null)}
+                >
+                  Not now
+                </Button>
+                <Button
+                  className="bg-orange-500 text-black hover:bg-orange-400"
+                  type="button"
+                  onClick={() => void onStartContractAccept()}
+                >
+                  Accept and start
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

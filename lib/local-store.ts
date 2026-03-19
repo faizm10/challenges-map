@@ -687,6 +687,29 @@ export function releaseAllLocalChallenges() {
   }
 }
 
+export function deleteLocalChallenge(challengeId: number) {
+  const state = getState();
+  const challengeIndex = state.challenges.findIndex((item) => item.id === challengeId);
+  if (challengeIndex === -1) {
+    return false;
+  }
+
+  state.challenges.splice(challengeIndex, 1);
+  state.teamChallengeStatus = state.teamChallengeStatus.filter(
+    (entry) => entry.challenge_id !== challengeId
+  );
+  state.challengeMedia = state.challengeMedia.filter((entry) => entry.challenge_id !== challengeId);
+  state.teamCheckins = state.teamCheckins.filter((entry) => entry.challenge_id !== challengeId);
+
+  state.challenges
+    .sort((a, b) => a.challenge_order - b.challenge_order)
+    .forEach((challenge, index) => {
+      challenge.challenge_order = index + 1;
+    });
+
+  return true;
+}
+
 export function updateLocalChallengeSubmission(
   teamId: number,
   challengeId: number,

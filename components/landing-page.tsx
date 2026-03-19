@@ -27,7 +27,9 @@ import type { PublicLeaderboardResponse, TeamSeed } from "@/lib/types";
 
 type LandingPageProps = {
   initialData: PublicLeaderboardResponse;
-  mapTeams: Array<Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color">>;
+  mapTeams: Array<
+    Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color">
+  >;
 };
 
 const steps = [
@@ -73,7 +75,8 @@ const challengeCards = [
 
 const testimonials = [
   {
-    quote: "Best night in Toronto. It felt like the city had turned into a multiplayer level.",
+    quote:
+      "Best night in Toronto. It felt like the city had turned into a multiplayer level.",
     author: "Maya, Team Captain",
   },
   {
@@ -81,7 +84,8 @@ const testimonials = [
     author: "Jordan, HQ",
   },
   {
-    quote: "It felt like a real-life game with just enough chaos to stay unforgettable.",
+    quote:
+      "It felt like a real-life game with just enough chaos to stay unforgettable.",
     author: "Alex, First to Union",
   },
 ];
@@ -123,7 +127,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
 
   useEffect(() => {
     const poll = window.setInterval(async () => {
-      const response = await fetch("/api/public/leaderboard", { cache: "no-store" });
+      const response = await fetch("/api/public/leaderboard", {
+        cache: "no-store",
+      });
       if (!response.ok) return;
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
@@ -134,7 +140,10 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
 
   const animatedTeams = mapTeams.map((team, index) => ({
     ...team,
-    mapPosition: teamMapPositions[index] ?? { x: 20 + index * 10, y: 20 + index * 10 },
+    mapPosition: teamMapPositions[index] ?? {
+      x: 20 + index * 10,
+      y: 20 + index * 10,
+    },
   }));
 
   return (
@@ -172,13 +181,25 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
+            <Button
+              asChild
+              className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex"
+              variant="secondary"
+            >
               <Link href="/leaderboard">Leaderboard</Link>
             </Button>
-            <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
+            <Button
+              asChild
+              className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex"
+              variant="secondary"
+            >
               <Link href="/map">Map</Link>
             </Button>
-            <Button asChild className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex" variant="secondary">
+            <Button
+              asChild
+              className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex"
+              variant="secondary"
+            >
               <Link href="/team">Team Login</Link>
             </Button>
             {/* <Button
@@ -215,14 +236,12 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               animate={{ opacity: 1, y: 0 }}
               className="mt-10 flex flex-col gap-4 sm:flex-row sm:flex-wrap"
               initial={{ opacity: 0, y: 24 }}
-              transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+              transition={{
+                duration: 0.7,
+                delay: 0.12,
+                ease: [0.22, 1, 0.36, 1],
+              }}
             >
-              <Button
-                className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
-                onClick={() => setIsCreateRaceOpen(true)}
-              >
-                Start Converge
-              </Button>
               <Button
                 asChild
                 className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
@@ -235,17 +254,14 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
                 variant="secondary"
               >
-                <Link href="/map">Open map</Link>
+                <Link href="/team">Team login</Link>
               </Button>
               <Button
                 asChild
                 className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
                 variant="secondary"
               >
-                <a href="#how-it-works">
-                  See how it works
-                  <ArrowRight className="h-4 w-4" />
-                </a>
+                <Link href="/map">Open map</Link>
               </Button>
             </motion.div>
 
@@ -253,7 +269,11 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               animate={{ opacity: 1, y: 0 }}
               className="mt-12 grid max-w-3xl gap-4 sm:grid-cols-3"
               initial={{ opacity: 0, y: 24 }}
-              transition={{ duration: 0.7, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              transition={{
+                duration: 0.7,
+                delay: 0.22,
+                ease: [0.22, 1, 0.36, 1],
+              }}
             >
               {[
                 { label: "Team Origins", value: "4 across Toronto" },
@@ -267,7 +287,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                   <div className="text-[11px] uppercase tracking-[0.22em] text-white/34">
                     {item.label}
                   </div>
-                  <div className="mt-3 text-lg font-semibold text-white">{item.value}</div>
+                  <div className="mt-3 text-lg font-semibold text-white">
+                    {item.value}
+                  </div>
                 </div>
               ))}
             </motion.div>
@@ -277,7 +299,11 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             className="relative"
             initial={{ opacity: 0, scale: 0.96, y: 24 }}
-            transition={{ duration: 0.8, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: 0.8,
+              delay: 0.12,
+              ease: [0.22, 1, 0.36, 1],
+            }}
           >
             <div className="absolute -left-10 top-16 h-36 w-36 rounded-full bg-orange-500/12 blur-3xl" />
             <div className="absolute -right-8 bottom-12 h-40 w-40 rounded-full bg-white/4 blur-3xl" />
@@ -293,7 +319,10 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                       The next Converge starts soon.
                     </div>
                   </div>
-                  <Badge className="border-white/8 bg-white/6 text-white/76" variant="secondary">
+                  <Badge
+                    className="border-white/8 bg-white/6 text-white/76"
+                    variant="secondary"
+                  >
                     Premium chaos
                   </Badge>
                 </div>
@@ -317,7 +346,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                               className="h-3 w-3 rounded-full"
                               style={{ backgroundColor: team.color }}
                             />
-                            <span className="text-sm text-white">{team.teamName}</span>
+                            <span className="text-sm text-white">
+                              {team.teamName}
+                            </span>
                           </div>
                           <span className="text-xs uppercase tracking-[0.18em] text-white/28">
                             Ready
@@ -333,22 +364,24 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                       HQ challenge cadence
                     </div>
                     <div className="space-y-3">
-                      {["Drop 01 · Icebreaker", "Drop 02 · Social", "Drop 03 · Cinematic"].map(
-                        (item, index) => (
-                          <motion.div
-                            key={item}
-                            animate={{ opacity: [0.55, 1, 0.55] }}
-                            className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-white/68"
-                            transition={{
-                              duration: 2.6,
-                              delay: index * 0.35,
-                              repeat: Number.POSITIVE_INFINITY,
-                            }}
-                          >
-                            {item}
-                          </motion.div>
-                        )
-                      )}
+                      {[
+                        "Drop 01 · Icebreaker",
+                        "Drop 02 · Social",
+                        "Drop 03 · Cinematic",
+                      ].map((item, index) => (
+                        <motion.div
+                          key={item}
+                          animate={{ opacity: [0.55, 1, 0.55] }}
+                          className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-white/68"
+                          transition={{
+                            duration: 2.6,
+                            delay: index * 0.35,
+                            repeat: Number.POSITIVE_INFINITY,
+                          }}
+                        >
+                          {item}
+                        </motion.div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -357,7 +390,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
           </motion.div>
         </div>
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#070607]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#070607]" />
       </section>
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-24 px-4 pb-24 md:px-6">
@@ -390,8 +423,12 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                   <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">
                     Step {index + 1}
                   </div>
-                  <h3 className="mt-3 text-2xl font-semibold text-white">{step.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-white/58">{step.copy}</p>
+                  <h3 className="mt-3 text-2xl font-semibold text-white">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-white/58">
+                    {step.copy}
+                  </p>
                 </motion.div>
               );
             })}
@@ -405,22 +442,32 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                 Live map
               </p>
               <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-                Watch four teams move through Toronto toward one final convergence.
+                Watch four teams move through Toronto toward one final
+                convergence.
               </h2>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Badge className="border-white/10 bg-white/6 px-4 py-2 text-white/80" variant="secondary">
+              <Badge
+                className="border-white/10 bg-white/6 px-4 py-2 text-white/80"
+                variant="secondary"
+              >
                 {data.event.total_challenges
                   ? `${data.event.released_count}/${data.event.total_challenges} challenges released`
                   : "No challenges live yet"}
               </Badge>
-              <Badge className="border-white/10 bg-white/6 px-4 py-2 text-white/80" variant="secondary">
+              <Badge
+                className="border-white/10 bg-white/6 px-4 py-2 text-white/80"
+                variant="secondary"
+              >
                 {data.event.finish_point}
               </Badge>
             </div>
           </div>
 
-          <AnimatedCityMap teams={animatedTeams} leaderboard={data.leaderboard} />
+          <AnimatedCityMap
+            teams={animatedTeams}
+            leaderboard={data.leaderboard}
+          />
         </SectionReveal>
 
         <SectionReveal id="challenges" className="scroll-mt-28">
@@ -443,99 +490,27 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
                   initial={{ opacity: 0, y: 24 }}
                   transition={{ duration: 0.55, delay: index * 0.08 }}
                   viewport={{ once: true }}
-                  whileHover={{ y: -8, rotateX: 4, rotateY: index === 1 ? 0 : index % 2 === 0 ? -3 : 3 }}
+                  whileHover={{
+                    y: -8,
+                    rotateX: 4,
+                    rotateY: index === 1 ? 0 : index % 2 === 0 ? -3 : 3,
+                  }}
                   whileInView={{ opacity: 1, y: 0 }}
                 >
                   <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-orange-500/10 text-orange-300">
                     <Icon className="h-6 w-6" />
                   </div>
-                  <h3 className="text-2xl font-semibold text-white">{card.title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-white/58">{card.copy}</p>
+                  <h3 className="text-2xl font-semibold text-white">
+                    {card.title}
+                  </h3>
+                  <p className="mt-4 text-sm leading-7 text-white/58">
+                    {card.copy}
+                  </p>
                 </motion.div>
               );
             })}
           </div>
         </SectionReveal>
-
-        <SectionReveal>
-          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-            <Card className="rounded-[34px] border-white/10 bg-white/[0.045] p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-                Social proof
-              </p>
-              <h2 className="mt-4 font-serif text-4xl leading-tight">
-                The vibe is half campaign, half city memory.
-              </h2>
-              <p className="mt-5 max-w-lg text-base leading-8 text-white/60">
-                People remember the route, the clips, the strangers, the near wins,
-                and the final sprint more than a normal night out because every block
-                gives them something to do.
-              </p>
-            </Card>
-
-            <div className="grid gap-5 md:grid-cols-3">
-              {testimonials.map((item, index) => (
-                <motion.div
-                  key={item.author}
-                  className="rounded-[30px] border border-white/10 bg-white/[0.045] p-6"
-                  initial={{ opacity: 0, y: 24 }}
-                  transition={{ duration: 0.55, delay: index * 0.08 }}
-                  viewport={{ once: true }}
-                  whileHover={{ y: -6 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                >
-                  <div className="mb-5 text-3xl text-orange-300">“</div>
-                  <p className="text-base leading-8 text-white/80">{item.quote}</p>
-                  <div className="mt-6 text-sm text-white/45">{item.author}</div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </SectionReveal>
-
-        <SectionReveal id="finale" className="scroll-mt-28">
-          <div className="overflow-hidden rounded-[40px] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.18),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-8 sm:p-10 lg:p-14">
-            <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end">
-              <div>
-                <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">
-                  Final moment
-                </p>
-                <h2 className="max-w-4xl font-serif text-5xl leading-[0.98] sm:text-6xl lg:text-7xl">
-                  All paths lead to Union.
-                </h2>
-                <p className="mt-6 max-w-2xl text-lg leading-8 text-white/62">
-                  The ending is the product. Every team hits the same station with
-                  different footage, different stories, and the same sense that the
-                  entire city bent toward one dramatic finish.
-                </p>
-              </div>
-
-              <div className="grid gap-4">
-                <div className="rounded-[30px] border border-white/10 bg-black/20 p-5 backdrop-blur-md">
-                  <div className="mb-3 flex items-center gap-2 text-sm text-orange-200">
-                    <Trophy className="h-4 w-4" />
-                    Final convergence energy
-                  </div>
-                  <div className="text-3xl font-semibold text-white">1 finish line</div>
-                  <div className="mt-2 text-sm text-white/50">
-                    Shared climax. Shared story. Shared winner.
-                  </div>
-                </div>
-                <div className="rounded-[30px] border border-white/10 bg-black/20 p-5 backdrop-blur-md">
-                  <div className="mb-3 flex items-center gap-2 text-sm text-orange-200">
-                    <Sparkles className="h-4 w-4" />
-                    City-scale payoff
-                  </div>
-                  <div className="text-3xl font-semibold text-white">∞ replay value</div>
-                  <div className="mt-2 text-sm text-white/50">
-                    New routes, new prompts, same iconic destination.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </SectionReveal>
-
         <SectionReveal>
           <div className="rounded-[40px] border border-white/10 bg-white/[0.045] px-6 py-10 text-center sm:px-10 sm:py-14">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">
@@ -545,8 +520,8 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               Build a night people will talk about the whole ride home.
             </h2>
             <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/58">
-              Launch your own Converge with live HQ prompts, team routes,
-              social challenge drops, and a finish at Union that feels earned.
+              Launch your own Converge with live HQ prompts, team routes, social
+              challenge drops, and a finish at Union that feels earned.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Button

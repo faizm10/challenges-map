@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   ChevronDown,
+  Copy,
   Clock3,
   ExternalLink,
   Image as ImageIcon,
@@ -244,6 +245,27 @@ export function AdminDashboard() {
     }
   }
 
+  async function copyAddress(address: string) {
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard) {
+        throw new Error("Clipboard unavailable");
+      }
+
+      await navigator.clipboard.writeText(address);
+      toast({
+        title: "Address copied",
+        description: "Location copied to your clipboard.",
+        variant: "success",
+      });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Clipboard access is unavailable on this device.",
+        variant: "error",
+      });
+    }
+  }
+
   if (!game) {
     return (
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
@@ -284,7 +306,7 @@ export function AdminDashboard() {
                     type="text"
                     value={adminName}
                     onChange={(event) => setAdminName(event.target.value)}
-                    placeholder="HQ Admin"
+                    placeholder="Enter access name"
                     required
                   />
                 </div>
@@ -295,7 +317,7 @@ export function AdminDashboard() {
                     type="password"
                     value={pin}
                     onChange={(event) => setPin(event.target.value)}
-                    placeholder="UNIONHQ2026"
+                    placeholder="Enter access code"
                     required
                   />
                 </div>
@@ -852,6 +874,39 @@ export function AdminDashboard() {
                       "Save Challenge"
                     )}
                   </Button>
+                  <Button
+                    className="w-full border-red-400/20 bg-red-500/10 text-red-100 hover:bg-red-500/20 sm:w-auto"
+                    disabled={pendingAction === `delete-challenge:${challenge.id}`}
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        `Delete Challenge ${challenge.challenge_order}? This permanently removes its submissions, uploads, reviews, and challenge check-ins.`
+                      );
+                      if (!confirmed) return;
+
+                      void runAdminAction(
+                        `delete-challenge:${challenge.id}`,
+                        async () => {
+                          await api(`/api/admin/challenges/${challenge.id}`, {
+                            method: "DELETE",
+                          });
+                          await loadGame();
+                        },
+                        "Challenge deleted",
+                        `Challenge ${challenge.challenge_order} was permanently removed.`
+                      );
+                    }}
+                  >
+                    {pendingAction === `delete-challenge:${challenge.id}` ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      "Delete Challenge"
+                    )}
+                  </Button>
                 </div>
               </form>
             </Card>
@@ -1200,6 +1255,23 @@ export function AdminDashboard() {
                             />
                           </div>
                         </button>
+                        {checkpoint.expected_location_description ? (
+                          <div className="px-1 pb-3 pt-1">
+                            <button
+                              className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-medium text-white/64 transition hover:bg-white/[0.08] hover:text-white"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const address = checkpoint.expected_location_description;
+                                if (!address) return;
+                                void copyAddress(address);
+                              }}
+                            >
+                              <Copy className="h-3 w-3 shrink-0" />
+                              Copy address
+                            </button>
+                          </div>
+                        ) : null}
                         {isOpen ? (
                           <div className="mt-4 border-t border-white/8 px-1 pt-4">
                             {checkpoint.latest_checkin ? (

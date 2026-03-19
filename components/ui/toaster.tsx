@@ -12,6 +12,7 @@ type ToastItem = {
   title: string;
   description?: string;
   variant: ToastVariant;
+  durationMs?: number;
 };
 
 type ToastContextValue = {
@@ -28,10 +29,10 @@ export function ToasterProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    ({ title, description, variant }: Omit<ToastItem, "id">) => {
+    ({ title, description, variant, durationMs }: Omit<ToastItem, "id">) => {
       const id = Date.now() + Math.floor(Math.random() * 1000);
-      setToasts((current) => [...current, { id, title, description, variant }]);
-      window.setTimeout(() => dismiss(id), 3200);
+      setToasts((current) => [...current, { id, title, description, variant, durationMs }]);
+      window.setTimeout(() => dismiss(id), durationMs ?? 3200);
     },
     [dismiss]
   );
