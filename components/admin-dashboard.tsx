@@ -149,6 +149,13 @@ export function AdminDashboard() {
   const [openCheckpointByTeam, setOpenCheckpointByTeam] = useState<Record<number, string | null>>({});
   const [activeRecentCheckinId, setActiveRecentCheckinId] = useState<number | null>(null);
   const [activeProofIndex, setActiveProofIndex] = useState(0);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [credCurrentPin, setCredCurrentPin] = useState("");
+  const [credNewName, setCredNewName] = useState("HQ Admin");
+  const [credNewPin, setCredNewPin] = useState("");
+  const [credConfirmPin, setCredConfirmPin] = useState("");
+  const [credError, setCredError] = useState("");
   const { toast } = useToast();
   const lastCheckInSlotRef = useRef<number | null>(null);
 
@@ -259,6 +266,36 @@ export function AdminDashboard() {
       setGame(null);
     } finally {
       setPendingAction((current) => (current === "logout" ? null : current));
+    }
+  }
+
+  async function onUpdateCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCredError("");
+    setPendingAction("credentials");
+    try {
+      await api("/api/admin/credentials", {
+        method: "PATCH",
+        body: JSON.stringify({
+          currentPin: credCurrentPin,
+          newName: credNewName,
+          newPin: credNewPin,
+          confirmNewPin: credConfirmPin,
+        }),
+      });
+      setShowCredentials(false);
+      setCredCurrentPin("");
+      setCredNewPin("");
+      setCredConfirmPin("");
+      toast({
+        title: "Credentials updated",
+        description: "Your username and PIN have been saved.",
+        variant: "success",
+      });
+    } catch (err) {
+      setCredError(err instanceof Error ? err.message : "Update failed.");
+    } finally {
+      setPendingAction((current) => (current === "credentials" ? null : current));
     }
   }
 
@@ -388,6 +425,7 @@ export function AdminDashboard() {
   }
 
   return (
+    <>
     <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
       <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -428,6 +466,13 @@ export function AdminDashboard() {
               }
             >
               Reset Game
+            </Button>
+            <Button
+              className="w-full border-white/10 bg-white/5 text-white/72 hover:bg-white/10 hover:text-white sm:w-auto"
+              variant="secondary"
+              onClick={() => setShowCredentials(true)}
+            >
+              Change Credentials
             </Button>
             <Button
               className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"
@@ -1624,11 +1669,17 @@ export function AdminDashboard() {
                               >
                                 <div className="aspect-[4/3] bg-black/30">
                                   {upload.media_type === "image" ? (
-                                    <img
-                                      alt={upload.file_name}
-                                      className="h-full w-full object-cover"
-                                      src={upload.signed_url}
-                                    />
+                                    <button
+                                      className="h-full w-full"
+                                      type="button"
+                                      onClick={() => setLightboxUrl(upload.signed_url)}
+                                    >
+                                      <img
+                                        alt={upload.file_name}
+                                        className="h-full w-full object-cover transition hover:opacity-80"
+                                        src={upload.signed_url}
+                                      />
+                                    </button>
                                   ) : (
                                     <video
                                       className="h-full w-full object-cover"
@@ -1646,7 +1697,14 @@ export function AdminDashboard() {
                                     </p>
                                   </div>
                                   {upload.media_type === "image" ? (
-                                    <ImageIcon className="h-4 w-4 shrink-0 text-white/40" />
+                                    <button
+                                      className="text-white/40 transition hover:text-white/80"
+                                      title="View fullscreen"
+                                      type="button"
+                                      onClick={() => setLightboxUrl(upload.signed_url)}
+                                    >
+                                      <ImageIcon className="h-4 w-4 shrink-0" />
+                                    </button>
                                   ) : (
                                     <Video className="h-4 w-4 shrink-0 text-white/40" />
                                   )}
@@ -1719,5 +1777,144 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
     </main>
+
+    {/* Lightbox */}
+    {lightboxUrl ? (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/92 p-4"
+        onClick={() => setLightboxUrl(null)}
+      >
+        <button
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          type="button"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <img
+          alt="Full size proof"
+          className="max-h-full max-w-full rounded-[12px] object-contain shadow-2xl"
+          src={lightboxUrl}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    ) : null}
+
+    {/* Change Credentials Modal */}
+    {showCredentials ? (
+      <div
+        className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/80 p-4"
+        onClick={() => setShowCredentials(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-[28px] border border-white/10 bg-[#1a1518] p-6 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">Account</p>
+              <h2 className="mt-1 font-serif text-2xl text-white">Change Credentials</h2>
+            </div>
+            <button
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/6 text-white/60 hover:bg-white/12 hover:text-white"
+              type="button"
+              onClick={() => setShowCredentials(false)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <form className="space-y-4" onSubmit={(e) => void onUpdateCredentials(e)}>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                Current PIN
+              </label>
+              <Input
+                className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-orange-400/40"
+                placeholder="Enter your current PIN to verify"
+                required
+                type="password"
+                value={credCurrentPin}
+                onChange={(e) => setCredCurrentPin(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                New Username
+              </label>
+              <Input
+                className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-orange-400/40"
+                placeholder="Admin display name"
+                required
+                type="text"
+                value={credNewName}
+                onChange={(e) => setCredNewName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                New PIN
+              </label>
+              <Input
+                className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-orange-400/40"
+                placeholder="New PIN or password"
+                required
+                type="password"
+                value={credNewPin}
+                onChange={(e) => setCredNewPin(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                Confirm New PIN
+              </label>
+              <Input
+                className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-orange-400/40"
+                placeholder="Re-enter new PIN"
+                required
+                type="password"
+                value={credConfirmPin}
+                onChange={(e) => setCredConfirmPin(e.target.value)}
+              />
+            </div>
+
+            {credError ? (
+              <p className="rounded-[12px] bg-red-500/10 px-3 py-2 text-sm text-red-300 ring-1 ring-red-500/20">
+                {credError}
+              </p>
+            ) : null}
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                className="flex-1 border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                type="button"
+                variant="secondary"
+                onClick={() => setShowCredentials(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-orange-500 text-white hover:bg-orange-400"
+                disabled={pendingAction === "credentials"}
+                type="submit"
+              >
+                {pendingAction === "credentials" ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }

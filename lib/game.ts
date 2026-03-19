@@ -2436,6 +2436,52 @@ export async function updateTeamCredentials(teamId: number, teamName: string, pi
   }
 }
 
+export async function updateAdminCredentials(currentPin: string, newName: string, newPin: string) {
+  const cleanCurrentPin = currentPin.trim();
+  const cleanNewName = newName.trim().slice(0, 120);
+  const cleanNewPin = newPin.trim().slice(0, 120);
+
+  if (!cleanCurrentPin) throw new GameError("Current PIN is required.", 400);
+  if (!cleanNewName) throw new GameError("Username is required.", 400);
+  if (!cleanNewPin) throw new GameError("New PIN is required.", 400);
+
+  try {
+    // Verify current PIN
+    const { data: current, error: lookupError } = await supabase
+      .from("access_credentials")
+      .select("id, display_name")
+      .eq("role", "admin")
+      .eq("pin", cleanCurrentPin)
+      .maybeSingle<{ id: number; display_name: string }>();
+
+    if (lookupError) throw lookupError;
+    if (!current) throw new GameError("Current PIN is incorrect.", 401);
+
+    // Check name uniqueness if it changed
+    if (cleanNewName !== current.display_name) {
+      const { data: dupe, error: dupeError } = await supabase
+        .from("access_credentials")
+        .select("id")
+        .eq("role", "admin")
+        .eq("display_name", cleanNewName)
+        .maybeSingle<{ id: number }>();
+
+      if (dupeError) throw dupeError;
+      if (dupe) throw new GameError("That username is already taken.", 409);
+    }
+
+    const { error: updateError } = await supabase
+      .from("access_credentials")
+      .update({ display_name: cleanNewName, pin: cleanNewPin })
+      .eq("id", current.id);
+
+    if (updateError) throw updateError;
+  } catch (error) {
+    if (isGameError(error)) throw error;
+    throw error;
+  }
+}
+
 export async function isChallengeReleased(challengeId: number) {
   try {
     const { data, error } = await supabase
