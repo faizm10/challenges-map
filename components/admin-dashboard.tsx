@@ -875,6 +875,41 @@ export function AdminDashboard() {
                     )}
                   </Button>
                   <Button
+                    className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
+                    disabled={pendingAction === `toggle-release:${challenge.id}`}
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      void runAdminAction(
+                        `toggle-release:${challenge.id}`,
+                        async () => {
+                          await api(`/api/admin/challenges/${challenge.id}/release`, {
+                            method: "PATCH",
+                            body: JSON.stringify({
+                              isReleased: !challenge.is_released,
+                            }),
+                          });
+                          await loadGame();
+                        },
+                        challenge.is_released ? "Challenge hidden" : "Challenge released",
+                        challenge.is_released
+                          ? `Challenge ${challenge.challenge_order} was hidden from teams.`
+                          : `Challenge ${challenge.challenge_order} is now live.`
+                      )
+                    }
+                  >
+                    {pendingAction === `toggle-release:${challenge.id}` ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        {challenge.is_released ? "Hiding..." : "Releasing..."}
+                      </>
+                    ) : challenge.is_released ? (
+                      "Hide Challenge"
+                    ) : (
+                      "Release Challenge"
+                    )}
+                  </Button>
+                  <Button
                     className="w-full border-red-400/20 bg-red-500/10 text-red-100 hover:bg-red-500/20 sm:w-auto"
                     disabled={pendingAction === `delete-challenge:${challenge.id}`}
                     type="button"
