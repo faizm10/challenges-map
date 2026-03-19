@@ -460,7 +460,11 @@ function deriveCheckpoints(
   ];
 }
 
-function deriveVisibleChallengeIds(releasedChallenges: Challenge[], checkins: TeamCheckin[]) {
+function deriveVisibleChallengeIds(
+  releasedChallenges: Challenge[],
+  checkins: TeamCheckin[],
+  submittedChallengeIds: Set<number>
+) {
   const hasStartedRace = checkins.some((item) => item.checkin_type === "start");
   if (!hasStartedRace) return new Set<number>();
 
@@ -471,13 +475,26 @@ function deriveVisibleChallengeIds(releasedChallenges: Challenge[], checkins: Te
   );
 
   const visibleIds = new Set<number>();
-  for (const challenge of releasedChallenges) {
+  const orderedChallenges = [...releasedChallenges].sort(
+    (a, b) => a.challenge_order - b.challenge_order
+  );
+
+  for (const challenge of orderedChallenges) {
     if (challenge.kind === "game_long") {
       visibleIds.add(challenge.id);
       continue;
     }
 
-    if (challengeCheckins.has(challenge.id)) {
+    const previousChallenge = orderedChallenges.find(
+      (item) => item.challenge_order === challenge.challenge_order - 1
+    );
+    const isPreviousComplete = previousChallenge
+      ? previousChallenge.kind === "game_long"
+        ? hasStartedRace
+        : submittedChallengeIds.has(previousChallenge.id)
+      : hasStartedRace;
+
+    if (isPreviousComplete && challengeCheckins.has(challenge.id)) {
       visibleIds.add(challenge.id);
     }
   }
@@ -1311,8 +1328,17 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
       }>).map((status) => [status.challenge_id, status])
     );
     const uploadsByChallenge = buildUploadsByChallenge(uploads);
+    const submittedChallengeIds = new Set(
+      Array.from(statuses.entries())
+        .filter(([, status]) => status.status === "submitted")
+        .map(([challengeId]) => Number(challengeId))
+    );
     const latestLocation = getLatestLocationForTeam(team, checkins, releasedChallenges);
-    const visibleChallengeIds = deriveVisibleChallengeIds(releasedChallenges, checkins);
+    const visibleChallengeIds = deriveVisibleChallengeIds(
+      releasedChallenges,
+      checkins,
+      submittedChallengeIds
+    );
 
     const hasStartedRace = checkins.some((item) => item.checkin_type === "start");
     const challengeCheckinIds = new Set(
@@ -2036,8 +2062,27 @@ export async function createTeamCheckin(input: {
     if (!challenge) {
       throw new GameError("Challenge was not found.", 404);
     }
-    if (challenge.kind === "game_long") {
+    const currentChallenge = challenge;
+    if (currentChallenge.kind === "game_long") {
       throw new GameError("Challenge 1 unlocks from the start check-in and does not use a checkpoint.", 409);
+    }
+
+    const releasedChallenges = await getChallenges(false);
+    const previousChallenge = releasedChallenges.find(
+      (item) => item.challenge_order === currentChallenge.challenge_order - 1
+    );
+    if (previousChallenge) {
+      const previousStatus = await getChallengeStatusRow(input.teamId, previousChallenge.id);
+      const isPreviousComplete =
+        previousChallenge.kind === "game_long"
+          ? true
+          : previousStatus?.status === "submitted";
+      if (!isPreviousComplete) {
+        throw new GameError(
+          `Complete Challenge ${previousChallenge.challenge_order} before unlocking this checkpoint.`,
+          409
+        );
+      }
     }
   }
 

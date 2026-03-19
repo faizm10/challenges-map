@@ -139,7 +139,7 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
                 checkpoint.expected_location_description ||
                 checkpoint.expected_location_label,
           coordinates,
-          isComplete: Boolean(checkpoint.latest_checkin),
+          isComplete: challenge.status === "submitted",
         };
       })
       .filter(Boolean) as Array<{
@@ -157,6 +157,13 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
 
   const nextStop = routeStops.find((stop) => !stop.isComplete) ?? null;
   const lastCompletedStop = [...routeStops].reverse().find((stop) => stop.isComplete) ?? null;
+  const nextVisibleChallenge = dashboard.challenges
+    .slice()
+    .sort((a, b) => a.challenge_order - b.challenge_order)
+    .find((challenge) => challenge.is_visible) ?? null;
+  const shouldShowScrollCue =
+    nextVisibleChallenge?.kind === "checkpoint" &&
+    (nextVisibleChallenge.challenge_order === 2 || nextVisibleChallenge.challenge_order === 3);
 
   const originPoint = useMemo(() => {
     if (
@@ -347,6 +354,11 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
             {nextStop ? nextStop.description : "You're through the route unlocks. Finish at Union when ready."}
           </p>
           <p className="mt-2 text-[11px] text-white/44">{hideFutureCopy}</p>
+          {shouldShowScrollCue ? (
+            <p className="mt-2 text-[11px] text-orange-200/82">
+              Scroll down to the challenge queue to view and submit it.
+            </p>
+          ) : null}
         </div>
       </div>
     </Card>

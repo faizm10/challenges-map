@@ -268,6 +268,11 @@ function deriveVisibleChallengeIds(teamId: number) {
   );
 
   const releasedChallenges = getLocalChallenges(false);
+  const submittedChallengeIds = new Set(
+    state.teamChallengeStatus
+      .filter((item) => item.team_id === teamId && item.status === "submitted")
+      .map((item) => item.challenge_id)
+  );
   const visibleIds = new Set<number>();
 
   for (const challenge of releasedChallenges) {
@@ -276,7 +281,16 @@ function deriveVisibleChallengeIds(teamId: number) {
       continue;
     }
 
-    if (challengeCheckins.has(challenge.id)) {
+    const previousChallenge = releasedChallenges.find(
+      (item) => item.challenge_order === challenge.challenge_order - 1
+    );
+    const isPreviousComplete = previousChallenge
+      ? previousChallenge.kind === "game_long"
+        ? hasStartedRace
+        : submittedChallengeIds.has(previousChallenge.id)
+      : hasStartedRace;
+
+    if (isPreviousComplete && challengeCheckins.has(challenge.id)) {
       visibleIds.add(challenge.id);
     }
   }
@@ -878,6 +892,13 @@ export function updateLocalChallengeSubmission(
     item.reviewed_at = null;
     item.reviewed_by = null;
   }
+  updateLocalChallengeReview(
+    teamId,
+    challengeId,
+    item.review_status,
+    item.review_note,
+    item.reviewed_by ?? ""
+  );
 }
 
 export function upsertLocalChallengeCheckinOnSubmit(input: {
@@ -947,7 +968,7 @@ export function updateLocalChallengeReview(
       (entry) =>
         entry.challenge_id === challengeId &&
         entry.status === "submitted" &&
-        entry.review_status === "verified" &&
+        entry.review_status !== "rejected" &&
         Boolean(entry.submitted_at)
     )
     .sort((a, b) => {
@@ -989,6 +1010,23 @@ export function createLocalCheckin(input: {
     }
     if (challenge.kind === "game_long") {
       throw new Error("Challenge 1 unlocks from the start check-in and does not use a checkpoint.");
+    }
+    const previousChallenge = getLocalChallenges(true).find(
+      (item) => item.challenge_order === challenge.challenge_order - 1
+    );
+    if (previousChallenge) {
+      const previousStatus = state.teamChallengeStatus.find(
+        (entry) => entry.team_id === input.teamId && entry.challenge_id === previousChallenge.id
+      );
+      const isPreviousComplete =
+        previousChallenge.kind === "game_long"
+          ? true
+          : previousStatus?.status === "submitted";
+      if (!isPreviousComplete) {
+        throw new Error(
+          `Complete Challenge ${previousChallenge.challenge_order} before unlocking this checkpoint.`
+        );
+      }
     }
     if (input.latitude == null || input.longitude == null) {
       throw new Error("Checkpoint unlock requires live GPS at the checkpoint.");

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   ChevronDown,
@@ -110,7 +110,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 function challengeStateLabel(challenge: TeamChallengeStatus) {
   if (challenge.review_status === "verified") return "Verified";
   if (challenge.review_status === "rejected") return "Rejected";
-  return challenge.status === "submitted" ? "Submitted" : "Not started";
+  return challenge.status === "submitted" ? "Challenge submitted" : "Not started";
 }
 
 function challengeStateVariant(challenge: TeamChallengeStatus) {
@@ -130,13 +130,13 @@ function challengeKindCopy(challenge: TeamChallengeStatus) {
   if (challenge.kind === "union") {
     return {
       title: "Union checkpoint unlocked",
-      description: "You reached Union. Add proof and submit Challenge 4 here.",
+      description: "You reached Union. Submit this challenge here, then the final finish check-in unlocks.",
     };
   }
 
   return {
     title: "Checkpoint unlocked",
-    description: "You reached the assigned checkpoint. Add proof and submit this challenge now.",
+    description: "You reached the assigned checkpoint. Submit this challenge here to reveal the next checkpoint.",
   };
 }
 
@@ -344,7 +344,41 @@ export function TeamDashboard() {
 
   useEffect(() => {
     if (!dashboard) return;
-    const visibleChallengeRows = dashboard.challenges.filter((challenge) => challenge.is_visible);
+    const hasStarted = dashboard.checkpoints.some(
+      (checkpoint) => checkpoint.checkin_type === "start" && Boolean(checkpoint.latest_checkin)
+    );
+    const orderedChallenges = dashboard.challenges
+      .slice()
+      .sort((a, b) => a.challenge_order - b.challenge_order);
+    const submittedChallengeIds = new Set(
+      orderedChallenges
+        .filter((challenge) => challenge.status === "submitted")
+        .map((challenge) => challenge.id)
+    );
+    const challengeCheckinIds = new Set(
+      dashboard.checkpoints
+        .filter(
+          (checkpoint) =>
+            checkpoint.checkin_type === "challenge" &&
+            checkpoint.challenge_id !== null &&
+            Boolean(checkpoint.latest_checkin)
+        )
+        .map((checkpoint) => Number(checkpoint.challenge_id))
+    );
+    const visibleChallengeRows = orderedChallenges.filter((challenge) => {
+      if (challenge.kind === "game_long") return hasStarted;
+
+      const previousChallenge = orderedChallenges.find(
+        (item) => item.challenge_order === challenge.challenge_order - 1
+      );
+      const isPreviousComplete = previousChallenge
+        ? previousChallenge.kind === "game_long"
+          ? hasStarted
+          : submittedChallengeIds.has(previousChallenge.id)
+        : hasStarted;
+
+      return isPreviousComplete && challengeCheckinIds.has(challenge.id);
+    });
 
     const currentIds = visibleChallengeRows.map((challenge) => challenge.id);
     const previousIds = seenChallengeIdsRef.current;
@@ -439,13 +473,75 @@ export function TeamDashboard() {
     dashboard?.checkpoints.find((checkpoint) => checkpoint.checkin_type === "start") ?? null;
   const hasStartedRace = Boolean(startCheckpoint?.latest_checkin);
   const isFinishUnlocked = (dashboard?.teamStats.completed_count ?? 0) >= MAX_CHALLENGES;
-  const visibleChallenges = dashboard?.challenges.filter((challenge) => challenge.is_visible) ?? [];
+  const orderedChallenges =
+    dashboard?.challenges.slice().sort((a, b) => a.challenge_order - b.challenge_order) ?? [];
+  const submittedChallengeIds = new Set(
+    orderedChallenges.filter((challenge) => challenge.status === "submitted").map((challenge) => challenge.id)
+  );
+  const challengeCheckinIds = new Set(
+    (dashboard?.checkpoints ?? [])
+      .filter(
+        (checkpoint) =>
+          checkpoint.checkin_type === "challenge" &&
+          checkpoint.challenge_id !== null &&
+          Boolean(checkpoint.latest_checkin)
+      )
+      .map((checkpoint) => Number(checkpoint.challenge_id))
+  );
+  const visibleChallenges = orderedChallenges.filter((challenge) => {
+    if (challenge.kind === "game_long") return hasStartedRace;
+
+    const previousChallenge = orderedChallenges.find(
+      (item) => item.challenge_order === challenge.challenge_order - 1
+    );
+    const isPreviousComplete = previousChallenge
+      ? previousChallenge.kind === "game_long"
+        ? hasStartedRace
+        : submittedChallengeIds.has(previousChallenge.id)
+      : hasStartedRace;
+
+    return isPreviousComplete && challengeCheckinIds.has(challenge.id);
+  });
   const visibleCheckpoints = dashboard
     ? dashboard.checkpoints.filter((checkpoint) => {
         if (checkpoint.checkin_type === "start") return true;
-        return hasStartedRace;
+        if (!hasStartedRace) return false;
+        if (checkpoint.checkin_type === "finish") return isFinishUnlocked;
+        if (checkpoint.challenge_id === null) return false;
+
+        const challenge = orderedChallenges.find((item) => item.id === checkpoint.challenge_id);
+        if (!challenge) return false;
+
+        const previousChallenge = orderedChallenges.find(
+          (item) => item.challenge_order === challenge.challenge_order - 1
+        );
+        const isPreviousComplete = previousChallenge
+          ? previousChallenge.kind === "game_long"
+            ? hasStartedRace
+            : submittedChallengeIds.has(previousChallenge.id)
+          : hasStartedRace;
+
+        return isPreviousComplete;
       })
     : [];
+  const nextVisibleChallenge = visibleChallenges[0] ?? null;
+  const shouldShowScrollCue =
+    nextVisibleChallenge?.kind === "checkpoint" &&
+    (nextVisibleChallenge.challenge_order === 2 || nextVisibleChallenge.challenge_order === 3);
+  const visibleCheckpointSignature = useMemo(
+    () =>
+      visibleCheckpoints
+        .map((checkpoint) =>
+          [
+            checkpoint.key,
+            checkpoint.status,
+            checkpoint.latest_checkin?.created_at ?? "",
+            checkpoint.latest_checkin?.reviewed_at ?? "",
+          ].join(":")
+        )
+        .join("|"),
+    [visibleCheckpoints]
+  );
   const locationPermissionCopy = getPlatformPermissionCopy(
     locationPlatform,
     locationPermissionState
@@ -491,7 +587,7 @@ export function TeamDashboard() {
 
       return stillValid ? current : getDefaultOpenCheckpointKey(visibleCheckpoints);
     });
-  }, [dashboard, hasStartedRace]);
+  }, [visibleCheckpointSignature]);
 
   async function onLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1031,6 +1127,14 @@ export function TeamDashboard() {
             </div>
             <h1 className="font-serif text-4xl text-white sm:text-5xl">{dashboard.team.team_name}</h1>
             <p className="max-w-3xl text-lg leading-8 text-white/56">{dashboard.team.route_summary}</p>
+            {shouldShowScrollCue ? (
+              <div className="max-w-2xl rounded-[18px] border border-orange-300/16 bg-orange-500/[0.08] px-4 py-3">
+                <p className="text-sm font-semibold text-white">Next challenge is ready</p>
+                <p className="mt-1 text-sm leading-6 text-white/62">
+                  Scroll down to the challenge queue to view and submit it.
+                </p>
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button
@@ -1281,21 +1385,6 @@ export function TeamDashboard() {
                         <Badge variant={checkpointVariant(checkpoint.status)}>
                           {checkpointLabel(checkpoint.status)}
                         </Badge>
-                        {checkpoint.expected_location_description ? (
-                          <button
-                            className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-medium text-white/64 transition hover:bg-white/[0.08] hover:text-white"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              const address = checkpoint.expected_location_description;
-                              if (!address) return;
-                              void copyAddress(address);
-                            }}
-                          >
-                            <Copy className="h-3 w-3 shrink-0" />
-                            Copy address
-                          </button>
-                        ) : null}
                         <ChevronDown
                           className={`mt-0.5 h-4 w-4 shrink-0 text-white/52 transition ${
                             isOpen ? "rotate-180" : ""
@@ -1303,6 +1392,19 @@ export function TeamDashboard() {
                         />
                       </div>
                     </button>
+
+                    {checkpoint.expected_location_description ? (
+                      <div className="px-4 pb-2">
+                        <button
+                          className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-medium text-white/64 transition hover:bg-white/[0.08] hover:text-white"
+                          type="button"
+                          onClick={() => void copyAddress(checkpoint.expected_location_description ?? "")}
+                        >
+                          <Copy className="h-3 w-3 shrink-0" />
+                          Copy address
+                        </button>
+                      </div>
+                    ) : null}
 
                     {isOpen ? (
                       <div className="border-t border-white/8 px-4 pb-4 pt-4">
@@ -1465,6 +1567,18 @@ export function TeamDashboard() {
                             ) : null}
                           </div>
 
+                          {checkpoint.checkin_type === "challenge" &&
+                          checkpoint.challenge_id !== null &&
+                          orderedChallenges.find((item) => item.id === checkpoint.challenge_id)
+                            ?.challenge_order !== 4 ? (
+                            <div className="rounded-[20px] border border-orange-400/14 bg-orange-500/[0.07] p-4">
+                              <p className="text-sm font-semibold text-white">After check-in</p>
+                              <p className="mt-1 text-sm leading-6 text-white/62">
+                                Scroll down to the challenge queue to view and submit this challenge.
+                              </p>
+                            </div>
+                          ) : null}
+
                           <Button
                             className="h-12 w-full bg-orange-500 text-base text-black hover:bg-orange-400"
                             disabled={checkingInKey === checkpoint.key || isFinishLocked}
@@ -1517,7 +1631,7 @@ export function TeamDashboard() {
         <CardHeader>
           <CardTitle className="text-3xl text-white">Challenge Queue</CardTitle>
           <CardDescription className="text-white/52">
-            Challenge 1 stays open all race. Route challenges appear as you unlock their checkpoints.
+            Challenge 1 stays open all race. Each next route challenge appears only after the current one is submitted.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -1722,7 +1836,7 @@ export function TeamDashboard() {
                           Submitting...
                         </>
                       ) : (
-                        "Submit Challenge"
+                        challenge.status === "submitted" ? "Challenge submitted" : "Submit Challenge"
                       )}
                     </Button>
                     <p className="text-xs text-white/42">
@@ -1736,7 +1850,7 @@ export function TeamDashboard() {
             })
           ) : (
             <p className="text-sm text-white/46">
-              Reach your next checkpoint to unlock the next challenge.
+              Submit the current challenge to reveal the next one in your route.
             </p>
           )}
         </CardContent>
