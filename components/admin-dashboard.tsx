@@ -850,6 +850,13 @@ export function AdminDashboard() {
                               text: formData.get("text"),
                               expectedLocation: formData.get("expectedLocation"),
                               allowMediaUpload: formData.get("allowMediaUpload") === "on",
+                              teamPrompts:
+                                challenge.kind === "game_long"
+                                  ? game.teams.map((teamView) => ({
+                                      teamId: teamView.team.id,
+                                      promptText: formData.get(`teamPrompt:${teamView.team.id}`),
+                                    }))
+                                  : [],
                               checkpoints:
                                 challenge.kind === "checkpoint"
                                   ? checkpointTeams.map(({ team }) => ({
@@ -880,6 +887,39 @@ export function AdminDashboard() {
                       defaultValue={challenge.text}
                       name="text"
                     />
+                    {challenge.kind === "game_long" ? (
+                      <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+                        <p className="text-sm font-semibold text-white">Team prompts</p>
+                        <p className="mt-1 text-xs text-white/48">
+                          Only Challenge 1 uses team-specific prompt text. Blank stays blank for that team.
+                        </p>
+                        <div className="mt-4 grid gap-3">
+                          {game.teams.map((teamView) => {
+                            const teamPrompt =
+                              challenge.team_prompts?.find(
+                                (entry) => entry.team_id === teamView.team.id
+                              )?.prompt_text ?? "";
+
+                            return (
+                              <div
+                                key={`${challenge.id}-prompt-${teamView.team.id}`}
+                                className="rounded-[18px] border border-white/8 bg-black/10 p-3"
+                              >
+                                <p className="mb-3 text-sm font-semibold text-white">
+                                  {teamView.team.team_name}
+                                </p>
+                                <Textarea
+                                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                                  defaultValue={teamPrompt}
+                                  name={`teamPrompt:${teamView.team.id}`}
+                                  placeholder="Team-specific Challenge 1 prompt"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                     {challenge.kind === "checkpoint" ? (
                       <>
                         <Input
@@ -1535,6 +1575,10 @@ export function AdminDashboard() {
                           </div>
                           <Badge variant={badge.variant}>{badge.label}</Badge>
                         </div>
+
+                        <p className="mb-3 text-sm leading-7 text-white/56">
+                          {challenge.text || "No prompt text assigned."}
+                        </p>
 
                         <p className="mb-3 text-sm leading-7 text-white/56">
                           {challenge.proof_note || "No proof note submitted."}

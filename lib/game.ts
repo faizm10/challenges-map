@@ -29,6 +29,7 @@ import {
   updateLocalChallengeCheckpoints,
   updateLocalChallengeExpectedLocation,
   updateLocalChallengeMediaToggle,
+  updateLocalChallengePrompts,
   updateLocalChallengeRelease,
   updateLocalChallengeReview,
   updateLocalChallengeSubmission,
@@ -53,6 +54,7 @@ import type {
   PublicMapResponse,
   Team,
   TeamChallengeCheckpoint,
+  TeamChallengePrompt,
   TeamCheckin,
   TeamCheckpoint,
   TeamDashboardResponse,
@@ -87,6 +89,7 @@ type UploadRow = ChallengeUpload;
 
 type CheckinRow = TeamCheckin;
 type ChallengeCheckpointRow = TeamChallengeCheckpoint;
+type ChallengePromptRow = TeamChallengePrompt;
 
 const ACTIVE_TEAM_ID_SET = new Set(ACTIVE_TEAM_IDS);
 
@@ -167,6 +170,14 @@ function normalizeChallengeCheckpointRow(row: ChallengeCheckpointRow): TeamChall
   };
 }
 
+function normalizeChallengePromptRow(row: ChallengePromptRow): TeamChallengePrompt {
+  return {
+    team_id: Number(row.team_id),
+    challenge_id: Number(row.challenge_id),
+    prompt_text: row.prompt_text ?? "",
+  };
+}
+
 function defaultCheckpointForTeamChallenge(
   teamId: number,
   challengeId: number,
@@ -194,6 +205,15 @@ function defaultCheckpointForTeamChallenge(
 }
 
 function isMissingCheckpointTable(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "42P01"
+  );
+}
+
+function isMissingPromptTable(error: unknown) {
   return (
     typeof error === "object" &&
     error !== null &&
@@ -915,6 +935,61 @@ export function isGameError(error: unknown): error is GameError {
   return error instanceof GameError;
 }
 
+async function getTeamChallengePromptsFromDb(options?: {
+  teamId?: number;
+  challengeIds?: number[];
+}): Promise<TeamChallengePrompt[]> {
+  let query = supabase
+    .from("team_challenge_prompts")
+    .select("team_id, challenge_id, prompt_text");
+
+  if (options?.teamId !== undefined) {
+    query = query.eq("team_id", options.teamId);
+  }
+
+  if (options?.challengeIds?.length) {
+    query = query.in("challenge_id", options.challengeIds);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    if (isMissingPromptTable(error)) return [];
+    throw error;
+  }
+
+  return ((data ?? []) as ChallengePromptRow[]).map(normalizeChallengePromptRow);
+}
+
+function attachTeamPromptsToChallenges(
+  challenges: Challenge[],
+  prompts: TeamChallengePrompt[]
+): Challenge[] {
+  const promptsByChallenge = new Map<number, TeamChallengePrompt[]>();
+  for (const prompt of prompts) {
+    const current = promptsByChallenge.get(prompt.challenge_id) ?? [];
+    current.push(prompt);
+    promptsByChallenge.set(prompt.challenge_id, current);
+  }
+
+  return challenges.map((challenge) => ({
+    ...challenge,
+    team_prompts: promptsByChallenge.get(challenge.id) ?? [],
+  }));
+}
+
+function resolveChallengeTextForTeam(
+  challenge: Pick<Challenge, "id" | "kind" | "text">,
+  teamId: number,
+  prompts: TeamChallengePrompt[]
+) {
+  if (challenge.kind !== "game_long") return challenge.text;
+
+  const prompt =
+    prompts.find((item) => item.team_id === teamId && item.challenge_id === challenge.id) ?? null;
+
+  return prompt?.prompt_text ?? "";
+}
+
 export async function getChallenges(includeHidden = true): Promise<Challenge[]> {
   try {
     let query = supabase
@@ -928,7 +1003,11 @@ export async function getChallenges(includeHidden = true): Promise<Challenge[]> 
 
     const { data, error } = await query;
     if (error) throw error;
-    return ((data ?? []) as Omit<Challenge, "kind">[]).map(normalizeChallengeRow);
+    const challenges = ((data ?? []) as Omit<Challenge, "kind">[]).map(normalizeChallengeRow);
+    const prompts = await getTeamChallengePromptsFromDb({
+      challengeIds: challenges.map((challenge) => challenge.id),
+    });
+    return attachTeamPromptsToChallenges(challenges, prompts);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       return getLocalChallenges(includeHidden);
@@ -1001,7 +1080,7 @@ export async function getLatestLocations(): Promise<TeamLatestLocation[]> {
 
 export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
   try {
-    const [teamsResult, checkins, challengesResult, statusResult, uploadsResult] = await Promise.all([
+    const [teamsResult, checkins, challengesResult, promptRows, statusResult, uploadsResult] = await Promise.all([
       supabase
         .from("teams")
         .select("id, team_name, color, badge_label")
@@ -1010,6 +1089,7 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
       supabase
         .from("challenges")
         .select("id, challenge_order, title, text, expected_location"),
+      getTeamChallengePromptsFromDb(),
       supabase
         .from("team_challenge_status")
         .select("team_id, challenge_id, proof_note, review_status"),
@@ -1091,7 +1171,7 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
               id: challenge.id,
               challenge_order: challenge.challenge_order,
               title: challenge.title,
-              text: challenge.text,
+              text: resolveChallengeTextForTeam(challenge, checkin.team_id, promptRows),
               expected_location: challenge.expected_location,
               review_status: challengeStatus?.review_status ?? "pending",
             }
@@ -1357,6 +1437,11 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
         challenge.kind === "game_long" ? hasStartedRace : challengeCheckinIds.has(challenge.id);
       return {
         ...challenge,
+        text: resolveChallengeTextForTeam(
+          challenge,
+          teamId,
+          challenge.team_prompts ?? []
+        ),
         is_visible: visibleChallengeIds.has(challenge.id),
         is_unlocked: isUnlocked,
         status: status?.status ?? "not_started",
@@ -1481,6 +1566,10 @@ export async function updateChallenge(
   text: string,
   expectedLocation: string,
   allowMediaUpload: boolean,
+  teamPrompts: Array<{
+    teamId: number;
+    promptText: string;
+  }> = [],
   checkpoints: Array<{
     teamId: number;
     checkpointLabel: string;
@@ -1550,6 +1639,26 @@ export async function updateChallenge(
       }
     }
 
+    if (currentChallenge.kind === "game_long") {
+      const rows = TEAM_ROWS.map((team) => ({
+        team_id: team.id,
+        challenge_id: challengeId,
+        prompt_text:
+          teamPrompts.find((entry) => entry.teamId === team.id)?.promptText?.trim().slice(0, 500) ?? "",
+      }));
+
+      const { error: deletePromptError } = await supabase
+        .from("team_challenge_prompts")
+        .delete()
+        .eq("challenge_id", challengeId);
+      if (deletePromptError && !isMissingPromptTable(deletePromptError)) throw deletePromptError;
+
+      const { error: insertPromptError } = await supabase
+        .from("team_challenge_prompts")
+        .insert(rows);
+      if (insertPromptError && !isMissingPromptTable(insertPromptError)) throw insertPromptError;
+    }
+
     return getChallenges(true);
   } catch (error) {
     if (isGameError(error)) throw error;
@@ -1565,6 +1674,17 @@ export async function updateChallenge(
             : cleanExpectedLocation
       );
       updateLocalChallengeMediaToggle(challengeId, allowMediaUpload);
+      if (currentChallenge?.kind === "game_long") {
+        updateLocalChallengePrompts(
+          challengeId,
+          TEAM_ROWS.map((team) => ({
+            team_id: team.id,
+            challenge_id: challengeId,
+            prompt_text:
+              teamPrompts.find((entry) => entry.teamId === team.id)?.promptText?.trim().slice(0, 500) ?? "",
+          }))
+        );
+      }
       if (currentChallenge?.kind === "checkpoint") {
         updateLocalChallengeCheckpoints(
           challengeId,
@@ -1664,6 +1784,17 @@ export async function createChallenge(
           );
         if (checkpointError && !isMissingCheckpointTable(checkpointError)) throw checkpointError;
       }
+    }
+
+    if (getChallengeKind(nextOrder) === "game_long") {
+      const { error: promptError } = await supabase.from("team_challenge_prompts").insert(
+        TEAM_ROWS.map((team) => ({
+          team_id: team.id,
+          challenge_id: nextId,
+          prompt_text: "",
+        }))
+      );
+      if (promptError && !isMissingPromptTable(promptError)) throw promptError;
     }
 
     return getChallenges(true);

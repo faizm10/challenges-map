@@ -15,6 +15,7 @@ import type {
   LeaderboardEntry,
   Team,
   TeamChallengeCheckpoint,
+  TeamChallengePrompt,
   TeamCheckin,
   TeamCheckpoint,
   TeamDashboardResponse,
@@ -52,6 +53,7 @@ type LocalState = {
     reviewed_by: string | null;
   }>;
   teamChallengeCheckpoints: TeamChallengeCheckpoint[];
+  teamChallengePrompts: TeamChallengePrompt[];
   challengeMedia: ChallengeUpload[];
   teamCheckins: TeamCheckin[];
   nextCheckinId: number;
@@ -75,6 +77,7 @@ function cloneState(): LocalState {
       review_status: status.review_status as "pending" | "verified" | "rejected",
     })),
     teamChallengeCheckpoints: [],
+    teamChallengePrompts: [],
     challengeMedia: [],
     teamCheckins: [],
     nextCheckinId: 1,
@@ -181,6 +184,23 @@ function getLocalChallengeCheckpoint(teamId: number, challenge: Challenge): Team
   }
 
   return null;
+}
+
+function getLocalTeamChallengePrompts(challengeId?: number) {
+  return getState().teamChallengePrompts
+    .filter((item) => (challengeId === undefined ? true : item.challenge_id === challengeId))
+    .map((item) => ({ ...item }));
+}
+
+function getEffectiveChallengeText(teamId: number, challenge: Challenge) {
+  if (challenge.kind !== "game_long") return challenge.text;
+
+  const prompt =
+    getState().teamChallengePrompts.find(
+      (item) => item.team_id === teamId && item.challenge_id === challenge.id
+    ) ?? null;
+
+  return prompt?.prompt_text ?? "";
 }
 
 function buildCheckpointLabel(
@@ -514,7 +534,11 @@ export function getLocalChallenges(includeHidden = true): Challenge[] {
     .filter((challenge) => includeHidden || Boolean(challenge.is_released))
     .sort((a, b) => a.challenge_order - b.challenge_order);
 
-  return rows.map((row) => ({ ...row, kind: getChallengeKind(row.challenge_order) }));
+  return rows.map((row) => ({
+    ...row,
+    kind: getChallengeKind(row.challenge_order),
+    team_prompts: getLocalTeamChallengePrompts(row.id),
+  }));
 }
 
 export function getLocalCheckins(teamId: number): TeamCheckin[] {
@@ -571,7 +595,7 @@ export function getLocalRecentCheckins(): AdminCheckinFeedItem[] {
               id: challenge.id,
               challenge_order: challenge.challenge_order,
               title: challenge.title,
-              text: challenge.text,
+              text: getEffectiveChallengeText(checkin.team_id, challenge),
               expected_location: challenge.expected_location,
               review_status: challengeStatus?.review_status ?? "pending",
             }
@@ -671,6 +695,7 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
 
     return {
       ...challenge,
+      text: getEffectiveChallengeText(teamId, challenge),
       is_unlocked: isUnlocked,
       is_visible: visibleChallengeIds.has(challenge.id),
       status: status?.status ?? "not_started",
@@ -742,6 +767,23 @@ export function updateLocalChallenge(challengeId: number, title: string, text: s
   challenge.text = text.slice(0, 500);
 }
 
+export function updateLocalChallengePrompts(
+  challengeId: number,
+  prompts: TeamChallengePrompt[]
+) {
+  const state = getState();
+  state.teamChallengePrompts = state.teamChallengePrompts.filter(
+    (entry) => entry.challenge_id !== challengeId
+  );
+  state.teamChallengePrompts.push(
+    ...prompts.map((entry) => ({
+      team_id: entry.team_id,
+      challenge_id: entry.challenge_id,
+      prompt_text: entry.prompt_text.slice(0, 500),
+    }))
+  );
+}
+
 export function createLocalChallenge(
   title: string,
   text: string,
@@ -789,6 +831,16 @@ export function createLocalChallenge(
       ...state.teams
         .map((team) => defaultCheckpointForTeamChallenge(team.id, id, challengeOrder))
         .filter(Boolean) as TeamChallengeCheckpoint[]
+    );
+  }
+
+  if (kind === "game_long") {
+    state.teamChallengePrompts.push(
+      ...state.teams.map((team) => ({
+        team_id: team.id,
+        challenge_id: id,
+        prompt_text: "",
+      }))
     );
   }
 
@@ -850,6 +902,9 @@ export function deleteLocalChallenge(challengeId: number) {
     (entry) => entry.challenge_id !== challengeId
   );
   state.teamChallengeCheckpoints = state.teamChallengeCheckpoints.filter(
+    (entry) => entry.challenge_id !== challengeId
+  );
+  state.teamChallengePrompts = state.teamChallengePrompts.filter(
     (entry) => entry.challenge_id !== challengeId
   );
   state.challengeMedia = state.challengeMedia.filter((entry) => entry.challenge_id !== challengeId);

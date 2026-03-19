@@ -32,6 +32,12 @@ export type Team = {
 
 export type ChallengeKind = "game_long" | "checkpoint" | "union";
 
+export type TeamChallengePrompt = {
+  team_id: number;
+  challenge_id: number;
+  prompt_text: string;
+};
+
 export type Challenge = {
   id: number;
   challenge_order: number;
@@ -41,6 +47,7 @@ export type Challenge = {
   expected_location: string;
   allow_media_upload: number;
   is_released: number;
+  team_prompts?: TeamChallengePrompt[];
 };
 
 export type TeamChallengeCheckpoint = {

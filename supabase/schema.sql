@@ -55,6 +55,13 @@ create table if not exists public.team_challenge_status (
 alter table public.team_challenge_status
   add column if not exists awarded_points integer not null default 0;
 
+create table if not exists public.team_challenge_prompts (
+  team_id bigint not null references public.teams(id) on delete cascade,
+  challenge_id bigint not null references public.challenges(id) on delete cascade,
+  prompt_text text not null default '',
+  primary key (team_id, challenge_id)
+);
+
 create table if not exists public.team_challenge_checkpoints (
   team_id bigint not null references public.teams(id) on delete cascade,
   challenge_id bigint not null references public.challenges(id) on delete cascade,
@@ -109,6 +116,9 @@ create index if not exists idx_access_credentials_role_name
 create index if not exists idx_team_challenge_status_team
   on public.team_challenge_status(team_id);
 
+create index if not exists idx_team_challenge_prompts_team
+  on public.team_challenge_prompts(team_id);
+
 create index if not exists idx_team_challenge_checkpoints_team
   on public.team_challenge_checkpoints(team_id);
 
@@ -126,6 +136,7 @@ truncate table
   public.access_credentials,
   public.team_checkins,
   public.challenge_media,
+  public.team_challenge_prompts,
   public.team_challenge_checkpoints,
   public.team_challenge_status,
   public.team_scores,
@@ -160,6 +171,7 @@ alter table public.teams enable row level security;
 alter table public.access_credentials enable row level security;
 alter table public.challenges enable row level security;
 alter table public.team_challenge_status enable row level security;
+alter table public.team_challenge_prompts enable row level security;
 alter table public.team_challenge_checkpoints enable row level security;
 alter table public.challenge_media enable row level security;
 alter table public.team_checkins enable row level security;

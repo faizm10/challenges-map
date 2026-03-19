@@ -19,6 +19,10 @@ export async function PATCH(
         text?: string;
         expectedLocation?: string;
         allowMediaUpload?: boolean;
+        teamPrompts?: Array<{
+          teamId?: number;
+          promptText?: string;
+        }>;
         checkpoints?: Array<{
           teamId?: number;
           checkpointLabel?: string;
@@ -37,6 +41,10 @@ export async function PATCH(
       body?.text ?? "",
       body?.expectedLocation ?? "",
       body?.allowMediaUpload ?? true,
+      (body?.teamPrompts ?? []).map((prompt) => ({
+        teamId: Number(prompt.teamId),
+        promptText: prompt.promptText ?? "",
+      })),
       (body?.checkpoints ?? []).map((checkpoint) => ({
         // FormData-backed values arrive as strings in practice.
         teamId: Number(checkpoint.teamId),
