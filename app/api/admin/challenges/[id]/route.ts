@@ -14,7 +14,20 @@ export async function PATCH(
 
   const { id } = await params;
   const body = (await request.json().catch(() => null)) as
-    | { title?: string; text?: string; expectedLocation?: string; allowMediaUpload?: boolean }
+    | {
+        title?: string;
+        text?: string;
+        expectedLocation?: string;
+        allowMediaUpload?: boolean;
+        checkpoints?: Array<{
+          teamId?: number;
+          checkpointLabel?: string;
+          checkpointAddress?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          unlockRadiusMeters?: number | null;
+        }>;
+      }
     | null;
 
   try {
@@ -23,7 +36,25 @@ export async function PATCH(
       body?.title ?? "",
       body?.text ?? "",
       body?.expectedLocation ?? "",
-      body?.allowMediaUpload ?? true
+      body?.allowMediaUpload ?? true,
+      (body?.checkpoints ?? []).map((checkpoint) => ({
+        // FormData-backed values arrive as strings in practice.
+        teamId: Number(checkpoint.teamId),
+        checkpointLabel: checkpoint.checkpointLabel ?? "",
+        checkpointAddress: checkpoint.checkpointAddress ?? "",
+        latitude: (() => {
+          const raw = checkpoint.latitude as unknown;
+          return raw === null || raw === undefined || raw === "" ? null : Number(raw);
+        })(),
+        longitude: (() => {
+          const raw = checkpoint.longitude as unknown;
+          return raw === null || raw === undefined || raw === "" ? null : Number(raw);
+        })(),
+        unlockRadiusMeters:
+          checkpoint.unlockRadiusMeters === null || checkpoint.unlockRadiusMeters === undefined
+            ? null
+            : Number(checkpoint.unlockRadiusMeters),
+      }))
     );
   } catch (error) {
     if (isGameError(error)) {

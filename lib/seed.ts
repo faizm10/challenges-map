@@ -9,10 +9,17 @@ export const ACCESS_SEED = [
     pin: "UNIONHQ2026",
     team_id: null,
   },
-  ...TEAM_SEED.map((team, index) => ({
+  ...TEAM_SEED.map((team) => ({
     role: "team",
     display_name: team.teamName,
-    pin: `TEAM${index + 1}GO`,
+    pin:
+      team.teamName === "Team Izzy"
+        ? "Izzy1231"
+        : team.teamName === "Team Faiz"
+          ? "Faiz671"
+          : team.teamName === "Team James"
+            ? "James1011"
+            : "Naman2011",
     team_id: team.id,
   })),
 ] as const;

@@ -11,6 +11,12 @@ export type TeamSeed = {
   badgeLabel: string;
   coordinates: [number, number];
   routeLine: [number, number][];
+  routeCheckpoints: Array<{
+    challengeOrder: 2 | 3;
+    label: string;
+    address: string;
+    coordinates: [number, number];
+  }>;
 };
 
 export type Team = {
@@ -24,9 +30,12 @@ export type Team = {
   badge_label: string;
 };
 
+export type ChallengeKind = "game_long" | "checkpoint" | "union";
+
 export type Challenge = {
   id: number;
   challenge_order: number;
+  kind: ChallengeKind;
   title: string;
   text: string;
   expected_location: string;
@@ -34,9 +43,20 @@ export type Challenge = {
   is_released: number;
 };
 
+export type TeamChallengeCheckpoint = {
+  team_id: number;
+  challenge_id: number;
+  checkpoint_label: string;
+  checkpoint_address: string;
+  latitude: number | null;
+  longitude: number | null;
+  unlock_radius_meters: number;
+};
+
 export type TeamChallengeStatus = {
   id: number;
   challenge_order: number;
+  kind: ChallengeKind;
   title: string;
   text: string;
   expected_location: string;
@@ -53,6 +73,7 @@ export type TeamChallengeStatus = {
   reviewed_at: string | null;
   reviewed_by: string | null;
   uploads: ChallengeUpload[];
+  checkpoint: TeamChallengeCheckpoint | null;
 };
 
 export type ChallengeUpload = {
@@ -97,6 +118,7 @@ export type TeamCheckpoint = {
   expected_location_description?: string | null;
   status: "not_started" | "pending" | "verified" | "rejected";
   latest_checkin: TeamCheckin | null;
+  unlock_radius_meters?: number | null;
 };
 
 export type TeamLatestLocation = {

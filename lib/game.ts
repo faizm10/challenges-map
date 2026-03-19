@@ -3,6 +3,7 @@ import {
   MAX_CHALLENGES,
   CHALLENGE_PROOF_BUCKET,
   CHALLENGE_SUBMISSION_RANK_POINTS,
+  DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
   MAX_FILES_PER_UPLOAD_REQUEST,
   MAX_UPLOAD_BYTES,
   TEAM_SEED,
@@ -25,12 +26,12 @@ import {
   resetLocalState,
   reviewLocalCheckin,
   updateLocalChallenge,
+  updateLocalChallengeCheckpoints,
   updateLocalChallengeExpectedLocation,
   updateLocalChallengeMediaToggle,
   updateLocalChallengeRelease,
   updateLocalChallengeReview,
   updateLocalChallengeSubmission,
-  upsertLocalChallengeCheckinOnSubmit,
   updateLocalTeamCredentials,
   updateLocalTeamScore,
 } from "@/lib/local-store";
@@ -46,10 +47,12 @@ import type {
   AdminRoutePoint,
   AdminTeamRoute,
   Challenge,
+  ChallengeKind,
   ChallengeUpload,
   LeaderboardEntry,
   PublicMapResponse,
   Team,
+  TeamChallengeCheckpoint,
   TeamCheckin,
   TeamCheckpoint,
   TeamDashboardResponse,
@@ -83,6 +86,7 @@ type StatusRow = {
 type UploadRow = ChallengeUpload;
 
 type CheckinRow = TeamCheckin;
+type ChallengeCheckpointRow = TeamChallengeCheckpoint;
 
 const ACTIVE_TEAM_ID_SET = new Set(ACTIVE_TEAM_IDS);
 
@@ -134,9 +138,115 @@ function normalizeUploadRow(row: UploadRow): ChallengeUpload {
   };
 }
 
+function getChallengeKind(challengeOrder: number): ChallengeKind {
+  if (challengeOrder === 1) return "game_long";
+  if (challengeOrder === 4) return "union";
+  return "checkpoint";
+}
+
+function normalizeChallengeRow(row: Omit<Challenge, "kind">): Challenge {
+  return {
+    ...row,
+    id: Number(row.id),
+    challenge_order: Number(row.challenge_order),
+    allow_media_upload: Number(row.allow_media_upload),
+    is_released: Number(row.is_released),
+    kind: getChallengeKind(Number(row.challenge_order)),
+  };
+}
+
+function normalizeChallengeCheckpointRow(row: ChallengeCheckpointRow): TeamChallengeCheckpoint {
+  return {
+    team_id: Number(row.team_id),
+    challenge_id: Number(row.challenge_id),
+    checkpoint_label: row.checkpoint_label ?? "",
+    checkpoint_address: row.checkpoint_address ?? "",
+    latitude: toFiniteNumber((row as any).latitude),
+    longitude: toFiniteNumber((row as any).longitude),
+    unlock_radius_meters: Number(row.unlock_radius_meters ?? DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS),
+  };
+}
+
+function defaultCheckpointForTeamChallenge(
+  teamId: number,
+  challengeId: number,
+  challengeOrder: number
+): TeamChallengeCheckpoint | null {
+  const seed = getTeamSeed(teamId);
+  if (!seed) return null;
+
+  if (challengeOrder === 2 || challengeOrder === 3) {
+    const checkpoint =
+      seed.routeCheckpoints.find((item) => item.challengeOrder === challengeOrder) ?? null;
+    if (!checkpoint) return null;
+    return {
+      team_id: teamId,
+      challenge_id: challengeId,
+      checkpoint_label: checkpoint.label,
+      checkpoint_address: checkpoint.address,
+      longitude: checkpoint.coordinates[0],
+      latitude: checkpoint.coordinates[1],
+      unlock_radius_meters: DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+    };
+  }
+
+  return null;
+}
+
+function isMissingCheckpointTable(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "42P01"
+  );
+}
+
+function haversineMeters(
+  latitudeA: number,
+  longitudeA: number,
+  latitudeB: number,
+  longitudeB: number
+) {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadius = 6371000;
+  const dLatitude = toRadians(latitudeB - latitudeA);
+  const dLongitude = toRadians(longitudeB - longitudeA);
+  const a =
+    Math.sin(dLatitude / 2) * Math.sin(dLatitude / 2) +
+    Math.cos(toRadians(latitudeA)) *
+      Math.cos(toRadians(latitudeB)) *
+      Math.sin(dLongitude / 2) *
+      Math.sin(dLongitude / 2);
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 async function getChallengeById(challengeId: number): Promise<Challenge | null> {
   const challenges = await getChallenges(true);
   return challenges.find((challenge) => challenge.id === challengeId) ?? null;
+}
+
+async function getCheckpointAssignmentsFromDb(): Promise<TeamChallengeCheckpoint[]> {
+  try {
+    const { data, error } = await supabase
+      .from("team_challenge_checkpoints")
+      .select(
+        "team_id, challenge_id, checkpoint_label, checkpoint_address, latitude, longitude, unlock_radius_meters"
+      );
+
+    if (error) throw error;
+
+    return ((data ?? []) as ChallengeCheckpointRow[]).map(normalizeChallengeCheckpointRow);
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      return [];
+    }
+    if (isMissingCheckpointTable(error)) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 async function requireChallengeMediaEnabled(challengeId: number) {
@@ -228,11 +338,13 @@ function buildCheckinsByKey(checkins: TeamCheckin[]) {
 
 function checkpointLabel(
   type: "start" | "challenge" | "finish",
-  challengeTitle?: string
+  challenge?: Pick<Challenge, "title" | "challenge_order" | "kind">
 ) {
   if (type === "start") return "Start Check-In";
   if (type === "finish") return "Finish Check-In";
-  return challengeTitle ? `${challengeTitle} Check-In` : "Challenge Check-In";
+  if (challenge?.kind === "union") return "Union Checkpoint";
+  if (challenge?.kind === "checkpoint") return `Challenge ${challenge.challenge_order} Checkpoint`;
+  return challenge?.title ? `${challenge.title} Check-In` : "Challenge Check-In";
 }
 
 function checkpointDescription(
@@ -242,15 +354,18 @@ function checkpointDescription(
 ) {
   if (type === "start") return `Check in from ${team.start_location_name}.`;
   if (type === "finish") return `Check in when you arrive at ${UNION_STATION.name}.`;
-  return challenge
-    ? `Check in when your team finishes Challenge ${challenge.challenge_order}.`
-    : "Check in after completing the challenge.";
+  if (!challenge) return "Check in when you reach the checkpoint.";
+  if (challenge.kind === "union") {
+    return `Arrive at ${UNION_STATION.name} to unlock Challenge ${challenge.challenge_order}.`;
+  }
+  return `Arrive at your assigned checkpoint to unlock Challenge ${challenge.challenge_order}.`;
 }
 
 function checkpointExpectedLocation(
   type: "start" | "challenge" | "finish",
   team: Team,
-  challenge?: Challenge
+  challenge?: Challenge,
+  checkpoint?: TeamChallengeCheckpoint | null
 ) {
   if (type === "start") {
     return {
@@ -266,6 +381,20 @@ function checkpointExpectedLocation(
     };
   }
 
+  if (challenge?.kind === "union") {
+    return {
+      label: UNION_STATION.name,
+      description: UNION_STATION.finishPoint,
+    };
+  }
+
+  if (checkpoint) {
+    return {
+      label: checkpoint.checkpoint_label || `Challenge ${challenge?.challenge_order} checkpoint`,
+      description: checkpoint.checkpoint_address || null,
+    };
+  }
+
   return {
     label: challenge?.expected_location?.trim() || "Location set by HQ",
     description: null,
@@ -275,7 +404,8 @@ function checkpointExpectedLocation(
 function deriveCheckpoints(
   team: Team,
   releasedChallenges: Challenge[],
-  checkins: TeamCheckin[]
+  checkins: TeamCheckin[],
+  checkpointAssignments: TeamChallengeCheckpoint[]
 ): TeamCheckpoint[] {
   const byKey = buildCheckinsByKey(checkins);
 
@@ -294,21 +424,28 @@ function deriveCheckpoints(
       status: startLatest?.status ?? "not_started",
       latest_checkin: startLatest,
     },
-    ...releasedChallenges.map((challenge) => {
+    ...releasedChallenges
+      .filter((challenge) => challenge.kind !== "game_long")
+      .map((challenge) => {
       const latest = byKey.get(`challenge:${challenge.id}`)?.[0] ?? null;
-      const expected = checkpointExpectedLocation("challenge", team, challenge);
+      const checkpoint =
+        checkpointAssignments.find(
+          (item) => item.team_id === team.id && item.challenge_id === challenge.id
+        ) ?? defaultCheckpointForTeamChallenge(team.id, challenge.id, challenge.challenge_order);
+      const expected = checkpointExpectedLocation("challenge", team, challenge, checkpoint);
       return {
         key: `challenge-${challenge.id}`,
         checkin_type: "challenge" as const,
         challenge_id: challenge.id,
-        label: checkpointLabel("challenge", challenge.title),
+        label: checkpointLabel("challenge", challenge),
         description: checkpointDescription("challenge", team, challenge),
         expected_location_label: expected.label,
         expected_location_description: expected.description,
         status: (latest?.status ?? "not_started") as TeamCheckpoint["status"],
         latest_checkin: latest,
+        unlock_radius_meters: checkpoint?.unlock_radius_meters ?? null,
       };
-    }),
+      }),
     {
       key: "finish",
       checkin_type: "finish",
@@ -334,15 +471,13 @@ function deriveVisibleChallengeIds(releasedChallenges: Challenge[], checkins: Te
   );
 
   const visibleIds = new Set<number>();
-  for (let index = 0; index < releasedChallenges.length; index += 1) {
-    const challenge = releasedChallenges[index];
-    if (index === 0) {
+  for (const challenge of releasedChallenges) {
+    if (challenge.kind === "game_long") {
       visibleIds.add(challenge.id);
       continue;
     }
 
-    const previousChallenge = releasedChallenges[index - 1];
-    if (challengeCheckins.has(previousChallenge.id)) {
+    if (challengeCheckins.has(challenge.id)) {
       visibleIds.add(challenge.id);
     }
   }
@@ -373,7 +508,7 @@ function getLatestLocationForTeam(
     gps_captured_at: latest.gps_captured_at,
     checkin_type: latest.checkin_type,
     challenge_id: latest.challenge_id,
-    label: checkpointLabel(latest.checkin_type, challenge?.title),
+    label: checkpointLabel(latest.checkin_type, challenge ?? undefined),
   };
 }
 
@@ -412,7 +547,7 @@ function buildAdminTeamRoute(team: Team, checkins: TeamCheckin[], challenges: Ch
         longitude: latest.longitude,
         checkin_type: "challenge",
         challenge_id: challenge.id,
-        label: `Challenge ${challenge.challenge_order}`,
+        label: checkpointLabel("challenge", challenge),
         created_at: latest.created_at,
       };
 
@@ -557,31 +692,6 @@ async function recalculateChallengeAwardedPoints(challengeId: number) {
   );
 }
 
-async function hasChallengeCheckin(teamId: number, challengeId: number) {
-  try {
-    const { data, error } = await supabase
-      .from("team_checkins")
-      .select("id")
-      .eq("team_id", teamId)
-      .eq("checkin_type", "challenge")
-      .eq("challenge_id", challengeId)
-      .limit(1)
-      .maybeSingle<{ id: number }>();
-
-    if (error) throw error;
-    return Boolean(data?.id);
-  } catch (error) {
-    if (isSupabaseUnavailable(error)) {
-      const localCheckins = getLocalCheckins(teamId);
-      return localCheckins.some(
-        (checkin) =>
-          checkin.checkin_type === "challenge" && checkin.challenge_id === challengeId
-      );
-    }
-    throw error;
-  }
-}
-
 async function getTeamUploads(teamId: number) {
   const { data, error } = await supabase
     .from("challenge_media")
@@ -647,7 +757,37 @@ async function getSubmittedChallengeCount(teamId: number) {
   return count ?? 0;
 }
 
-async function upsertChallengeCheckinOnSubmit(input: {
+async function getChallengeUnlockTarget(
+  teamId: number,
+  challengeId: number
+): Promise<TeamChallengeCheckpoint | { latitude: number; longitude: number; checkpoint_label: string; checkpoint_address: string; unlock_radius_meters: number } | null> {
+  const challenge = await getChallengeById(challengeId);
+  if (!challenge) {
+    throw new GameError("Challenge was not found.", 404);
+  }
+
+  if (challenge.kind === "game_long") {
+    return null;
+  }
+
+  if (challenge.kind === "union") {
+    return {
+      checkpoint_label: UNION_STATION.name,
+      checkpoint_address: UNION_STATION.finishPoint,
+      latitude: UNION_STATION.coordinates[1],
+      longitude: UNION_STATION.coordinates[0],
+      unlock_radius_meters: DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+    };
+  }
+
+  const explicit = (await getCheckpointAssignmentsFromDb()).find(
+    (item) => item.team_id === teamId && item.challenge_id === challengeId
+  );
+
+  return explicit ?? defaultCheckpointForTeamChallenge(teamId, challengeId, challenge.challenge_order);
+}
+
+async function upsertChallengeArrivalCheckin(input: {
   teamId: number;
   challengeId: number;
   checkinNote?: string;
@@ -771,7 +911,7 @@ export async function getChallenges(includeHidden = true): Promise<Challenge[]> 
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []) as Challenge[];
+    return ((data ?? []) as Omit<Challenge, "kind">[]).map(normalizeChallengeRow);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       return getLocalChallenges(includeHidden);
@@ -883,7 +1023,13 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
         title: string;
         text: string;
         expected_location: string;
-      }>).map((challenge) => [challenge.id, challenge])
+      }>).map((challenge) => [
+        challenge.id,
+        {
+          ...challenge,
+          kind: getChallengeKind(Number(challenge.challenge_order)),
+        },
+      ])
     );
     const statusMap = new Map(
       ((statusResult.data ?? []) as Array<{
@@ -922,7 +1068,7 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
         team_name: team?.team_name ?? `Team ${checkin.team_id}`,
         color: team?.color ?? "#d85f3a",
         badge_label: team?.badge_label ?? "Team",
-        checkpoint_label: checkpointLabel(checkin.checkin_type, challenge?.title),
+        checkpoint_label: checkpointLabel(checkin.checkin_type, challenge ?? undefined),
         challenge: challenge
           ? {
               id: challenge.id,
@@ -1125,7 +1271,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
   }
 
   try {
-    const [teamResult, releasedChallenges, statusResult, uploads, checkins, leaderboard] =
+    const [teamResult, releasedChallenges, statusResult, uploads, checkins, leaderboard, checkpointAssignments] =
       await Promise.all([
         supabase
           .from("teams")
@@ -1142,6 +1288,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
         getTeamUploads(teamId),
         getTeamCheckinsFromDb(teamId),
         getLeaderboard(),
+        getCheckpointAssignmentsFromDb(),
       ]);
 
     if (teamResult.error) throw teamResult.error;
@@ -1167,10 +1314,21 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
     const latestLocation = getLatestLocationForTeam(team, checkins, releasedChallenges);
     const visibleChallengeIds = deriveVisibleChallengeIds(releasedChallenges, checkins);
 
-    const challenges = await Promise.all(
-      releasedChallenges.map(async (challenge) => {
+    const hasStartedRace = checkins.some((item) => item.checkin_type === "start");
+    const challengeCheckinIds = new Set(
+      checkins
+        .filter((item) => item.checkin_type === "challenge" && item.challenge_id !== null)
+        .map((item) => Number(item.challenge_id))
+    );
+
+    const challenges = releasedChallenges.map((challenge) => {
       const status = statuses.get(challenge.id);
-      const isUnlocked = await hasChallengeCheckin(teamId, challenge.id);
+      const checkpoint =
+        checkpointAssignments.find(
+          (item) => item.team_id === teamId && item.challenge_id === challenge.id
+        ) ?? defaultCheckpointForTeamChallenge(teamId, challenge.id, challenge.challenge_order);
+      const isUnlocked =
+        challenge.kind === "game_long" ? hasStartedRace : challengeCheckinIds.has(challenge.id);
       return {
         ...challenge,
         is_visible: visibleChallengeIds.has(challenge.id),
@@ -1184,9 +1342,9 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
         reviewed_at: status?.reviewed_at ?? null,
         reviewed_by: status?.reviewed_by ?? null,
         uploads: uploadsByChallenge.get(challenge.id) ?? [],
+        checkpoint,
       };
-      })
-    );
+    });
 
     const teamStats = leaderboard.find((entry) => entry.id === teamId);
     if (!teamStats) return null;
@@ -1194,7 +1352,7 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
     return {
       team,
       challenges,
-      checkpoints: deriveCheckpoints(team, releasedChallenges, checkins),
+      checkpoints: deriveCheckpoints(team, releasedChallenges, checkins, checkpointAssignments),
       checkins,
       latestLocation,
       teamStats,
@@ -1296,34 +1454,106 @@ export async function updateChallenge(
   title: string,
   text: string,
   expectedLocation: string,
-  allowMediaUpload: boolean
+  allowMediaUpload: boolean,
+  checkpoints: Array<{
+    teamId: number;
+    checkpointLabel: string;
+    checkpointAddress: string;
+    latitude: number | null;
+    longitude: number | null;
+    unlockRadiusMeters: number | null;
+  }> = []
 ) {
   const cleanTitle = title.trim();
   const cleanText = text.trim();
   const cleanExpectedLocation = expectedLocation.trim();
-  if (!cleanTitle || !cleanText || !cleanExpectedLocation) {
-    throw new GameError("Title, prompt, and expected location are all required.", 400);
+  if (!cleanTitle || !cleanText) {
+    throw new GameError("Title and prompt are required.", 400);
   }
 
   try {
+    const currentChallenge = await getChallengeById(challengeId);
+    if (!currentChallenge) {
+      throw new GameError("Challenge was not found.", 404);
+    }
+
+    const normalizedExpectedLocation =
+      currentChallenge.kind === "union"
+        ? UNION_STATION.name
+        : currentChallenge.kind === "checkpoint"
+          ? cleanExpectedLocation || "Per-team route checkpoint"
+          : cleanExpectedLocation;
+
     const { error } = await supabase
       .from("challenges")
       .update({
         title: cleanTitle.slice(0, 120),
         text: cleanText.slice(0, 500),
-        expected_location: cleanExpectedLocation.slice(0, 160),
+        expected_location: normalizedExpectedLocation.slice(0, 160),
         allow_media_upload: allowMediaUpload,
       })
       .eq("id", challengeId);
 
     if (error) throw error;
+
+    if (currentChallenge.kind === "checkpoint") {
+      const rows = checkpoints.map((checkpoint) => ({
+        team_id: checkpoint.teamId,
+        challenge_id: challengeId,
+        checkpoint_label: checkpoint.checkpointLabel.trim().slice(0, 120),
+        checkpoint_address: checkpoint.checkpointAddress.trim().slice(0, 200),
+        latitude: checkpoint.latitude,
+        longitude: checkpoint.longitude,
+        unlock_radius_meters: Math.max(
+          1,
+          Math.round(checkpoint.unlockRadiusMeters ?? DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS)
+        ),
+      }));
+
+      const { error: deleteError } = await supabase
+        .from("team_challenge_checkpoints")
+        .delete()
+        .eq("challenge_id", challengeId);
+      if (deleteError && !isMissingCheckpointTable(deleteError)) throw deleteError;
+
+      if (rows.length) {
+        const { error: insertError } = await supabase
+          .from("team_challenge_checkpoints")
+          .insert(rows);
+        if (insertError && !isMissingCheckpointTable(insertError)) throw insertError;
+      }
+    }
+
     return getChallenges(true);
   } catch (error) {
     if (isGameError(error)) throw error;
     if (isSupabaseUnavailable(error)) {
+      const currentChallenge = getLocalChallenges(true).find((item) => item.id === challengeId) ?? null;
       updateLocalChallenge(challengeId, cleanTitle, cleanText);
-      updateLocalChallengeExpectedLocation(challengeId, cleanExpectedLocation);
+      updateLocalChallengeExpectedLocation(
+        challengeId,
+        currentChallenge?.kind === "union"
+          ? UNION_STATION.name
+          : currentChallenge?.kind === "checkpoint"
+            ? cleanExpectedLocation || "Per-team route checkpoint"
+            : cleanExpectedLocation
+      );
       updateLocalChallengeMediaToggle(challengeId, allowMediaUpload);
+      if (currentChallenge?.kind === "checkpoint") {
+        updateLocalChallengeCheckpoints(
+          challengeId,
+          checkpoints.map((checkpoint) => ({
+            team_id: checkpoint.teamId,
+            challenge_id: challengeId,
+            checkpoint_label: checkpoint.checkpointLabel,
+            checkpoint_address: checkpoint.checkpointAddress,
+            latitude: checkpoint.latitude,
+            longitude: checkpoint.longitude,
+            unlock_radius_meters:
+              checkpoint.unlockRadiusMeters ?? DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+          }))
+        );
+      }
       return getLocalChallenges(true);
     }
     throw error;
@@ -1339,8 +1569,8 @@ export async function createChallenge(
   const cleanTitle = title.trim();
   const cleanText = text.trim();
   const cleanExpectedLocation = expectedLocation.trim();
-  if (!cleanTitle || !cleanText || !cleanExpectedLocation) {
-    throw new GameError("Title, prompt, and expected location are all required.", 400);
+  if (!cleanTitle || !cleanText) {
+    throw new GameError("Title and prompt are required.", 400);
   }
 
   try {
@@ -1358,7 +1588,12 @@ export async function createChallenge(
       challenge_order: nextOrder,
       title: cleanTitle.slice(0, 120),
       text: cleanText.slice(0, 500),
-      expected_location: cleanExpectedLocation.slice(0, 160),
+      expected_location:
+        getChallengeKind(nextOrder) === "union"
+          ? UNION_STATION.name
+          : getChallengeKind(nextOrder) === "checkpoint"
+            ? (cleanExpectedLocation || "Per-team route checkpoint").slice(0, 160)
+            : cleanExpectedLocation.slice(0, 160),
       allow_media_upload: allowMediaUpload,
       is_released: false,
     };
@@ -1381,6 +1616,29 @@ export async function createChallenge(
 
     const { error: statusError } = await supabase.from("team_challenge_status").insert(statusRows);
     if (statusError) throw statusError;
+
+    if (getChallengeKind(nextOrder) === "checkpoint") {
+      const checkpointRows = TEAM_ROWS.map((team) =>
+        defaultCheckpointForTeamChallenge(team.id, nextId, nextOrder)
+      ).filter(Boolean) as TeamChallengeCheckpoint[];
+
+      if (checkpointRows.length) {
+        const { error: checkpointError } = await supabase
+          .from("team_challenge_checkpoints")
+          .insert(
+            checkpointRows.map((row) => ({
+              team_id: row.team_id,
+              challenge_id: row.challenge_id,
+              checkpoint_label: row.checkpoint_label,
+              checkpoint_address: row.checkpoint_address,
+              latitude: row.latitude,
+              longitude: row.longitude,
+              unlock_radius_meters: row.unlock_radius_meters,
+            }))
+          );
+        if (checkpointError && !isMissingCheckpointTable(checkpointError)) throw checkpointError;
+      }
+    }
 
     return getChallenges(true);
   } catch (error) {
@@ -1507,8 +1765,12 @@ export async function updateTeamChallengeSubmission(
 ) {
   try {
     const current = await getChallengeStatusRow(teamId, challengeId);
+    const challenge = await getChallengeById(challengeId);
     if (!current) {
       throw new GameError("Challenge submission was not found.", 404);
+    }
+    if (!challenge) {
+      throw new GameError("Challenge was not found.", 404);
     }
     if (current.review_status === "verified") {
       throw new GameError("This challenge has already been verified by HQ and is now locked.", 409);
@@ -1519,6 +1781,20 @@ export async function updateTeamChallengeSubmission(
       const uploadCount = await getChallengeUploadCount(teamId, challengeId);
       if (!hasProofNote && uploadCount === 0) {
         throw new GameError("Add a proof note or upload media before submitting.", 400);
+      }
+
+      if (challenge.kind === "game_long") {
+        const hasStartedRace = (await getTeamCheckins(teamId)).some(
+          (item) => item.checkin_type === "start"
+        );
+        if (!hasStartedRace) {
+          throw new GameError("Complete the start check-in first to unlock this challenge.", 409);
+        }
+      } else {
+        const latestCheckin = await getLatestChallengeCheckin(teamId, challengeId);
+        if (!latestCheckin) {
+          throw new GameError("Reach the checkpoint first to unlock this challenge.", 409);
+        }
       }
     }
 
@@ -1545,44 +1821,29 @@ export async function updateTeamChallengeSubmission(
       .eq("challenge_id", challengeId);
 
     if (error) throw error;
-
-    if (status === "submitted") {
-      await upsertChallengeCheckinOnSubmit({
-        teamId,
-        challengeId,
-        checkinNote: proofNote,
-        latitude: gps?.latitude ?? null,
-        longitude: gps?.longitude ?? null,
-        accuracyMeters: gps?.accuracyMeters ?? null,
-        gpsCapturedAt: gps?.gpsCapturedAt ?? null,
-      });
-    }
   } catch (error) {
     if (isGameError(error)) {
       throw error;
     }
     if (isSupabaseUnavailable(error)) {
+      const localDashboard = getLocalTeamDashboard(teamId);
+      const localChallenge = localDashboard?.challenges.find((item) => item.id === challengeId) ?? null;
       if (status === "submitted") {
-        const localDashboard = getLocalTeamDashboard(teamId);
-        const localChallenge = localDashboard?.challenges.find((item) => item.id === challengeId) ?? null;
         const hasProofNote = proofNote.trim().length > 0;
         const uploadCount = localChallenge?.uploads.length ?? 0;
         if (!hasProofNote && uploadCount === 0) {
           throw new GameError("Add a proof note or upload media before submitting.", 400);
         }
+        if (!localChallenge?.is_unlocked) {
+          throw new GameError(
+            localChallenge?.kind === "game_long"
+              ? "Complete the start check-in first to unlock this challenge."
+              : "Reach the checkpoint first to unlock this challenge.",
+            409
+          );
+        }
       }
       updateLocalChallengeSubmission(teamId, challengeId, proofNote, status);
-      if (status === "submitted") {
-        upsertLocalChallengeCheckinOnSubmit({
-          teamId,
-          challengeId,
-          checkinNote: proofNote,
-          latitude: gps?.latitude ?? null,
-          longitude: gps?.longitude ?? null,
-          accuracyMeters: gps?.accuracyMeters ?? null,
-          gpsCapturedAt: gps?.gpsCapturedAt ?? null,
-        });
-      }
       return;
     }
     throw error;
@@ -1592,12 +1853,29 @@ export async function updateTeamChallengeSubmission(
 export async function uploadTeamChallengeMedia(teamId: number, challengeId: number, file: File) {
   try {
     await requireChallengeMediaEnabled(challengeId);
+    const challenge = await getChallengeById(challengeId);
     const statusRow = await getChallengeStatusRow(teamId, challengeId);
     if (!statusRow) {
       throw new GameError("Challenge submission was not found.", 404);
     }
+    if (!challenge) {
+      throw new GameError("Challenge was not found.", 404);
+    }
     if (statusRow.review_status === "verified") {
       throw new GameError("This challenge has already been verified by HQ and is locked.", 409);
+    }
+    if (challenge.kind === "game_long") {
+      const hasStartedRace = (await getTeamCheckins(teamId)).some(
+        (item) => item.checkin_type === "start"
+      );
+      if (!hasStartedRace) {
+        throw new GameError("Complete the start check-in first to unlock this challenge.", 409);
+      }
+    } else {
+      const latestCheckin = await getLatestChallengeCheckin(teamId, challengeId);
+      if (!latestCheckin) {
+        throw new GameError("Reach the checkpoint first to unlock this challenge.", 409);
+      }
     }
 
     const { mediaType } = ensureAllowedMedia(file);
@@ -1744,6 +2022,7 @@ export async function createTeamCheckin(input: {
   gpsCapturedAt?: string | null;
 }) {
   const challengeId = input.challengeId ?? null;
+  let challenge: Challenge | null = null;
 
   if (input.checkinType === "challenge") {
     if (!challengeId) {
@@ -1751,6 +2030,13 @@ export async function createTeamCheckin(input: {
     }
     if (!(await isChallengeReleased(challengeId))) {
       throw new GameError("Challenge is not available.", 404);
+    }
+    challenge = await getChallengeById(challengeId);
+    if (!challenge) {
+      throw new GameError("Challenge was not found.", 404);
+    }
+    if (challenge.kind === "game_long") {
+      throw new GameError("Challenge 1 unlocks from the start check-in and does not use a checkpoint.", 409);
     }
   }
 
@@ -1761,8 +2047,29 @@ export async function createTeamCheckin(input: {
   try {
     if (input.checkinType === "finish") {
       const completedCount = await getSubmittedChallengeCount(input.teamId);
-      if (completedCount < 5) {
-        throw new GameError("Finish check-in unlocks only after all 5 challenges are completed.", 409);
+      if (completedCount < MAX_CHALLENGES) {
+        throw new GameError(`Finish check-in unlocks only after all ${MAX_CHALLENGES} challenges are completed.`, 409);
+      }
+    }
+
+    if (input.checkinType === "challenge") {
+      const latitude = input.latitude ?? null;
+      const longitude = input.longitude ?? null;
+      if (latitude === null || longitude === null) {
+        throw new GameError("Checkpoint unlock requires live GPS at the checkpoint.", 409);
+      }
+
+      const target = await getChallengeUnlockTarget(input.teamId, challengeId as number);
+      if (!target || target.latitude === null || target.longitude === null) {
+        throw new GameError("HQ has not configured this checkpoint yet.", 409);
+      }
+
+      const distance = haversineMeters(latitude, longitude, target.latitude, target.longitude);
+      if (distance > target.unlock_radius_meters) {
+        throw new GameError(
+          `You need to be within ${Math.round(target.unlock_radius_meters)}m of the checkpoint to unlock this challenge.`,
+          409
+        );
       }
     }
 
@@ -1777,6 +2084,18 @@ export async function createTeamCheckin(input: {
       accuracy_meters: input.accuracyMeters ?? null,
       gps_captured_at: input.gpsCapturedAt ?? null,
     };
+
+    if (input.checkinType === "challenge") {
+      return await upsertChallengeArrivalCheckin({
+        teamId: input.teamId,
+        challengeId: challengeId as number,
+        checkinNote: input.checkinNote,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+        accuracyMeters: input.accuracyMeters ?? null,
+        gpsCapturedAt: input.gpsCapturedAt ?? null,
+      });
+    }
 
     const { data, error } = await supabase
       .from("team_checkins")
@@ -1793,16 +2112,14 @@ export async function createTeamCheckin(input: {
       throw error;
     }
     if (isSupabaseUnavailable(error)) {
-      if (input.checkinType === "finish") {
-        const localDashboard = getLocalTeamDashboard(input.teamId);
-        if ((localDashboard?.teamStats.completed_count ?? 0) < 5) {
-          throw new GameError(
-            "Finish check-in unlocks only after all 5 challenges are completed.",
-            409
-          );
-        }
+      try {
+        return createLocalCheckin(input);
+      } catch (localError) {
+        throw new GameError(
+          localError instanceof Error ? localError.message : "Check-in failed.",
+          409
+        );
       }
-      return createLocalCheckin(input);
     }
     throw error;
   }
@@ -1834,20 +2151,6 @@ export async function reviewTeamCheckin(
       if (!row) {
         throw new GameError("Check-in not found.", 404);
       }
-      if (status === "verified" && row.checkin_type === "challenge" && row.challenge_id !== null) {
-        const localStatus = getLocalTeamDashboard(row.team_id)?.challenges.find(
-          (challenge) => challenge.id === row.challenge_id
-        );
-        if (localStatus?.status === "submitted") {
-          updateLocalChallengeReview(
-            row.team_id,
-            row.challenge_id,
-            "verified",
-            reviewNote,
-            reviewedBy
-          );
-        }
-      }
       return row;
     }
     throw error;
@@ -1856,26 +2159,6 @@ export async function reviewTeamCheckin(
   reviewedCheckin = await getCheckinById(checkinId);
   if (!reviewedCheckin) {
     throw new GameError("Check-in not found.", 404);
-  }
-
-  if (
-    status === "verified" &&
-    reviewedCheckin.checkin_type === "challenge" &&
-    reviewedCheckin.challenge_id !== null
-  ) {
-    const challengeStatus = await getChallengeStatusRow(
-      reviewedCheckin.team_id,
-      reviewedCheckin.challenge_id
-    );
-    if (challengeStatus?.status === "submitted") {
-      await reviewTeamChallenge(
-        reviewedCheckin.team_id,
-        reviewedCheckin.challenge_id,
-        "verified",
-        reviewNote,
-        reviewedBy
-      );
-    }
   }
 
   return reviewedCheckin;

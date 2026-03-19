@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { TeamRouteMap } from "@/components/team-route-map";
 import {
   Table,
   TableBody,
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toaster";
+import { MAX_CHALLENGES } from "@/lib/config";
 import type { TeamChallengeStatus, TeamCheckpoint, TeamDashboardResponse } from "@/lib/types";
 
 type LocationPermissionState =
@@ -78,6 +80,27 @@ function challengeStateVariant(challenge: TeamChallengeStatus) {
   if (challenge.review_status === "verified") return "success" as const;
   if (challenge.review_status === "rejected") return "warning" as const;
   return challenge.status === "submitted" ? "secondary" as const : "warning" as const;
+}
+
+function challengeKindCopy(challenge: TeamChallengeStatus) {
+  if (challenge.kind === "game_long") {
+    return {
+      title: "Game-long challenge",
+      description: "Available after the start check-in and open for the full race.",
+    };
+  }
+
+  if (challenge.kind === "union") {
+    return {
+      title: "Union checkpoint unlocked",
+      description: "You reached Union. Add proof and submit Challenge 4 here.",
+    };
+  }
+
+  return {
+    title: "Checkpoint unlocked",
+    description: "You reached the assigned checkpoint. Add proof and submit this challenge now.",
+  };
 }
 
 function checkpointVariant(status: TeamCheckpoint["status"]) {
@@ -375,13 +398,12 @@ export function TeamDashboard() {
   const startCheckpoint =
     dashboard?.checkpoints.find((checkpoint) => checkpoint.checkin_type === "start") ?? null;
   const hasStartedRace = Boolean(startCheckpoint?.latest_checkin);
-  const isFinishUnlocked = (dashboard?.teamStats.completed_count ?? 0) >= 5;
+  const isFinishUnlocked = (dashboard?.teamStats.completed_count ?? 0) >= MAX_CHALLENGES;
   const visibleChallenges = dashboard?.challenges.filter((challenge) => challenge.is_visible) ?? [];
   const visibleCheckpoints = dashboard
     ? dashboard.checkpoints.filter((checkpoint) => {
         if (checkpoint.checkin_type === "start") return true;
-        if (checkpoint.checkin_type === "finish") return hasStartedRace;
-        return false;
+        return hasStartedRace;
       })
     : [];
   const locationPermissionCopy = getPlatformPermissionCopy(
@@ -464,7 +486,6 @@ export function TeamDashboard() {
   async function onSubmitChallenge(challengeId: number, proofNote: string) {
     setSavingId(challengeId);
     try {
-      const position = await capturePosition(`challenge-submit-${challengeId}`);
       const next = await api<{ dashboard: TeamDashboardResponse }>(
         `/api/team/challenges/${challengeId}/submit`,
         {
@@ -472,17 +493,13 @@ export function TeamDashboard() {
           body: JSON.stringify({
             proofNote,
             status: "submitted",
-            latitude: position.latitude,
-            longitude: position.longitude,
-            accuracyMeters: position.accuracyMeters,
-            gpsCapturedAt: position.gpsCapturedAt,
           }),
         }
       );
       setDashboard(next.dashboard);
       toast({
         title: "Challenge submitted",
-        description: "Your proof is pending and the challenge checkpoint was recorded.",
+        description: "Your proof is pending for HQ review.",
         variant: "success",
       });
     } catch (nextError) {
@@ -784,8 +801,14 @@ export function TeamDashboard() {
           : current
       );
       toast({
-        title: `${checkpoint.label} recorded`,
-        description: "HQ can now see your latest checkpoint activity.",
+        title:
+          checkpoint.checkin_type === "challenge"
+            ? `${checkpoint.label} unlocked`
+            : `${checkpoint.label} recorded`,
+        description:
+          checkpoint.checkin_type === "challenge"
+            ? "That challenge is now open in your queue."
+            : "HQ can now see your latest checkpoint activity.",
         variant: "success",
       });
     } catch (nextError) {
@@ -986,11 +1009,13 @@ export function TeamDashboard() {
         </div>
       </Card>
 
+      <TeamRouteMap dashboard={dashboard} />
+
       <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
         <CardHeader>
           <CardTitle className="text-3xl text-white">Check-In Progress</CardTitle>
           <CardDescription className="text-white/52">
-            Check in at the start, for each released challenge, and when you arrive at Union.
+            Start the race, unlock route checkpoints, then finish at Union.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -1165,7 +1190,7 @@ export function TeamDashboard() {
                             <div className="rounded-[20px] border border-orange-400/14 bg-orange-500/[0.07] p-4">
                               <p className="text-sm font-semibold text-white">Finish locked</p>
                               <p className="mt-1 text-sm leading-6 text-white/62">
-                                Complete all 5 challenges before the final Union check-in unlocks.
+                                Complete all {MAX_CHALLENGES} challenges before the final Union check-in unlocks.
                               </p>
                             </div>
                           ) : null}
@@ -1186,8 +1211,9 @@ export function TeamDashboard() {
                             </div>
                             {!checkpoint.latest_checkin?.gps_captured_at ? (
                               <p className="text-xs text-white/44">
-                                If location access is blocked, the check-in still goes through and HQ can
-                                review it manually.
+                                {checkpoint.checkin_type === "challenge"
+                                  ? "Live GPS is required to unlock this checkpoint challenge."
+                                  : "If location access is blocked, the check-in still goes through and HQ can review it manually."}
                               </p>
                             ) : null}
                           </div>
@@ -1205,7 +1231,11 @@ export function TeamDashboard() {
                             ) : (
                               checkpoint.checkin_type === "start" && !checkpoint.latest_checkin
                                 ? "Accept contract and start"
-                                : "Check in now"
+                                : checkpoint.checkin_type === "finish"
+                                  ? "Check in at Union"
+                                  : checkpoint.expected_location_label === "Union Station"
+                                    ? "Arrived at Union"
+                                    : "Arrived at checkpoint"
                             )}
                           </Button>
                         </form>
@@ -1240,7 +1270,7 @@ export function TeamDashboard() {
         <CardHeader>
           <CardTitle className="text-3xl text-white">Challenge Queue</CardTitle>
           <CardDescription className="text-white/52">
-            Only the next unlocked challenge appears here. Submit it to reveal the next one.
+            Challenge 1 stays open all race. Route challenges appear as you unlock their checkpoints.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -1258,6 +1288,7 @@ export function TeamDashboard() {
               const latestUploadAt = challenge.uploads[0]?.uploaded_at;
               const showMediaSection =
                 Boolean(challenge.allow_media_upload) || challenge.uploads.length > 0;
+              const kindCopy = challengeKindCopy(challenge);
 
               return (
                 <Card
@@ -1280,10 +1311,22 @@ export function TeamDashboard() {
                   <p className="mb-4 text-sm leading-7 text-white/58">{challenge.text}</p>
 
                   <div className="mb-4 rounded-[20px] border border-emerald-400/12 bg-emerald-500/[0.06] p-4">
-                    <p className="text-sm font-semibold text-white">Submit records this challenge</p>
+                    <p className="text-sm font-semibold text-white">{kindCopy.title}</p>
                     <p className="mt-1 text-sm leading-6 text-white/60">
-                      Add media or a proof note, then submit. Your challenge checkpoint is recorded automatically.
+                      {kindCopy.description}
                     </p>
+                    {challenge.kind === "union" ? (
+                      <p className="mt-2 text-xs text-white/54">
+                        Required location: Union Station · Front Street entrance
+                      </p>
+                    ) : challenge.checkpoint?.checkpoint_label ? (
+                      <p className="mt-2 text-xs text-white/54">
+                        Required location: {challenge.checkpoint.checkpoint_label}
+                        {challenge.checkpoint.checkpoint_address
+                          ? ` · ${challenge.checkpoint.checkpoint_address}`
+                          : ""}
+                      </p>
+                    ) : null}
                   </div>
 
                   {showMediaSection ? (
@@ -1446,7 +1489,7 @@ export function TeamDashboard() {
             })
           ) : (
             <p className="text-sm text-white/46">
-              Your next challenge will appear as soon as the current submission lands.
+              Reach your next checkpoint to unlock the next challenge.
             </p>
           )}
         </CardContent>

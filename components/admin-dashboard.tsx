@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 import { Textarea } from "@/components/ui/textarea";
+import { DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS, MAX_CHALLENGES, UNION_STATION } from "@/lib/config";
 import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -115,6 +116,12 @@ function challengeNumberClasses(challengeNumber: number | null) {
   }
 
   return palette[(challengeNumber - 1) % palette.length];
+}
+
+function challengeKindLabel(challenge: TeamChallengeStatus | AdminGameResponse["challenges"][number]) {
+  if (challenge.kind === "game_long") return "Game-long";
+  if (challenge.kind === "union") return "Union";
+  return "Checkpoint";
 }
 
 export function AdminDashboard() {
@@ -669,7 +676,7 @@ export function AdminDashboard() {
         <CardHeader>
           <CardTitle className="text-2xl text-white sm:text-3xl">Challenge Control</CardTitle>
           <CardDescription className="text-white/52">
-            Create up to five prompts, then release the current challenge queue in one action.
+            Create the four challenge slots, then release the current queue in one action.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -680,7 +687,7 @@ export function AdminDashboard() {
                   Create Challenge
                 </p>
                 <p className="text-sm text-white/52">
-                  HQ creates the live challenge queue from scratch. {game.challenges.length}/5 added.
+                  HQ creates the live challenge queue from scratch. {game.challenges.length}/{MAX_CHALLENGES} added.
                 </p>
               </div>
               <Button
@@ -757,7 +764,7 @@ export function AdminDashboard() {
               />
               <Textarea
                 className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                disabled={game.challenges.length >= 5 || pendingAction === "create-challenge"}
+                disabled={game.challenges.length >= MAX_CHALLENGES || pendingAction === "create-challenge"}
                 name="text"
                 placeholder="Challenge prompt"
                 required
@@ -768,10 +775,10 @@ export function AdminDashboard() {
               </label>
               <Button
                 className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
-                disabled={game.challenges.length >= 5 || pendingAction === "create-challenge"}
+                disabled={game.challenges.length >= MAX_CHALLENGES || pendingAction === "create-challenge"}
                 type="submit"
               >
-                {game.challenges.length >= 5 ? (
+                {game.challenges.length >= MAX_CHALLENGES ? (
                   "Challenge Limit Reached"
                 ) : pendingAction === "create-challenge" ? (
                   <>
@@ -786,166 +793,249 @@ export function AdminDashboard() {
           </Card>
 
           <div className="grid gap-4 lg:grid-cols-2">
-          {game.challenges.map((challenge) => (
-            <Card
-              key={challenge.id}
-              className="rounded-[24px] border border-white/8 bg-white/[0.05] p-4 text-white sm:p-5"
-            >
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <div className="mb-2">
-                    <span
-                      className={`inline-flex h-7 items-center rounded-full border px-3 text-xs font-bold uppercase tracking-[0.14em] ${challengeNumberClasses(
-                        challenge.challenge_order
-                      )}`}
-                    >
-                      Challenge {challenge.challenge_order}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
-                  <p className="mt-2 text-xs text-white/52">
-                    Submission rank points: 10, 8, 4, 2, then 0.
-                  </p>
-                </div>
-                <Badge variant={challenge.is_released ? "success" : "warning"}>
-                  {challenge.is_released ? "Released" : "Hidden"}
-                </Badge>
-              </div>
+            {game.challenges.map((challenge) => {
+              const checkpointTeams = game.teams
+                .map((teamView) => ({
+                  team: teamView.team,
+                  challenge: teamView.challenges.find((item) => item.id === challenge.id) ?? null,
+                }))
+                .filter((entry) => entry.challenge?.checkpoint);
 
-              <form
-                className="space-y-3"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  const formData = new FormData(event.currentTarget);
-                  await runAdminAction(
-                    `save-challenge:${challenge.id}`,
-                    async () => {
-                      await api(`/api/admin/challenges/${challenge.id}`, {
-                        method: "PATCH",
-                        body: JSON.stringify({
-                          title: formData.get("title"),
-                          text: formData.get("text"),
-                          expectedLocation: formData.get("expectedLocation"),
-                          allowMediaUpload: formData.get("allowMediaUpload") === "on",
-                        }),
-                      });
-                      await loadGame();
-                    },
-                    "Challenge saved",
-                    `Challenge ${challenge.challenge_order} was updated.`
-                  );
-                }}
-              >
-                <Input
-                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                  defaultValue={challenge.title}
-                  name="title"
-                />
-                <Input
-                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                  defaultValue={challenge.expected_location}
-                  name="expectedLocation"
-                  placeholder="Expected checkpoint location"
-                />
-                <Textarea
-                  className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                  defaultValue={challenge.text}
-                  name="text"
-                />
-                <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-white">
-                  <input
-                    defaultChecked={Boolean(challenge.allow_media_upload)}
-                    name="allowMediaUpload"
-                    type="checkbox"
-                  />
-                  Allow media upload
-                </label>
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <Button
-                    className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
-                    type="submit"
-                  >
-                    {pendingAction === `save-challenge:${challenge.id}` ? (
-                      <>
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save Challenge"
-                    )}
-                  </Button>
-                  <Button
-                    className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
-                    disabled={pendingAction === `toggle-release:${challenge.id}`}
-                    type="button"
-                    variant="secondary"
-                    onClick={() =>
-                      void runAdminAction(
-                        `toggle-release:${challenge.id}`,
+              return (
+                <Card
+                  key={challenge.id}
+                  className="rounded-[24px] border border-white/8 bg-white/[0.05] p-4 text-white sm:p-5"
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex h-7 items-center rounded-full border px-3 text-xs font-bold uppercase tracking-[0.14em] ${challengeNumberClasses(
+                            challenge.challenge_order
+                          )}`}
+                        >
+                          Challenge {challenge.challenge_order}
+                        </span>
+                        <Badge className="border-white/10 bg-white/5 text-white/74" variant="secondary">
+                          {challengeKindLabel(challenge)}
+                        </Badge>
+                      </div>
+                      <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
+                      <p className="mt-2 text-xs text-white/52">
+                        Submission rank points: 10, 8, 4, 2, then 0.
+                      </p>
+                    </div>
+                    <Badge variant={challenge.is_released ? "success" : "warning"}>
+                      {challenge.is_released ? "Released" : "Hidden"}
+                    </Badge>
+                  </div>
+
+                  <form
+                    className="space-y-3"
+                    onSubmit={async (event) => {
+                      event.preventDefault();
+                      const formData = new FormData(event.currentTarget);
+                      await runAdminAction(
+                        `save-challenge:${challenge.id}`,
                         async () => {
-                          await api(`/api/admin/challenges/${challenge.id}/release`, {
+                          await api(`/api/admin/challenges/${challenge.id}`, {
                             method: "PATCH",
                             body: JSON.stringify({
-                              isReleased: !challenge.is_released,
+                              title: formData.get("title"),
+                              text: formData.get("text"),
+                              expectedLocation: formData.get("expectedLocation"),
+                              allowMediaUpload: formData.get("allowMediaUpload") === "on",
+                              checkpoints:
+                                challenge.kind === "checkpoint"
+                                  ? checkpointTeams.map(({ team }) => ({
+                                      teamId: team.id,
+                                      checkpointLabel: formData.get(`checkpointLabel:${team.id}`),
+                                      checkpointAddress: formData.get(`checkpointAddress:${team.id}`),
+                                      latitude: formData.get(`checkpointLatitude:${team.id}`),
+                                      longitude: formData.get(`checkpointLongitude:${team.id}`),
+                                      unlockRadiusMeters: DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+                                    }))
+                                  : [],
                             }),
                           });
                           await loadGame();
                         },
-                        challenge.is_released ? "Challenge hidden" : "Challenge released",
-                        challenge.is_released
-                          ? `Challenge ${challenge.challenge_order} was hidden from teams.`
-                          : `Challenge ${challenge.challenge_order} is now live.`
-                      )
-                    }
-                  >
-                    {pendingAction === `toggle-release:${challenge.id}` ? (
-                      <>
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        {challenge.is_released ? "Hiding..." : "Releasing..."}
-                      </>
-                    ) : challenge.is_released ? (
-                      "Hide Challenge"
-                    ) : (
-                      "Release Challenge"
-                    )}
-                  </Button>
-                  <Button
-                    className="w-full border-red-400/20 bg-red-500/10 text-red-100 hover:bg-red-500/20 sm:w-auto"
-                    disabled={pendingAction === `delete-challenge:${challenge.id}`}
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      const confirmed = window.confirm(
-                        `Delete Challenge ${challenge.challenge_order}? This permanently removes its submissions, uploads, reviews, and challenge check-ins.`
-                      );
-                      if (!confirmed) return;
-
-                      void runAdminAction(
-                        `delete-challenge:${challenge.id}`,
-                        async () => {
-                          await api(`/api/admin/challenges/${challenge.id}`, {
-                            method: "DELETE",
-                          });
-                          await loadGame();
-                        },
-                        "Challenge deleted",
-                        `Challenge ${challenge.challenge_order} was permanently removed.`
+                        "Challenge saved",
+                        `Challenge ${challenge.challenge_order} was updated.`
                       );
                     }}
                   >
-                    {pendingAction === `delete-challenge:${challenge.id}` ? (
+                    <Input
+                      className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                      defaultValue={challenge.title}
+                      name="title"
+                    />
+                    <Textarea
+                      className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                      defaultValue={challenge.text}
+                      name="text"
+                    />
+                    {challenge.kind === "checkpoint" ? (
                       <>
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Deleting...
+                        <Input
+                          className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                          defaultValue={challenge.expected_location}
+                          name="expectedLocation"
+                          placeholder="Checkpoint summary label"
+                        />
+                        <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+                          <p className="text-sm font-semibold text-white">Per-team checkpoints</p>
+                          <p className="mt-1 text-xs text-white/48">
+                            Teams must arrive within {DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS}m to unlock this challenge.
+                          </p>
+                          <div className="mt-4 grid gap-3">
+                            {checkpointTeams.map(({ team, challenge: teamChallenge }) => (
+                              <div
+                                key={`${challenge.id}-${team.id}`}
+                                className="rounded-[18px] border border-white/8 bg-black/10 p-3"
+                              >
+                                <p className="mb-3 text-sm font-semibold text-white">{team.team_name}</p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <Input
+                                    className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                                    defaultValue={teamChallenge?.checkpoint?.checkpoint_label ?? ""}
+                                    name={`checkpointLabel:${team.id}`}
+                                    placeholder="Checkpoint label"
+                                  />
+                                  <Input
+                                    className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                                    defaultValue={teamChallenge?.checkpoint?.checkpoint_address ?? ""}
+                                    name={`checkpointAddress:${team.id}`}
+                                    placeholder="Checkpoint address"
+                                  />
+                                  <Input
+                                    className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                                    defaultValue={teamChallenge?.checkpoint?.latitude?.toFixed(6) ?? ""}
+                                    name={`checkpointLatitude:${team.id}`}
+                                    placeholder="Latitude"
+                                  />
+                                  <Input
+                                    className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                                    defaultValue={teamChallenge?.checkpoint?.longitude?.toFixed(6) ?? ""}
+                                    name={`checkpointLongitude:${team.id}`}
+                                    placeholder="Longitude"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </>
+                    ) : challenge.kind === "union" ? (
+                      <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+                        <p className="text-sm font-semibold text-white">Union checkpoint</p>
+                        <p className="mt-1 text-sm text-white/58">{UNION_STATION.finishPoint}</p>
+                        <input name="expectedLocation" type="hidden" value={UNION_STATION.name} />
+                      </div>
                     ) : (
-                      "Delete Challenge"
+                      <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+                        <p className="text-sm font-semibold text-white">Game-long challenge</p>
+                        <p className="mt-1 text-sm text-white/58">
+                          This unlocks right after the start check-in and stays open for the full race.
+                        </p>
+                        <input name="expectedLocation" type="hidden" value="" />
+                      </div>
                     )}
-                  </Button>
-                </div>
-              </form>
-            </Card>
-          ))}
+                    <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-white">
+                      <input
+                        defaultChecked={Boolean(challenge.allow_media_upload)}
+                        name="allowMediaUpload"
+                        type="checkbox"
+                      />
+                      Allow media upload
+                    </label>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <Button
+                        className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto"
+                        type="submit"
+                      >
+                        {pendingAction === `save-challenge:${challenge.id}` ? (
+                          <>
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Challenge"
+                        )}
+                      </Button>
+                      <Button
+                        className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
+                        disabled={pendingAction === `toggle-release:${challenge.id}`}
+                        type="button"
+                        variant="secondary"
+                        onClick={() =>
+                          void runAdminAction(
+                            `toggle-release:${challenge.id}`,
+                            async () => {
+                              await api(`/api/admin/challenges/${challenge.id}/release`, {
+                                method: "PATCH",
+                                body: JSON.stringify({
+                                  isReleased: !challenge.is_released,
+                                }),
+                              });
+                              await loadGame();
+                            },
+                            challenge.is_released ? "Challenge hidden" : "Challenge released",
+                            challenge.is_released
+                              ? `Challenge ${challenge.challenge_order} was hidden from teams.`
+                              : `Challenge ${challenge.challenge_order} is now live.`
+                          )
+                        }
+                      >
+                        {pendingAction === `toggle-release:${challenge.id}` ? (
+                          <>
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                            {challenge.is_released ? "Hiding..." : "Releasing..."}
+                          </>
+                        ) : challenge.is_released ? (
+                          "Hide Challenge"
+                        ) : (
+                          "Release Challenge"
+                        )}
+                      </Button>
+                      <Button
+                        className="w-full border-red-400/20 bg-red-500/10 text-red-100 hover:bg-red-500/20 sm:w-auto"
+                        disabled={pendingAction === `delete-challenge:${challenge.id}`}
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          const confirmed = window.confirm(
+                            `Delete Challenge ${challenge.challenge_order}? This permanently removes its submissions, uploads, reviews, and challenge check-ins.`
+                          );
+                          if (!confirmed) return;
+
+                          void runAdminAction(
+                            `delete-challenge:${challenge.id}`,
+                            async () => {
+                              await api(`/api/admin/challenges/${challenge.id}`, {
+                                method: "DELETE",
+                              });
+                              await loadGame();
+                            },
+                            "Challenge deleted",
+                            `Challenge ${challenge.challenge_order} was permanently removed.`
+                          );
+                        }}
+                      >
+                        {pendingAction === `delete-challenge:${challenge.id}` ? (
+                          <>
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          "Delete Challenge"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </Card>
+              );
+            })}
           </div>
           {!game.challenges.length ? (
             <p className="text-sm text-white/46">

@@ -5,7 +5,8 @@ export const SESSION_SECRET = "race-to-union-next-session-secret-v1";
 export const CHALLENGE_PROOF_BUCKET = "challenge-proof";
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const MAX_FILES_PER_UPLOAD_REQUEST = 10;
-export const MAX_CHALLENGES = 5;
+export const MAX_CHALLENGES = 4;
+export const DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS = 150;
 export const CHALLENGE_SUBMISSION_RANK_POINTS = [10, 8, 4, 2] as const;
 
 export const UNION_STATION = {
@@ -17,77 +18,130 @@ export const UNION_STATION = {
 export const TEAM_SEED: TeamSeed[] = [
   {
     id: 1,
-    teamName: "Team 1",
-    startLocationName: "Krembil Research Institute",
-    address: "60 Leonard Ave, Toronto, ON M5T 0S8",
+    teamName: "Team Izzy",
+    startLocationName: "Wellesley-Magill Park",
+    address: "125 Homewood Ave, Toronto, ON M4Y 1J2",
     routeSummary:
-      "Head east toward Spadina or University, continue south through downtown, then east on Front Street to Union Station.",
+      "Start at Wellesley-Magill Park, head south to Allan Gardens, continue to Moss Park, then make your way to Union Station.",
     walkTime: "35-45 min",
     color: "#d85f3a",
     badgeLabel: "Streetcar Spark",
-    coordinates: [-79.4034, 43.6543],
+    coordinates: [-79.3758768, 43.6674792],
     routeLine: [
-      [-79.4034, 43.6543],
-      [-79.3948, 43.6492],
-      [-79.3895, 43.6468],
+      [-79.3758768, 43.6674792],
+      [-79.3744096, 43.6617119],
+      [-79.3697278, 43.6546438],
       [-79.3807, 43.6453],
+    ],
+    routeCheckpoints: [
+      {
+        challengeOrder: 2,
+        label: "Allan Gardens",
+        address: "160 Gerrard St E, Toronto, ON M5A 2E5",
+        coordinates: [-79.3744096, 43.6617119],
+      },
+      {
+        challengeOrder: 3,
+        label: "Moss Park",
+        address: "Moss Park, Toronto, ON M5A 1S2",
+        coordinates: [-79.3697278, 43.6546438],
+      },
     ],
   },
   {
     id: 2,
-    teamName: "Team 2",
+    teamName: "Team Faiz",
     startLocationName: "John P. Robarts Research Library",
-    address: "130 St George St, Toronto, ON M5S 0C2",
+    address: "130 St George St, Toronto, ON M5S 1A5",
     routeSummary:
-      "Cut southeast through the U of T and Queen's Park area, continue south on University Avenue, then east on Front Street to Union Station.",
+      "Start at Robarts Library, move southeast to the Queen Victoria Statue at Osgoode Hall, continue through the Gardens of Osgoode Hall, then head to Union Station.",
     walkTime: "40-50 min",
     color: "#2c7a7b",
     badgeLabel: "Stacks Sprint",
-    coordinates: [-79.3957, 43.6629],
+    coordinates: [-79.3994701, 43.6644349],
     routeLine: [
-      [-79.3957, 43.6629],
-      [-79.3928, 43.6591],
-      [-79.3876, 43.6512],
-      [-79.3845, 43.6472],
+      [-79.3994701, 43.6644349],
+      [-79.3864973, 43.6512511],
+      [-79.3857945, 43.6521039],
       [-79.3807, 43.6453],
+    ],
+    routeCheckpoints: [
+      {
+        challengeOrder: 2,
+        label: "Queen Victoria Statue",
+        address: "111 Wellesley St W, Toronto, ON M7A 1A2",
+        coordinates: [-79.391347, 43.6618951],
+      },
+      {
+        challengeOrder: 3,
+        label: "The Gardens of Osgoode Hall",
+        address: "Osgoode Hall, 130 Queen St W, Toronto, ON M5H 2N5",
+        coordinates: [-79.3857945, 43.6521039],
+      },
     ],
   },
   {
     id: 3,
-    teamName: "Team 3",
+    teamName: "Team James",
     startLocationName: "Coronation Park",
     address: "711 Lake Shore Blvd W, Toronto, ON M5V 1A7",
     routeSummary:
-      "Follow the waterfront east via Queens Quay or the waterfront trail, then head north into Union Station.",
+      "Start at Coronation Park, head east to the Toronto Music Garden, continue to Roundhouse Park, then finish at Union Station.",
     walkTime: "30-40 min",
     color: "#2563eb",
     badgeLabel: "Harbour Heat",
-    coordinates: [-79.3874, 43.6386],
+    coordinates: [-79.40609, 43.6342618],
     routeLine: [
-      [-79.3874, 43.6386],
-      [-79.3935, 43.6383],
-      [-79.3872, 43.6409],
-      [-79.3834, 43.6429],
+      [-79.40609, 43.6342618],
+      [-79.3940629, 43.6369692],
+      [-79.3853035, 43.6413872],
       [-79.3807, 43.6453],
+    ],
+    routeCheckpoints: [
+      {
+        challengeOrder: 2,
+        label: "Toronto Music Garden",
+        address: "479 Queens Quay W, Toronto, ON M5V 3M8",
+        coordinates: [-79.3940629, 43.6369692],
+      },
+      {
+        challengeOrder: 3,
+        label: "Roundhouse Park",
+        address: "255 Bremner Blvd, Toronto, ON M5V 3M9",
+        coordinates: [-79.3853035, 43.6413872],
+      },
     ],
   },
   {
     id: 4,
-    teamName: "Team 4",
+    teamName: "Team Naman",
     startLocationName: "Regent Park",
-    address: "620 Dundas St E, Toronto, ON M5A 3S4",
+    address: "620 Dundas St E, Toronto, ON M5A 2B7",
     routeSummary:
-      "Walk west along Dundas Street or Queen Street into downtown, then head south to Front Street and continue to Union Station.",
+      "Start in Regent Park, move south to Sackville Playground, continue to St. Lawrence Market, then head west to Union Station.",
     walkTime: "40-50 min",
     color: "#8b5cf6",
     badgeLabel: "East End Echo",
-    coordinates: [-79.3591, 43.6503],
+    coordinates: [-79.3604569, 43.6607056],
     routeLine: [
-      [-79.3591, 43.6503],
-      [-79.3694, 43.6574],
-      [-79.3764, 43.6524],
-      [-79.3794, 43.6483],
+      [-79.3604569, 43.6607056],
+      [-79.3607639, 43.6545926],
+      [-79.3719883, 43.6497179],
       [-79.3807, 43.6453],
+    ],
+    routeCheckpoints: [
+      {
+        challengeOrder: 2,
+        label: "Sackville Playground",
+        address: "420 Sackville St, Toronto, ON",
+        coordinates: [-79.3607639, 43.6545926],
+      },
+      {
+        challengeOrder: 3,
+        label: "St. Lawrence Market",
+        address: "92 Front St E, Toronto, ON M5E 1C4",
+        coordinates: [-79.3719883, 43.6497179],
+      },
     ],
   },
 ];

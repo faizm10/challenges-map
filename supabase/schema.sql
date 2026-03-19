@@ -55,6 +55,17 @@ create table if not exists public.team_challenge_status (
 alter table public.team_challenge_status
   add column if not exists awarded_points integer not null default 0;
 
+create table if not exists public.team_challenge_checkpoints (
+  team_id bigint not null references public.teams(id) on delete cascade,
+  challenge_id bigint not null references public.challenges(id) on delete cascade,
+  checkpoint_label text not null,
+  checkpoint_address text not null,
+  latitude double precision,
+  longitude double precision,
+  unlock_radius_meters integer not null default 150,
+  primary key (team_id, challenge_id)
+);
+
 create table if not exists public.challenge_media (
   id bigint generated always as identity primary key,
   team_id bigint not null references public.teams(id) on delete cascade,
@@ -98,6 +109,9 @@ create index if not exists idx_access_credentials_role_name
 create index if not exists idx_team_challenge_status_team
   on public.team_challenge_status(team_id);
 
+create index if not exists idx_team_challenge_checkpoints_team
+  on public.team_challenge_checkpoints(team_id);
+
 create index if not exists idx_challenge_media_team_challenge
   on public.challenge_media(team_id, challenge_id);
 
@@ -112,6 +126,7 @@ truncate table
   public.access_credentials,
   public.team_checkins,
   public.challenge_media,
+  public.team_challenge_checkpoints,
   public.team_challenge_status,
   public.team_scores,
   public.challenges,
@@ -121,18 +136,18 @@ restart identity cascade;
 insert into public.teams
   (id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label)
 values
-  (1, 'Team 1', 'Krembil Research Institute', '60 Leonard Ave, Toronto, ON M5T 0S8', 'Head east toward Spadina or University, continue south through downtown, then east on Front Street to Union Station.', '35-45 min', '#d85f3a', 'Streetcar Spark'),
-  (2, 'Team 2', 'John P. Robarts Research Library', '130 St George St, Toronto, ON M5S 0C2', 'Cut southeast through the U of T and Queen''s Park area, continue south on University Avenue, then east on Front Street to Union Station.', '40-50 min', '#2c7a7b', 'Stacks Sprint'),
-  (3, 'Team 3', 'Coronation Park', '711 Lake Shore Blvd W, Toronto, ON M5V 1A7', 'Follow the waterfront east via Queens Quay or the waterfront trail, then head north into Union Station.', '30-40 min', '#2563eb', 'Harbour Heat'),
-  (4, 'Team 4', 'Regent Park', '620 Dundas St E, Toronto, ON M5A 3S4', 'Walk west along Dundas Street or Queen Street into downtown, then head south to Front Street and continue to Union Station.', '40-50 min', '#8b5cf6', 'East End Echo');
+  (1, 'Team Izzy', 'Wellesley-Magill Park', '125 Homewood Ave, Toronto, ON M4Y 1J2', 'Start at Wellesley-Magill Park, head south to Allan Gardens, continue to Moss Park, then make your way to Union Station.', '35-45 min', '#d85f3a', 'Streetcar Spark'),
+  (2, 'Team Faiz', 'John P. Robarts Research Library', '130 St George St, Toronto, ON M5S 1A5', 'Start at Robarts Library, move southeast to the Queen Victoria Statue at Osgoode Hall, continue through the Gardens of Osgoode Hall, then head to Union Station.', '40-50 min', '#2c7a7b', 'Stacks Sprint'),
+  (3, 'Team James', 'Coronation Park', '711 Lake Shore Blvd W, Toronto, ON M5V 1A7', 'Start at Coronation Park, head east to the Toronto Music Garden, continue to Roundhouse Park, then finish at Union Station.', '30-40 min', '#2563eb', 'Harbour Heat'),
+  (4, 'Team Naman', 'Regent Park', '620 Dundas St E, Toronto, ON M5A 2B7', 'Start in Regent Park, move south to Sackville Playground, continue to St. Lawrence Market, then head west to Union Station.', '40-50 min', '#8b5cf6', 'East End Echo');
 
 insert into public.access_credentials (role, display_name, pin, team_id)
 values
   ('admin', 'HQ Admin', 'UNIONHQ2026', null),
-  ('team', 'Team 1', 'TEAM1GO', 1),
-  ('team', 'Team 2', 'TEAM2GO', 2),
-  ('team', 'Team 3', 'TEAM3GO', 3),
-  ('team', 'Team 4', 'TEAM4GO', 4);
+  ('team', 'Team Izzy', 'Izzy1231', 1),
+  ('team', 'Team Faiz', 'Faiz671', 2),
+  ('team', 'Team James', 'James1011', 3),
+  ('team', 'Team Naman', 'Naman2011', 4);
 
 insert into public.team_scores (team_id, arrival_rank, creativity_score)
 values
@@ -145,6 +160,7 @@ alter table public.teams enable row level security;
 alter table public.access_credentials enable row level security;
 alter table public.challenges enable row level security;
 alter table public.team_challenge_status enable row level security;
+alter table public.team_challenge_checkpoints enable row level security;
 alter table public.challenge_media enable row level security;
 alter table public.team_checkins enable row level security;
 alter table public.team_scores enable row level security;
