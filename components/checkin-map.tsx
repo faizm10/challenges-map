@@ -19,6 +19,10 @@ type CheckinMapProps = {
   teamRoutes: AdminTeamRoute[];
 };
 
+function formatCoordinate(value: number) {
+  return value.toString();
+}
+
 export function CheckinMap({ latestLocations, teamRoutes }: CheckinMapProps) {
   return (
     <Card className="overflow-hidden border-white/8 bg-[#120f10]/88 p-0">
@@ -110,7 +114,7 @@ export function CheckinMap({ latestLocations, teamRoutes }: CheckinMapProps) {
                           <p className="text-muted-foreground">{point.label}</p>
                           <p className="mt-1 text-xs text-slate-500">{new Date(point.created_at).toLocaleString()}</p>
                           <p className="mt-1 font-mono text-xs text-slate-600">
-                            {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+                            {formatCoordinate(point.latitude)}, {formatCoordinate(point.longitude)}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
                             {route.completed_labels.length ? route.completed_labels.join(" -> ") : "No mapped route yet"}

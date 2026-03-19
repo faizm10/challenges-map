@@ -133,7 +133,7 @@ export const TEAM_SEED: TeamSeed[] = [
       {
         challengeOrder: 2,
         label: "Sackville Playground",
-        address: "420 Sackville St, Toronto, ON",
+        address: "420 King St E, Toronto, ON M5A 1L4",
         coordinates: [-79.3607639, 43.6545926],
       },
       {

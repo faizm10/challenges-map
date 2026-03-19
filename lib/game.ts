@@ -670,7 +670,7 @@ async function recalculateChallengeAwardedPoints(challengeId: number) {
 
   rows
     .filter(
-      (row) => row.status === "submitted" && row.review_status === "verified" && Boolean(row.submitted_at)
+      (row) => row.status === "submitted" && row.review_status !== "rejected" && Boolean(row.submitted_at)
     )
     .sort((a, b) => {
       const timeDiff = Date.parse(a.submitted_at as string) - Date.parse(b.submitted_at as string);
@@ -1821,6 +1821,7 @@ export async function updateTeamChallengeSubmission(
       .eq("challenge_id", challengeId);
 
     if (error) throw error;
+    await recalculateChallengeAwardedPoints(challengeId);
   } catch (error) {
     if (isGameError(error)) {
       throw error;

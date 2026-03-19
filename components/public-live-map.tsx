@@ -19,6 +19,10 @@ type PublicLiveMapProps = {
   initialData: PublicMapResponse;
 };
 
+function formatCoordinate(value: number) {
+  return value.toString();
+}
+
 function buildBounds(points: Array<[number, number]>) {
   let minLng = points[0][0];
   let maxLng = points[0][0];
@@ -236,7 +240,7 @@ export function PublicLiveMap({ initialData }: PublicLiveMapProps) {
                   <p className="text-slate-500">{location.badge_label}</p>
                   <p className="mt-1 text-xs text-slate-500">{location.label}</p>
                   <p className="mt-1 font-mono text-xs text-slate-600">
-                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                    {formatCoordinate(location.latitude)}, {formatCoordinate(location.longitude)}
                   </p>
                   {location.gps_captured_at ? (
                     <p className="mt-1 text-xs text-slate-500">

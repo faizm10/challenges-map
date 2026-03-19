@@ -20,6 +20,10 @@ type TeamRouteMapProps = {
   dashboard: TeamDashboardResponse;
 };
 
+function formatCoordinate(value: number) {
+  return value.toString();
+}
+
 function buildBounds(points: Array<[number, number]>) {
   let minLng = points[0][0];
   let maxLng = points[0][0];
@@ -285,7 +289,8 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
                 <strong>{originPoint.isLive ? "Your latest live pin" : originPoint.label}</strong>
                 <p className="text-slate-500">{originPoint.description}</p>
                 <p className="mt-1 font-mono text-xs text-slate-600">
-                  {originPoint.coordinates[1].toFixed(6)}, {originPoint.coordinates[0].toFixed(6)}
+                  {formatCoordinate(originPoint.coordinates[1])},{" "}
+                  {formatCoordinate(originPoint.coordinates[0])}
                 </p>
               </div>
             </MarkerPopup>

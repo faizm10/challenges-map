@@ -25,6 +25,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS, MAX_CHALLENGES, UNION_STATION } from "@/lib/config";
 import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
 
+function formatCoordinate(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "";
+  return value.toString();
+}
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -472,7 +477,7 @@ export function AdminDashboard() {
                       </Badge>
                     </div>
                     <p className="font-mono text-sm text-white">
-                      {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                      {formatCoordinate(location.latitude)}, {formatCoordinate(location.longitude)}
                     </p>
                     <p className="mt-1 text-xs text-white/44">
                       Accuracy{" "}
@@ -578,7 +583,7 @@ export function AdminDashboard() {
                     {item.latitude !== null ? (
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5" />
-                        {item.latitude.toFixed(4)}, {item.longitude?.toFixed(4)}
+                        {formatCoordinate(item.latitude)}, {formatCoordinate(item.longitude)}
                       </span>
                     ) : null}
                   </div>
@@ -910,13 +915,13 @@ export function AdminDashboard() {
                                   />
                                   <Input
                                     className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                                    defaultValue={teamChallenge?.checkpoint?.latitude?.toFixed(6) ?? ""}
+                                    defaultValue={formatCoordinate(teamChallenge?.checkpoint?.latitude)}
                                     name={`checkpointLatitude:${team.id}`}
                                     placeholder="Latitude"
                                   />
                                   <Input
                                     className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
-                                    defaultValue={teamChallenge?.checkpoint?.longitude?.toFixed(6) ?? ""}
+                                    defaultValue={formatCoordinate(teamChallenge?.checkpoint?.longitude)}
                                     name={`checkpointLongitude:${team.id}`}
                                     placeholder="Longitude"
                                   />
@@ -1144,7 +1149,7 @@ export function AdminDashboard() {
                   <p className="mt-2 text-sm text-white/74">
                     <span className="text-white/44">GPS:</span>{" "}
                     {activeRecentCheckin.latitude !== null
-                      ? `${activeRecentCheckin.latitude.toFixed(4)}, ${activeRecentCheckin.longitude?.toFixed(4)}`
+                      ? `${formatCoordinate(activeRecentCheckin.latitude)}, ${formatCoordinate(activeRecentCheckin.longitude)}`
                       : "No GPS"}
                   </p>
                 </div>
@@ -1359,8 +1364,8 @@ export function AdminDashboard() {
                                   {checkpoint.latest_checkin.latitude !== null ? (
                                     <span className="inline-flex items-center gap-1">
                                       <MapPin className="h-3.5 w-3.5" />
-                                      {checkpoint.latest_checkin.latitude.toFixed(4)},{" "}
-                                      {checkpoint.latest_checkin.longitude?.toFixed(4)}
+                                      {formatCoordinate(checkpoint.latest_checkin.latitude)},{" "}
+                                      {formatCoordinate(checkpoint.latest_checkin.longitude)}
                                     </span>
                                   ) : (
                                     <span>No GPS</span>

@@ -56,6 +56,43 @@ type CapturedLocation = {
   gpsCapturedAt: string;
 };
 
+type ManualCheckpointInput = {
+  latitude: string;
+  longitude: string;
+};
+
+function formatCoordinate(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "";
+  return value.toString();
+}
+
+function parseCoordinateInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function haversineMeters(
+  latitudeA: number,
+  longitudeA: number,
+  latitudeB: number,
+  longitudeB: number
+) {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadius = 6371000;
+  const dLatitude = toRadians(latitudeB - latitudeA);
+  const dLongitude = toRadians(longitudeB - longitudeA);
+  const a =
+    Math.sin(dLatitude / 2) * Math.sin(dLatitude / 2) +
+    Math.cos(toRadians(latitudeA)) *
+      Math.cos(toRadians(latitudeB)) *
+      Math.sin(dLongitude / 2) *
+      Math.sin(dLongitude / 2);
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -272,6 +309,9 @@ export function TeamDashboard() {
   const [isSecureLocationContext, setIsSecureLocationContext] = useState(true);
   const [lastResolvedPosition, setLastResolvedPosition] = useState<CapturedLocation | null>(null);
   const [gpsMessages, setGpsMessages] = useState<Record<string, string>>({});
+  const [manualCheckpointInputs, setManualCheckpointInputs] = useState<
+    Record<string, ManualCheckpointInput>
+  >({});
   const [openCheckpointKey, setOpenCheckpointKey] = useState<string | null>(null);
   const [newChallengeBanner, setNewChallengeBanner] = useState<TeamChallengeStatus | null>(null);
   const [pendingContractCheckpoint, setPendingContractCheckpoint] = useState<TeamCheckpoint | null>(null);
@@ -775,7 +815,40 @@ export function TeamDashboard() {
   async function onCheckpointCheckin(checkpoint: TeamCheckpoint) {
     setCheckingInKey(checkpoint.key);
     try {
-      const position = await capturePosition(checkpoint.key);
+      const manualInput = manualCheckpointInputs[checkpoint.key];
+      const hasManualOverride =
+        checkpoint.checkin_type === "challenge" &&
+        Boolean(manualInput?.latitude.trim() || manualInput?.longitude.trim());
+
+      let position: {
+        latitude: number | null;
+        longitude: number | null;
+        accuracyMeters: number | null;
+        gpsCapturedAt: string | null;
+      };
+
+      if (hasManualOverride) {
+        const latitude = parseCoordinateInput(manualInput?.latitude ?? "");
+        const longitude = parseCoordinateInput(manualInput?.longitude ?? "");
+
+        if (latitude === null || longitude === null || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          throw new Error("Enter valid test latitude and longitude.");
+        }
+
+        position = {
+          latitude,
+          longitude,
+          accuracyMeters: 1,
+          gpsCapturedAt: new Date().toISOString(),
+        };
+        setGpsMessages((current) => ({
+          ...current,
+          [checkpoint.key]: "Using manual test coordinates for this checkpoint.",
+        }));
+      } else {
+        position = await capturePosition(checkpoint.key);
+      }
+
       const next = await api<{ dashboard: TeamDashboardResponse }>("/api/team/checkins", {
         method: "POST",
         body: JSON.stringify({
@@ -800,6 +873,12 @@ export function TeamDashboard() {
           ? getNextOpenCheckpointKey(nextVisibleCheckpoints, checkpoint.key)
           : current
       );
+      if (hasManualOverride) {
+        setManualCheckpointInputs((current) => ({
+          ...current,
+          [checkpoint.key]: { latitude: "", longitude: "" },
+        }));
+      }
       toast({
         title:
           checkpoint.checkin_type === "challenge"
@@ -1094,6 +1173,61 @@ export function TeamDashboard() {
                 const isOpen = openCheckpointKey === checkpoint.key;
                 const isFinishLocked =
                   checkpoint.checkin_type === "finish" && !isFinishUnlocked;
+                const checkpointChallenge =
+                  checkpoint.challenge_id !== null
+                    ? dashboard.challenges.find((item) => item.id === checkpoint.challenge_id) ?? null
+                    : null;
+                const targetLocation =
+                  checkpoint.checkin_type !== "challenge"
+                    ? null
+                    : checkpointChallenge?.kind === "union"
+                      ? {
+                          latitude: 43.6453,
+                          longitude: -79.3807,
+                          radiusMeters: checkpoint.unlock_radius_meters ?? 150,
+                        }
+                      : checkpointChallenge?.checkpoint?.latitude != null &&
+                          checkpointChallenge?.checkpoint?.longitude != null
+                        ? {
+                            latitude: checkpointChallenge.checkpoint.latitude,
+                            longitude: checkpointChallenge.checkpoint.longitude,
+                            radiusMeters:
+                              checkpointChallenge.checkpoint.unlock_radius_meters ??
+                              checkpoint.unlock_radius_meters ??
+                              150,
+                          }
+                        : null;
+                const manualLatitude = parseCoordinateInput(
+                  manualCheckpointInputs[checkpoint.key]?.latitude ?? ""
+                );
+                const manualLongitude = parseCoordinateInput(
+                  manualCheckpointInputs[checkpoint.key]?.longitude ?? ""
+                );
+                const hasValidManualPreview =
+                  manualLatitude !== null &&
+                  manualLongitude !== null &&
+                  Number.isFinite(manualLatitude) &&
+                  Number.isFinite(manualLongitude);
+                const latestSubmittedDistance =
+                  targetLocation &&
+                  checkpoint.latest_checkin?.latitude != null &&
+                  checkpoint.latest_checkin.longitude != null
+                    ? haversineMeters(
+                        checkpoint.latest_checkin.latitude,
+                        checkpoint.latest_checkin.longitude,
+                        targetLocation.latitude,
+                        targetLocation.longitude
+                      )
+                    : null;
+                const manualPreviewDistance =
+                  targetLocation && hasValidManualPreview
+                    ? haversineMeters(
+                        manualLatitude,
+                        manualLongitude,
+                        targetLocation.latitude,
+                        targetLocation.longitude
+                      )
+                    : null;
 
                 return (
                   <div
@@ -1131,8 +1265,8 @@ export function TeamDashboard() {
                             {checkpoint.latest_checkin.latitude !== null ? (
                               <span className="inline-flex items-center gap-1">
                                 <MapPin className="h-3.5 w-3.5" />
-                                {checkpoint.latest_checkin.latitude.toFixed(6)},{" "}
-                                {checkpoint.latest_checkin.longitude?.toFixed(6)}
+                                {formatCoordinate(checkpoint.latest_checkin.latitude)},{" "}
+                                {formatCoordinate(checkpoint.latest_checkin.longitude)}
                               </span>
                             ) : (
                               <span>No GPS captured</span>
@@ -1192,6 +1326,119 @@ export function TeamDashboard() {
                               <p className="mt-1 text-sm leading-6 text-white/62">
                                 Complete all {MAX_CHALLENGES} challenges before the final Union check-in unlocks.
                               </p>
+                            </div>
+                          ) : null}
+                          {checkpoint.checkin_type === "challenge" ? (
+                            <div className="rounded-[20px] border border-sky-400/12 bg-sky-500/[0.05] p-4">
+                              <p className="text-sm font-semibold text-white">Testing coordinates</p>
+                              <p className="mt-1 text-xs leading-5 text-white/58">
+                                Optional for testing only. If you fill these in, the checkpoint will
+                                use them instead of live GPS.
+                              </p>
+                              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                <Input
+                                  className="border-white/10 bg-white/5 text-white placeholder:text-white/26"
+                                  inputMode="decimal"
+                                  placeholder="Latitude"
+                                  type="text"
+                                  value={manualCheckpointInputs[checkpoint.key]?.latitude ?? ""}
+                                  onChange={(event) =>
+                                    setManualCheckpointInputs((current) => ({
+                                      ...current,
+                                      [checkpoint.key]: {
+                                        latitude: event.target.value,
+                                        longitude:
+                                          current[checkpoint.key]?.longitude ?? "",
+                                      },
+                                    }))
+                                  }
+                                />
+                                <Input
+                                  className="border-white/10 bg-white/5 text-white placeholder:text-white/26"
+                                  inputMode="decimal"
+                                  placeholder="Longitude"
+                                  type="text"
+                                  value={manualCheckpointInputs[checkpoint.key]?.longitude ?? ""}
+                                  onChange={(event) =>
+                                    setManualCheckpointInputs((current) => ({
+                                      ...current,
+                                      [checkpoint.key]: {
+                                        latitude:
+                                          current[checkpoint.key]?.latitude ?? "",
+                                        longitude: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                />
+                              </div>
+                              {targetLocation ? (
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                  <div className="rounded-[18px] border border-white/8 bg-black/10 px-3 py-3">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/44">
+                                      Checkpoint target
+                                    </p>
+                                    <p className="mt-2 font-mono text-xs text-white/76">
+                                      {formatCoordinate(targetLocation.latitude)},{" "}
+                                      {formatCoordinate(targetLocation.longitude)}
+                                    </p>
+                                    <p className="mt-2 text-xs text-white/56">
+                                      Acceptance radius: {Math.round(targetLocation.radiusMeters)}m
+                                    </p>
+                                  </div>
+                                  <div className="rounded-[18px] border border-white/8 bg-black/10 px-3 py-3">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/44">
+                                      Actual check-in
+                                    </p>
+                                    {checkpoint.latest_checkin?.latitude != null &&
+                                    checkpoint.latest_checkin.longitude != null ? (
+                                      <>
+                                        <p className="mt-2 font-mono text-xs text-white/76">
+                                          {formatCoordinate(checkpoint.latest_checkin.latitude)},{" "}
+                                          {formatCoordinate(checkpoint.latest_checkin.longitude)}
+                                        </p>
+                                        <p className="mt-2 text-xs text-white/56">
+                                          Distance from target:{" "}
+                                          {latestSubmittedDistance !== null
+                                            ? `${Math.round(latestSubmittedDistance)}m`
+                                            : "Unknown"}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <p className="mt-2 text-xs text-white/56">
+                                        No submitted checkpoint coordinates yet.
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="rounded-[18px] border border-white/8 bg-black/10 px-3 py-3 sm:col-span-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/44">
+                                      Manual test preview
+                                    </p>
+                                    {hasValidManualPreview ? (
+                                      <>
+                                        <p className="mt-2 font-mono text-xs text-white/76">
+                                          {formatCoordinate(manualLatitude)}, {formatCoordinate(manualLongitude)}
+                                        </p>
+                                        <p className="mt-2 text-xs text-white/56">
+                                          Distance from target:{" "}
+                                          {manualPreviewDistance !== null
+                                            ? `${Math.round(manualPreviewDistance)}m`
+                                            : "Unknown"}
+                                          {" · "}
+                                          {manualPreviewDistance !== null &&
+                                          manualPreviewDistance <= targetLocation.radiusMeters
+                                            ? "Would pass"
+                                            : "Would fail"}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <p className="mt-2 text-xs text-white/56">
+                                        Enter a latitude and longitude above to preview whether the
+                                        test check-in is inside the allowed radius.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           ) : null}
                           <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
