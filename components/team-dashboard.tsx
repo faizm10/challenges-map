@@ -1918,6 +1918,9 @@ export function TeamDashboard() {
                   You cannot cheat on the challenges or submit random check-ins. Adelynn will be
                   reviewing and approving them.
                 </p>
+                <p className="mt-3 text-sm font-bold leading-7 text-orange-400 [text-shadow:0_0_12px_theme(colors.orange.400/0.5)]">
+                  James is the one who created this so YOU CANNOT LOSE AT ALL. LOCK IN CLUCK IN 🔒
+                </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

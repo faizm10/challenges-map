@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   ChevronDown,
@@ -129,6 +129,17 @@ function challengeKindLabel(challenge: TeamChallengeStatus | AdminGameResponse["
   return "Checkpoint";
 }
 
+const CHECKIN_MESSAGES = [
+  { title: "hey adelynn 👋", description: "it's faiz — just checking in on you" },
+  { title: "yo adelynn!", description: "faiz here, checking in real quick" },
+  { title: "adelynn, hey!", description: "faiz stopping by — just checking in" },
+  { title: "checking in 🫡", description: "adelynn — faiz here, you good?" },
+  { title: "hey! it's faiz 👀", description: "just checking in on you, adelynn" },
+  { title: "adelynn!", description: "faiz dropping by to check in — all good?" },
+  { title: "yo! faiz here 🤙", description: "checking in on adelynn, as promised" },
+  { title: "hey adelynn 🙌", description: "faiz popping in to check in on you" },
+];
+
 export function AdminDashboard() {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
   const [adminName, setAdminName] = useState("");
@@ -139,6 +150,26 @@ export function AdminDashboard() {
   const [activeRecentCheckinId, setActiveRecentCheckinId] = useState<number | null>(null);
   const [activeProofIndex, setActiveProofIndex] = useState(0);
   const { toast } = useToast();
+  const lastCheckInSlotRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const now = new Date();
+      const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+      const et = new Date(etStr);
+      const h = et.getHours();
+      const m = et.getMinutes();
+      if (h < 11 || (h === 11 && m < 26)) return;
+      const minutesSince = (h - 11) * 60 + (m - 24);
+      if (minutesSince % 15 !== 0) return;
+      const slotKey = h * 60 + m;
+      if (lastCheckInSlotRef.current === slotKey) return;
+      lastCheckInSlotRef.current = slotKey;
+      const msg = CHECKIN_MESSAGES[(minutesSince / 15) % CHECKIN_MESSAGES.length];
+      toast({ title: msg.title, description: msg.description, variant: "success", persistent: true });
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [toast]);
 
   const loadGame = async () => {
     const next = await api<AdminGameResponse>("/api/admin/game");
