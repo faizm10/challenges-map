@@ -1921,6 +1921,9 @@ export function TeamDashboard() {
                 <p className="mt-3 text-sm font-bold leading-7 text-orange-400 [text-shadow:0_0_12px_theme(colors.orange.400/0.5)]">
                   James is the one who created this so YOU CANNOT LOSE AT ALL. LOCK IN CLUCK IN 🔒
                 </p>
+                <p className="mt-3 rounded-[12px] bg-yellow-400/10 px-3 py-2 text-sm font-bold leading-7 text-yellow-300 ring-1 ring-yellow-400/30 [text-shadow:0_0_14px_theme(colors.yellow.300/0.5)]">
+                  🎥 YOU HAVE TO RECORD POV OF DOING THE CHALLENGE FOR THE ENTIRE DURATION
+                </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
