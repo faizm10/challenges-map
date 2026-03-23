@@ -18,8 +18,8 @@ import {
 import { useEffect, useState } from "react";
 
 import { AnimatedCityMap } from "@/components/animated-city-map";
+import { ComingSoonWaitlistForm } from "@/components/coming-soon-waitlist-form";
 import { CountdownTimer } from "@/components/countdown-timer";
-import { CreateRaceModal } from "@/components/create-race-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -123,7 +123,6 @@ function SectionReveal({
 
 export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
   const [data, setData] = useState(initialData);
-  const [isCreateRaceOpen, setIsCreateRaceOpen] = useState(false);
 
   useEffect(() => {
     const poll = window.setInterval(async () => {
@@ -152,8 +151,8 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
 
       <header className="sticky top-0 z-50 border-b border-white/8 bg-[#090809]/72 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-6">
-          <Link className="flex items-center gap-3" href="/">
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-4 md:grid-cols-[1fr_auto_1fr] md:items-center md:px-6">
+          <Link className="flex items-center gap-3 md:justify-self-start" href="/">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/95 font-serif text-xl text-black shadow-[0_0_30px_rgba(249,115,22,0.24)]">
               U
             </span>
@@ -180,35 +179,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             </a>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <Button
-              asChild
-              className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex"
-              variant="secondary"
-            >
-              <Link href="/leaderboard">Leaderboard</Link>
-            </Button>
-            <Button
-              asChild
-              className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex"
-              variant="secondary"
-            >
-              <Link href="/map">Map</Link>
-            </Button>
-            <Button
-              asChild
-              className="hidden rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 md:inline-flex"
-              variant="secondary"
-            >
-              <Link href="/team">Team Login</Link>
-            </Button>
-            {/* <Button
-              className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
-              onClick={() => setIsCreateRaceOpen(true)}
-            >
-              Start Converge
-            </Button> */}
-          </div>
+          <div className="hidden md:block" aria-hidden />
         </div>
       </header>
 
@@ -244,24 +215,9 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
             >
               <Button
                 asChild
-                className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
-                variant="secondary"
+                className="h-12 rounded-full bg-orange-500 px-8 text-sm font-semibold text-black hover:bg-orange-400"
               >
-                <Link href="/leaderboard">Open leaderboard</Link>
-              </Button>
-              <Button
-                asChild
-                className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
-                variant="secondary"
-              >
-                <Link href="/team">Team login</Link>
-              </Button>
-              <Button
-                asChild
-                className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
-                variant="secondary"
-              >
-                <Link href="/map">Open map</Link>
+                <a href="#waitlist">Join waitlist</a>
               </Button>
             </motion.div>
 
@@ -394,6 +350,22 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
       </section>
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-24 px-4 pb-24 md:px-6">
+        <SectionReveal id="waitlist" className="scroll-mt-28">
+          <Card className="border-white/10 bg-white/[0.045] p-8 backdrop-blur-md md:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
+              Early access
+            </p>
+            <h2 className="mt-3 font-serif text-3xl font-medium tracking-tight text-white sm:text-4xl">
+              Join the waitlist
+            </h2>
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/58">
+              Be first to know when Converge opens to the public — we&apos;ll email you when the live
+              experience goes wide.
+            </p>
+            <ComingSoonWaitlistForm />
+          </Card>
+        </SectionReveal>
+
         <SectionReveal id="how-it-works" className="scroll-mt-28">
           <div className="mb-8 max-w-3xl">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
@@ -520,32 +492,20 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
               Build a night people will talk about the whole ride home.
             </h2>
             <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/58">
-              Launch your own Converge with live HQ prompts, team routes, social
-              challenge drops, and a finish at Union that feels earned.
+              We&apos;re opening the full experience soon. Join the waitlist and we&apos;ll email you
+              when Converge goes public.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Button
-                className="h-12 rounded-full bg-orange-500 px-6 text-sm font-semibold text-black hover:bg-orange-400"
-                onClick={() => setIsCreateRaceOpen(true)}
-              >
-                Start Converge
-              </Button>
-              <Button
                 asChild
-                className="h-12 rounded-full border-white/10 bg-white/5 px-6 text-white hover:bg-white/10"
-                variant="secondary"
+                className="h-12 rounded-full bg-orange-500 px-8 text-sm font-semibold text-black hover:bg-orange-400"
               >
-                <Link href="/admin">Open HQ Dashboard</Link>
+                <a href="#waitlist">Join waitlist</a>
               </Button>
             </div>
           </div>
         </SectionReveal>
       </div>
-
-      <CreateRaceModal
-        open={isCreateRaceOpen}
-        onOpenChange={setIsCreateRaceOpen}
-      />
     </main>
   );
 }

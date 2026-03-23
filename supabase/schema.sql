@@ -128,6 +128,15 @@ create index if not exists idx_challenge_media_team_challenge
 create index if not exists idx_team_checkins_team_created
   on public.team_checkins(team_id, created_at desc);
 
+create table if not exists public.waitlist_signups (
+  id bigint generated always as identity primary key,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists waitlist_signups_email_lower_idx
+  on public.waitlist_signups (lower(email));
+
 insert into storage.buckets (id, name, public)
 values ('challenge-proof', 'challenge-proof', false)
 on conflict (id) do update set public = excluded.public;
@@ -176,3 +185,4 @@ alter table public.team_challenge_checkpoints enable row level security;
 alter table public.challenge_media enable row level security;
 alter table public.team_checkins enable row level security;
 alter table public.team_scores enable row level security;
+alter table public.waitlist_signups enable row level security;
