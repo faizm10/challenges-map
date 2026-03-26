@@ -6,6 +6,7 @@ import { ArrowLeft, Signal } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { PUBLIC_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import type { PublicLeaderboardResponse } from "@/lib/types";
 
 function formatOrdinal(rank: number) {
@@ -23,14 +24,12 @@ export function LivePodiumLeaderboard({
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
-    const poll = window.setInterval(async () => {
+    return subscribeWhileVisible(async () => {
       const response = await fetch("/api/public/leaderboard", { cache: "no-store" });
       if (!response.ok) return;
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
-    }, 5000);
-
-    return () => window.clearInterval(poll);
+    }, PUBLIC_POLL_MS);
   }, []);
 
   return (

@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
+import { DASHBOARD_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS, MAX_CHALLENGES, UNION_STATION } from "@/lib/config";
 import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
@@ -190,10 +191,9 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (!game) return;
-    const poll = window.setInterval(() => {
+    return subscribeWhileVisible(() => {
       loadGame().catch(() => undefined);
-    }, 5000);
-    return () => window.clearInterval(poll);
+    }, DASHBOARD_POLL_MS);
   }, [game]);
 
   const activeRecentCheckin =
@@ -1200,6 +1200,8 @@ export function AdminDashboard() {
                           <video
                             className="h-[240px] w-full bg-black object-contain sm:h-[360px]"
                             controls
+                            playsInline
+                            preload="none"
                             src={activeRecentCheckin.uploads[activeProofIndex]?.signed_url}
                           />
                         ) : (
@@ -1207,6 +1209,7 @@ export function AdminDashboard() {
                           <img
                             alt={activeRecentCheckin.uploads[activeProofIndex]?.file_name ?? "Proof upload"}
                             className="h-[240px] w-full object-cover sm:h-[360px]"
+                            decoding="async"
                             src={activeRecentCheckin.uploads[activeProofIndex]?.signed_url}
                           />
                         )}
@@ -1677,6 +1680,8 @@ export function AdminDashboard() {
                                       <img
                                         alt={upload.file_name}
                                         className="h-full w-full object-cover transition hover:opacity-80"
+                                        decoding="async"
+                                        loading="lazy"
                                         src={upload.signed_url}
                                       />
                                     </button>
@@ -1684,7 +1689,8 @@ export function AdminDashboard() {
                                     <video
                                       className="h-full w-full object-cover"
                                       controls
-                                      preload="metadata"
+                                      playsInline
+                                      preload="none"
                                       src={upload.signed_url}
                                     />
                                   )}

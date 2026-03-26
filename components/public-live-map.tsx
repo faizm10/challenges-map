@@ -13,6 +13,7 @@ import {
   MarkerPopup,
   useMap,
 } from "@/components/ui/map";
+import { PUBLIC_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import type { PublicMapResponse } from "@/lib/types";
 
 type PublicLiveMapProps = {
@@ -115,11 +116,13 @@ export function PublicLiveMap({ initialData }: PublicLiveMapProps) {
       }
     };
 
-    const interval = window.setInterval(load, 5000);
+    const unsubscribe = subscribeWhileVisible(() => {
+      void load();
+    }, PUBLIC_POLL_MS);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      unsubscribe();
     };
   }, []);
 

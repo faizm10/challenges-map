@@ -23,6 +23,7 @@ import { CountdownTimer } from "@/components/countdown-timer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PUBLIC_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import type { PublicLeaderboardResponse, TeamSeed } from "@/lib/types";
 
 type LandingPageProps = {
@@ -125,16 +126,14 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
-    const poll = window.setInterval(async () => {
+    return subscribeWhileVisible(async () => {
       const response = await fetch("/api/public/leaderboard", {
         cache: "no-store",
       });
       if (!response.ok) return;
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
-    }, 5000);
-
-    return () => window.clearInterval(poll);
+    }, PUBLIC_POLL_MS);
   }, []);
 
   const animatedTeams = mapTeams.map((team, index) => ({

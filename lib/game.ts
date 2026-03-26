@@ -645,12 +645,27 @@ function buildAdminTeamRoute(team: Team, checkins: TeamCheckin[], challenges: Ch
   };
 }
 
+/** Dashboards poll every few seconds; reuse signed URLs until near expiry to avoid hammering Storage. */
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
 async function signUploadUrl(upload: ChallengeUpload) {
+  const cacheKey = `${upload.bucket_name}\0${upload.storage_path}`;
+  const now = Date.now();
+  const cached = signedUrlCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return { ...upload, signed_url: cached.url };
+  }
+
   const { data, error } = await supabase.storage
     .from(upload.bucket_name)
     .createSignedUrl(upload.storage_path, 60 * 60);
 
   if (error) throw error;
+
+  signedUrlCache.set(cacheKey, {
+    url: data.signedUrl,
+    expiresAt: now + 50 * 60 * 1000,
+  });
 
   return {
     ...upload,

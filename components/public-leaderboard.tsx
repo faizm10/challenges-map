@@ -8,6 +8,7 @@ import { RaceMap } from "@/components/race-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PUBLIC_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import type { PublicLeaderboardResponse, TeamSeed } from "@/lib/types";
 
 type PublicLeaderboardProps = {
@@ -21,14 +22,12 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
-    const poll = window.setInterval(async () => {
+    return subscribeWhileVisible(async () => {
       const response = await fetch("/api/public/leaderboard", { cache: "no-store" });
       if (!response.ok) return;
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
-    }, 5000);
-
-    return () => window.clearInterval(poll);
+    }, PUBLIC_POLL_MS);
   }, []);
 
   return (

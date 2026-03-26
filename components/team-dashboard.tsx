@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toaster";
+import { DASHBOARD_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import { MAX_CHALLENGES } from "@/lib/config";
 import type { TeamChallengeStatus, TeamCheckpoint, TeamDashboardResponse } from "@/lib/types";
 
@@ -336,10 +337,9 @@ export function TeamDashboard() {
 
   useEffect(() => {
     if (!dashboard) return;
-    const poll = window.setInterval(() => {
+    return subscribeWhileVisible(() => {
       loadDashboard().catch(() => undefined);
-    }, 5000);
-    return () => window.clearInterval(poll);
+    }, DASHBOARD_POLL_MS);
   }, [dashboard]);
 
   useEffect(() => {
@@ -1757,13 +1757,16 @@ export function TeamDashboard() {
                                   <img
                                     alt={upload.file_name}
                                     className="h-full w-full object-cover"
+                                    decoding="async"
+                                    loading="lazy"
                                     src={upload.signed_url}
                                   />
                                 ) : (
                                   <video
                                     className="h-full w-full object-cover"
                                     controls
-                                    preload="metadata"
+                                    playsInline
+                                    preload="none"
                                     src={upload.signed_url}
                                   />
                                 )}
