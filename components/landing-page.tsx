@@ -31,6 +31,8 @@ type LandingPageProps = {
   mapTeams: Array<
     Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color">
   >;
+  /** When false, keeps `initialData` only (e.g. static marketing mock; no `/api/public/leaderboard` polling). */
+  useLiveLeaderboardPoll?: boolean;
 };
 
 const steps = [
@@ -122,10 +124,15 @@ function SectionReveal({
   );
 }
 
-export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
+export function LandingPage({
+  initialData,
+  mapTeams,
+  useLiveLeaderboardPoll = true,
+}: LandingPageProps) {
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
+    if (!useLiveLeaderboardPoll) return;
     return subscribeWhileVisible(async () => {
       const response = await fetch("/api/public/leaderboard", {
         cache: "no-store",
@@ -134,7 +141,7 @@ export function LandingPage({ initialData, mapTeams }: LandingPageProps) {
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
     }, PUBLIC_POLL_MS);
-  }, []);
+  }, [useLiveLeaderboardPoll]);
 
   const animatedTeams = mapTeams.map((team, index) => ({
     ...team,
