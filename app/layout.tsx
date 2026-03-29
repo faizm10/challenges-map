@@ -1,23 +1,28 @@
 import type { Metadata } from "next";
-import { Fraunces, Press_Start_2P, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 
 import "@/app/globals.css";
 import { ToasterProvider } from "@/components/ui/toaster";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-});
-
-const pressStart2P = Press_Start_2P({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-pixel",
+const departureMono = localFont({
+  src: [
+    {
+      path: "../public/fonts/DepartureMono-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/DepartureMono-Regular.woff",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/DepartureMono-Regular.otf",
+      weight: "400",
+      style: "normal",
+    },
+  ],
+  variable: "--font-departure-mono",
 });
 
 export const metadata: Metadata = {
@@ -61,7 +66,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${fraunces.variable} ${pressStart2P.variable} font-sans antialiased`}>
+      <body className={`${departureMono.variable} font-sans antialiased`}>
         <ToasterProvider>{children}</ToasterProvider>
       </body>
     </html>

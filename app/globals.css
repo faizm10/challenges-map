@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-space-grotesk);
-  --font-serif: var(--font-fraunces);
-  --font-pixel: var(--font-pixel);
+  --font-sans: var(--font-departure-mono);
+  --font-serif: var(--font-departure-mono);
+  --font-pixel: var(--font-departure-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -33,28 +33,28 @@
 }
 
 :root {
-  --background: #e0f8cf;
-  --foreground: #0f380f;
+  --background: #090809;
+  --foreground: #e6d5b8;
 
-  --card: #c4e8a2;
-  --card-foreground: #0f380f;
-  --popover: #d2f0b8;
-  --popover-foreground: #0f380f;
+  --card: #151213;
+  --card-foreground: #e6d5b8;
+  --popover: #1c1719;
+  --popover-foreground: #e6d5b8;
 
-  --primary: #306230;
-  --primary-foreground: #e0f8cf;
+  --primary: #2a2321;
+  --primary-foreground: #f2e5cf;
 
-  --secondary: #8bac0f;
-  --secondary-foreground: #0f380f;
-  --accent: #9bbc0f;
-  --accent-foreground: #0f380f;
+  --secondary: #d6b17a;
+  --secondary-foreground: #1b1513;
+  --accent: #b88d5d;
+  --accent-foreground: #1b1513;
 
-  --muted: #b8d88a;
-  --muted-foreground: #306230;
+  --muted: #2b2422;
+  --muted-foreground: #c8b79d;
 
-  --border: #306230;
-  --input: #306230;
-  --ring: #0f380f;
+  --border: #6f5e4f;
+  --input: #6f5e4f;
+  --ring: #e6d5b8;
   --radius: 0px;
 }
 
@@ -64,7 +64,7 @@
 
 body {
   @apply bg-background text-foreground min-h-screen;
-  background-color: #e0f8cf;
+  background-color: #090809;
   image-rendering: pixelated;
 }
 
@@ -74,13 +74,11 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 3px,
-    rgba(15, 56, 15, 0.03) 3px,
-    rgba(15, 56, 15, 0.03) 4px
-  );
+  background-image: repeating-linear-gradient(0deg,
+      transparent,
+      transparent 3px,
+      rgba(15, 56, 15, 0.03) 3px,
+      rgba(15, 56, 15, 0.03) 4px);
   z-index: 9999;
 }
 
@@ -109,9 +107,10 @@ html {
 
 @layer base {
   .maplibregl-popup-content {
-    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+    @apply bg-transparent ! shadow-none ! p-0 ! rounded-none !;
   }
+
   .maplibregl-popup-tip {
-    @apply hidden!;
+    @apply hidden !;
   }
 }
