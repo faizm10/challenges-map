@@ -1,188 +1,117 @@
-create table if not exists public.teams (
-  id bigint primary key,
-  team_name text not null unique,
-  start_location_name text not null,
-  address text not null,
-  route_summary text not null,
-  walk_time text not null,
-  color text not null,
-  badge_label text not null
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.access_credentials (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['admin'::text, 'team'::text])),
+  display_name text NOT NULL,
+  pin text NOT NULL,
+  team_id bigint,
+  CONSTRAINT access_credentials_pkey PRIMARY KEY (id),
+  CONSTRAINT access_credentials_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
-
-create table if not exists public.access_credentials (
-  id bigint generated always as identity primary key,
-  role text not null check (role in ('admin', 'team')),
-  display_name text not null,
-  pin text not null,
-  team_id bigint references public.teams(id) on delete cascade,
-  unique (role, display_name)
+CREATE TABLE public.challenge_media (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  team_id bigint NOT NULL,
+  challenge_id bigint NOT NULL,
+  bucket_name text NOT NULL,
+  storage_path text NOT NULL UNIQUE,
+  public_url text NOT NULL,
+  media_type text NOT NULL CHECK (media_type = ANY (ARRAY['image'::text, 'video'::text])),
+  file_name text NOT NULL,
+  mime_type text NOT NULL,
+  file_size_bytes bigint NOT NULL,
+  uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT challenge_media_pkey PRIMARY KEY (id),
+  CONSTRAINT challenge_media_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT challenge_media_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
 );
-
-create table if not exists public.challenges (
-  id bigint primary key,
-  challenge_order integer not null unique,
-  title text not null,
-  text text not null,
-  expected_location text not null default '',
-  allow_media_upload boolean not null default true,
-  timer_started_at timestamptz,
-  is_released boolean not null default false
+CREATE TABLE public.challenges (
+  id bigint NOT NULL,
+  challenge_order integer NOT NULL UNIQUE,
+  title text NOT NULL,
+  text text NOT NULL,
+  expected_location text NOT NULL DEFAULT ''::text,
+  allow_media_upload boolean NOT NULL DEFAULT true,
+  is_released boolean NOT NULL DEFAULT false,
+  timer_started_at timestamp with time zone,
+  CONSTRAINT challenges_pkey PRIMARY KEY (id)
 );
-
-alter table public.challenges
-  add column if not exists expected_location text not null default '';
-
-alter table public.challenges
-  add column if not exists allow_media_upload boolean not null default true;
-
-alter table public.challenges
-  add column if not exists timer_started_at timestamptz;
-
-create table if not exists public.team_challenge_status (
-  team_id bigint not null references public.teams(id) on delete cascade,
-  challenge_id bigint not null references public.challenges(id) on delete cascade,
-  status text not null default 'not_started' check (status in ('not_started', 'submitted')),
-  proof_note text not null default '',
-  awarded_points integer not null default 0,
-  submitted_at timestamptz,
-  review_status text not null default 'pending' check (review_status in ('pending', 'verified', 'rejected')),
-  review_note text not null default '',
-  reviewed_at timestamptz,
-  reviewed_by text,
-  primary key (team_id, challenge_id)
-);
-
-alter table public.team_challenge_status
-  add column if not exists awarded_points integer not null default 0;
-
-create table if not exists public.team_challenge_prompts (
-  team_id bigint not null references public.teams(id) on delete cascade,
-  challenge_id bigint not null references public.challenges(id) on delete cascade,
-  prompt_text text not null default '',
-  primary key (team_id, challenge_id)
-);
-
-create table if not exists public.team_challenge_checkpoints (
-  team_id bigint not null references public.teams(id) on delete cascade,
-  challenge_id bigint not null references public.challenges(id) on delete cascade,
-  checkpoint_label text not null,
-  checkpoint_address text not null,
+CREATE TABLE public.team_challenge_checkpoints (
+  team_id bigint NOT NULL,
+  challenge_id bigint NOT NULL,
+  checkpoint_label text NOT NULL,
+  checkpoint_address text NOT NULL,
   latitude double precision,
   longitude double precision,
-  unlock_radius_meters integer not null default 150,
-  primary key (team_id, challenge_id)
+  unlock_radius_meters integer NOT NULL DEFAULT 150,
+  CONSTRAINT team_challenge_checkpoints_pkey PRIMARY KEY (team_id, challenge_id),
+  CONSTRAINT team_challenge_checkpoints_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_challenge_checkpoints_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
 );
-
-create table if not exists public.challenge_media (
-  id bigint generated always as identity primary key,
-  team_id bigint not null references public.teams(id) on delete cascade,
-  challenge_id bigint not null references public.challenges(id) on delete cascade,
-  bucket_name text not null,
-  storage_path text not null unique,
-  public_url text not null,
-  media_type text not null check (media_type in ('image', 'video')),
-  file_name text not null,
-  mime_type text not null,
-  file_size_bytes bigint not null,
-  uploaded_at timestamptz not null default now()
+CREATE TABLE public.team_challenge_prompts (
+  team_id bigint NOT NULL,
+  challenge_id bigint NOT NULL,
+  prompt_text text NOT NULL DEFAULT ''::text,
+  CONSTRAINT team_challenge_prompts_pkey PRIMARY KEY (team_id, challenge_id),
+  CONSTRAINT team_challenge_prompts_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_challenge_prompts_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
 );
-
-create table if not exists public.team_checkins (
-  id bigint generated always as identity primary key,
-  team_id bigint not null references public.teams(id) on delete cascade,
-  checkin_type text not null check (checkin_type in ('start', 'challenge', 'finish')),
-  challenge_id bigint references public.challenges(id) on delete cascade,
-  status text not null default 'pending' check (status in ('pending', 'verified', 'rejected')),
-  checkin_note text not null default '',
+CREATE TABLE public.team_challenge_status (
+  team_id bigint NOT NULL,
+  challenge_id bigint NOT NULL,
+  status text NOT NULL DEFAULT 'not_started'::text CHECK (status = ANY (ARRAY['not_started'::text, 'submitted'::text])),
+  proof_note text NOT NULL DEFAULT ''::text,
+  submitted_at timestamp with time zone,
+  review_status text NOT NULL DEFAULT 'pending'::text CHECK (review_status = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text])),
+  review_note text NOT NULL DEFAULT ''::text,
+  reviewed_at timestamp with time zone,
+  reviewed_by text,
+  awarded_points integer NOT NULL DEFAULT 0,
+  CONSTRAINT team_challenge_status_pkey PRIMARY KEY (team_id, challenge_id),
+  CONSTRAINT team_challenge_status_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_challenge_status_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+);
+CREATE TABLE public.team_checkins (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  team_id bigint NOT NULL,
+  checkin_type text NOT NULL CHECK (checkin_type = ANY (ARRAY['start'::text, 'challenge'::text, 'finish'::text])),
+  challenge_id bigint,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text])),
+  checkin_note text NOT NULL DEFAULT ''::text,
   latitude double precision,
   longitude double precision,
   accuracy_meters double precision,
-  gps_captured_at timestamptz,
-  created_at timestamptz not null default now(),
-  review_note text not null default '',
-  reviewed_at timestamptz,
-  reviewed_by text
+  gps_captured_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  review_note text NOT NULL DEFAULT ''::text,
+  reviewed_at timestamp with time zone,
+  reviewed_by text,
+  CONSTRAINT team_checkins_pkey PRIMARY KEY (id),
+  CONSTRAINT team_checkins_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_checkins_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
 );
-
-create table if not exists public.team_scores (
-  team_id bigint primary key references public.teams(id) on delete cascade,
+CREATE TABLE public.team_scores (
+  team_id bigint NOT NULL,
   arrival_rank integer,
-  creativity_score integer not null default 0
+  creativity_score integer NOT NULL DEFAULT 0,
+  CONSTRAINT team_scores_pkey PRIMARY KEY (team_id),
+  CONSTRAINT team_scores_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
-
-create index if not exists idx_access_credentials_role_name
-  on public.access_credentials(role, display_name);
-
-create index if not exists idx_team_challenge_status_team
-  on public.team_challenge_status(team_id);
-
-create index if not exists idx_team_challenge_prompts_team
-  on public.team_challenge_prompts(team_id);
-
-create index if not exists idx_team_challenge_checkpoints_team
-  on public.team_challenge_checkpoints(team_id);
-
-create index if not exists idx_challenge_media_team_challenge
-  on public.challenge_media(team_id, challenge_id);
-
-create index if not exists idx_team_checkins_team_created
-  on public.team_checkins(team_id, created_at desc);
-
-create table if not exists public.waitlist_signups (
-  id bigint generated always as identity primary key,
-  email text not null,
-  created_at timestamptz not null default now()
+CREATE TABLE public.teams (
+  id bigint NOT NULL,
+  team_name text NOT NULL UNIQUE,
+  start_location_name text NOT NULL,
+  address text NOT NULL,
+  route_summary text NOT NULL,
+  walk_time text NOT NULL,
+  color text NOT NULL,
+  badge_label text NOT NULL,
+  CONSTRAINT teams_pkey PRIMARY KEY (id)
 );
-
-create unique index if not exists waitlist_signups_email_lower_idx
-  on public.waitlist_signups (lower(email));
-
-insert into storage.buckets (id, name, public)
-values ('challenge-proof', 'challenge-proof', false)
-on conflict (id) do update set public = excluded.public;
-
-truncate table
-  public.access_credentials,
-  public.team_checkins,
-  public.challenge_media,
-  public.team_challenge_prompts,
-  public.team_challenge_checkpoints,
-  public.team_challenge_status,
-  public.team_scores,
-  public.challenges,
-  public.teams
-restart identity cascade;
-
-insert into public.teams
-  (id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label)
-values
-  (1, 'Team Izzy', 'Wellesley-Magill Park', '125 Homewood Ave, Toronto, ON M4Y 1J2', 'Start at Wellesley-Magill Park, head south to Allan Gardens, continue to Moss Park, then make your way to Union Station.', '35-45 min', '#d85f3a', 'Streetcar Spark'),
-  (2, 'Team Faiz', 'John P. Robarts Research Library', '130 St George St, Toronto, ON M5S 1A5', 'Start at Robarts Library, move southeast to the Queen Victoria Statue at Osgoode Hall, continue through the Gardens of Osgoode Hall, then head to Union Station.', '40-50 min', '#2c7a7b', 'Stacks Sprint'),
-  (3, 'Team James', 'Coronation Park', '711 Lake Shore Blvd W, Toronto, ON M5V 1A7', 'Start at Coronation Park, head east to the Toronto Music Garden, continue to Roundhouse Park, then finish at Union Station.', '30-40 min', '#2563eb', 'Harbour Heat'),
-  (4, 'Team Naman', 'Regent Park', '620 Dundas St E, Toronto, ON M5A 2B7', 'Start in Regent Park, move south to Sackville Playground, continue to St. Lawrence Market, then head west to Union Station.', '40-50 min', '#8b5cf6', 'East End Echo');
-
-insert into public.access_credentials (role, display_name, pin, team_id)
-values
-  ('admin', 'HQ Admin', 'UNIONHQ2026', null),
-  ('team', 'Team Izzy', 'Izzy1231', 1),
-  ('team', 'Team Faiz', 'Faiz671', 2),
-  ('team', 'Team James', 'James1011', 3),
-  ('team', 'Team Naman', 'Naman2011', 4);
-
-insert into public.team_scores (team_id, arrival_rank, creativity_score)
-values
-  (1, null, 0),
-  (2, null, 0),
-  (3, null, 0),
-  (4, null, 0);
-
-alter table public.teams enable row level security;
-alter table public.access_credentials enable row level security;
-alter table public.challenges enable row level security;
-alter table public.team_challenge_status enable row level security;
-alter table public.team_challenge_prompts enable row level security;
-alter table public.team_challenge_checkpoints enable row level security;
-alter table public.challenge_media enable row level security;
-alter table public.team_checkins enable row level security;
-alter table public.team_scores enable row level security;
-alter table public.waitlist_signups enable row level security;
+CREATE TABLE public.waitlist_signups (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  email text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT waitlist_signups_pkey PRIMARY KEY (id)
+);
