@@ -18,8 +18,13 @@ export async function PATCH(
     | null;
 
   try {
-    await updateTeamCredentials(Number(teamId), body?.teamName ?? "", body?.pin ?? "");
-    return NextResponse.json({ ok: true, game: await getAdminGame() });
+    await updateTeamCredentials(
+      session.gameId,
+      Number(teamId),
+      body?.teamName ?? "",
+      body?.pin ?? ""
+    );
+    return NextResponse.json({ ok: true, game: await getAdminGame(session.gameId) });
   } catch (error) {
     if (isGameError(error)) {
       return NextResponse.json({ error: error.message }, { status: error.status });

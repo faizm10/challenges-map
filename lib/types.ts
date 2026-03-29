@@ -1,4 +1,5 @@
-export type SessionRole = "admin" | "team";
+/** Values used in the session cookie; see `SessionPayload` in `lib/session.ts`. */
+export type SessionRole = "admin" | "team" | "organizer";
 
 export type TeamSeed = {
   id: number;

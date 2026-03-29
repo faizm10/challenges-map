@@ -9,7 +9,9 @@ export async function GET() {
     return NextResponse.json({ error: "Team access required." }, { status: 401 });
   }
 
-  return NextResponse.json({ checkins: await getTeamCheckins(session.teamId) });
+  return NextResponse.json({
+    checkins: await getTeamCheckins(session.gameId, session.teamId),
+  });
 }
 
 export async function POST(request: Request) {
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await createTeamCheckin({
+    await createTeamCheckin(session.gameId, {
       teamId: session.teamId,
       checkinType: body.checkinType,
       challengeId: body.challengeId ?? null,
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      dashboard: await getTeamDashboard(session.teamId),
+      dashboard: await getTeamDashboard(session.gameId, session.teamId),
     });
   } catch (error) {
     if (isGameError(error)) {

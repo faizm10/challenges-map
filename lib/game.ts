@@ -1,5 +1,6 @@
 import {
   ACTIVE_TEAM_IDS,
+  LOCAL_FALLBACK_GAME_ID,
   MAX_CHALLENGES,
   CHALLENGE_PROOF_BUCKET,
   CHALLENGE_SUBMISSION_RANK_POINTS,
@@ -9,7 +10,9 @@ import {
   TEAM_SEED,
   UNION_STATION,
 } from "@/lib/config";
+import { GameError, isGameError } from "@/lib/game-error";
 import { isSupabaseUnavailable } from "@/lib/data-source";
+import { EVENT_SLUG_PATTERN } from "@/lib/event-slug";
 import {
   createLocalChallenge,
   createLocalCheckin,
@@ -21,6 +24,7 @@ import {
   getLocalLeaderboard,
   getLocalRecentCheckins,
   getLocalTeamDashboard,
+  getLocalTeamsForGameId,
   isLocalChallengeReleased,
   releaseAllLocalChallenges,
   resetLocalState,
@@ -36,11 +40,7 @@ import {
   updateLocalTeamCredentials,
   updateLocalTeamScore,
 } from "@/lib/local-store";
-import {
-  ACCESS_SEED,
-  TEAM_ROWS,
-  TEAM_SCORE_ROWS,
-} from "@/lib/seed";
+import { TEAM_ROWS } from "@/lib/seed";
 import { supabase } from "@/lib/supabase";
 import type {
   AdminCheckinFeedItem,
@@ -62,15 +62,12 @@ import type {
   TeamScore,
 } from "@/lib/types";
 
-class GameError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = "GameError";
-    this.status = status;
-  }
-}
+export type GameRow = {
+  id: number;
+  slug: string;
+  name: string;
+  finish_point_label: string | null;
+};
 
 type StatusRow = {
   team_id: number;
@@ -91,10 +88,288 @@ type CheckinRow = TeamCheckin;
 type ChallengeCheckpointRow = TeamChallengeCheckpoint;
 type ChallengePromptRow = TeamChallengePrompt;
 
-const ACTIVE_TEAM_ID_SET = new Set(ACTIVE_TEAM_IDS);
+async function getTeamIdsForGame(gameId: number): Promise<number[]> {
+  try {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("id")
+      .eq("game_id", gameId)
+      .order("id", { ascending: true });
 
-function isActiveTeamId(teamId: number) {
-  return ACTIVE_TEAM_ID_SET.has(teamId);
+    if (error) throw error;
+    return ((data ?? []) as Array<{ id: number }>).map((row) => Number(row.id));
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      return gameId === LOCAL_FALLBACK_GAME_ID ? [...ACTIVE_TEAM_IDS] : [];
+    }
+    throw error;
+  }
+}
+
+async function teamBelongsToGame(gameId: number, teamId: number): Promise<boolean> {
+  const ids = await getTeamIdsForGame(gameId);
+  return ids.includes(teamId);
+}
+
+async function fetchTeamsForGame(gameId: number): Promise<Team[]> {
+  try {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label")
+      .eq("game_id", gameId)
+      .order("id", { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []) as Team[];
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
+      return TEAM_ROWS.map((t) => ({ ...t }));
+    }
+    throw error;
+  }
+}
+
+async function getChallengeIdsForGame(gameId: number): Promise<number[]> {
+  try {
+    const { data, error } = await supabase
+      .from("challenges")
+      .select("id")
+      .eq("game_id", gameId);
+
+    if (error) throw error;
+    return ((data ?? []) as Array<{ id: number }>).map((row) => Number(row.id));
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
+      return getLocalChallenges(LOCAL_FALLBACK_GAME_ID, true).map((c) => c.id);
+    }
+    throw error;
+  }
+}
+
+export async function getGameBySlug(slug: string): Promise<GameRow | null> {
+  const clean = slug.trim().toLowerCase();
+  if (!clean) return null;
+  try {
+    const { data, error } = await supabase
+      .from("games")
+      .select("id, slug, name, finish_point_label")
+      .eq("slug", clean)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: Number(data.id),
+      slug: String(data.slug),
+      name: String(data.name),
+      finish_point_label: data.finish_point_label ? String(data.finish_point_label) : null,
+    };
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      return clean === "converge"
+        ? {
+            id: LOCAL_FALLBACK_GAME_ID,
+            slug: "converge",
+            name: "Converge",
+            finish_point_label: UNION_STATION.finishPoint,
+          }
+        : null;
+    }
+    throw error;
+  }
+}
+
+export async function createGameWithAdmin(input: {
+  slug: string;
+  name: string;
+  adminDisplayName: string;
+  adminPin: string;
+  /** Set when the game is created by a signed-in organizer (product flow). */
+  organizerId?: number | null;
+}): Promise<{ id: number; slug: string }> {
+  const slug = input.slug.trim().toLowerCase();
+  const name = input.name.trim();
+  const adminDisplayName = input.adminDisplayName.trim().slice(0, 120);
+  const adminPin = input.adminPin.trim().slice(0, 120);
+
+  if (!slug || !EVENT_SLUG_PATTERN.test(slug)) {
+    throw new GameError(
+      "Slug must be 3–50 characters: lowercase letters, numbers, and hyphens (no leading/trailing hyphen).",
+      400
+    );
+  }
+  if (!name) throw new GameError("Event name is required.", 400);
+  if (!adminDisplayName) throw new GameError("Admin display name is required.", 400);
+  if (!adminPin) throw new GameError("Admin PIN is required.", 400);
+
+  try {
+    const existing = await getGameBySlug(slug);
+    if (existing) throw new GameError("That event URL is already taken.", 409);
+
+    const gameInsert: Record<string, unknown> = {
+      slug,
+      name: name.slice(0, 200),
+      finish_point_label: UNION_STATION.finishPoint,
+    };
+    if (input.organizerId != null && Number.isFinite(input.organizerId)) {
+      gameInsert.organizer_id = input.organizerId;
+    }
+
+    const { data: gameRow, error: gameError } = await supabase
+      .from("games")
+      .insert(gameInsert)
+      .select("id, slug")
+      .single();
+
+    if (gameError) throw gameError;
+    const gameId = Number(gameRow.id);
+
+    const { error: credError } = await supabase.from("access_credentials").insert({
+      game_id: gameId,
+      role: "admin",
+      display_name: adminDisplayName,
+      pin: adminPin,
+      team_id: null,
+    });
+
+    if (credError) {
+      await supabase.from("games").delete().eq("id", gameId);
+      throw credError;
+    }
+
+    return { id: gameId, slug: String(gameRow.slug) };
+  } catch (error) {
+    if (isGameError(error)) throw error;
+    if (isSupabaseUnavailable(error)) {
+      throw new GameError("Cannot create an event while offline or without database.", 503);
+    }
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+      throw new GameError("That event URL is already taken.", 409);
+    }
+    throw error;
+  }
+}
+
+export async function createTeamForGame(
+  gameId: number,
+  input: {
+    teamName: string;
+    pin: string;
+    startLocationName?: string;
+    address?: string;
+    routeSummary?: string;
+    walkTime?: string;
+    color?: string;
+    badgeLabel?: string;
+  }
+): Promise<Team> {
+  const teamName = input.teamName.trim().slice(0, 120);
+  const pin = input.pin.trim().slice(0, 120);
+  if (!teamName || !pin) throw new GameError("Team name and PIN are required.", 400);
+
+  try {
+    const teams = await fetchTeamsForGame(gameId);
+    if (teams.length >= 24) throw new GameError("You can add up to 24 teams per event.", 409);
+
+    const { data: maxRow, error: maxError } = await supabase
+      .from("teams")
+      .select("id")
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (maxError) throw maxError;
+    const nextId = maxRow?.id != null ? Number(maxRow.id) + 1 : 1;
+
+    const row = {
+      id: nextId,
+      game_id: gameId,
+      team_name: teamName,
+      start_location_name: (input.startLocationName ?? teamName).trim().slice(0, 200),
+      address: (input.address ?? "TBD").trim().slice(0, 300),
+      route_summary: (input.routeSummary ?? "Route TBD").trim().slice(0, 500),
+      walk_time: (input.walkTime ?? "—").trim().slice(0, 80),
+      color: (input.color ?? "#d85f3a").trim().slice(0, 32),
+      badge_label: (input.badgeLabel ?? "Team").trim().slice(0, 80),
+    };
+
+    const { error: teamErr } = await supabase.from("teams").insert(row);
+    if (teamErr) {
+      if (teamErr.code === "23505") throw new GameError("A team with that name already exists.", 409);
+      throw teamErr;
+    }
+
+    await supabase.from("team_scores").insert({
+      team_id: nextId,
+      arrival_rank: null,
+      creativity_score: 0,
+    });
+
+    const { error: credErr } = await supabase.from("access_credentials").insert({
+      game_id: gameId,
+      role: "team",
+      display_name: teamName,
+      pin,
+      team_id: nextId,
+    });
+    if (credErr) {
+      await supabase.from("teams").delete().eq("id", nextId);
+      throw credErr;
+    }
+
+    const created = await fetchTeamsForGame(gameId);
+    const t = created.find((x) => x.id === nextId);
+    if (!t) throw new GameError("Team was not created.", 500);
+    return t;
+  } catch (error) {
+    if (isGameError(error)) throw error;
+    if (isSupabaseUnavailable(error)) {
+      throw new GameError("Cannot add teams while offline or without database.", 503);
+    }
+    throw error;
+  }
+}
+
+async function getGameRow(gameId: number): Promise<GameRow | null> {
+  try {
+    const { data, error } = await supabase
+      .from("games")
+      .select("id, slug, name, finish_point_label")
+      .eq("id", gameId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: Number(data.id),
+      slug: String(data.slug),
+      name: String(data.name),
+      finish_point_label: data.finish_point_label ? String(data.finish_point_label) : null,
+    };
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      return gameId === LOCAL_FALLBACK_GAME_ID
+        ? {
+            id: LOCAL_FALLBACK_GAME_ID,
+            slug: "converge",
+            name: "Converge",
+            finish_point_label: UNION_STATION.finishPoint,
+          }
+        : null;
+    }
+    throw error;
+  }
+}
+
+function unionLabelFromGame(game: GameRow | null) {
+  return game?.finish_point_label?.trim() || UNION_STATION.finishPoint;
+}
+
+function unionNameFromGame(game: GameRow | null) {
+  const label = unionLabelFromGame(game);
+  const first = label.split(",")[0]?.trim();
+  return first || UNION_STATION.name;
 }
 
 function getMilestones(entry: {
@@ -242,24 +517,49 @@ function haversineMeters(
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-async function getChallengeById(challengeId: number): Promise<Challenge | null> {
-  const challenges = await getChallenges(true);
-  return challenges.find((challenge) => challenge.id === challengeId) ?? null;
+async function getChallengeById(gameId: number, challengeId: number): Promise<Challenge | null> {
+  try {
+    const { data, error } = await supabase
+      .from("challenges")
+      .select("id, challenge_order, title, text, expected_location, allow_media_upload, is_released")
+      .eq("id", challengeId)
+      .eq("game_id", gameId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+    const challenge = normalizeChallengeRow(data as Omit<Challenge, "kind">);
+    const prompts = await getTeamChallengePromptsFromDb(gameId, {
+      challengeIds: [challenge.id],
+    });
+    return attachTeamPromptsToChallenges([challenge], prompts)[0] ?? null;
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      if (gameId !== LOCAL_FALLBACK_GAME_ID) return null;
+      return getLocalChallenges(gameId, true).find((c) => c.id === challengeId) ?? null;
+    }
+    throw error;
+  }
 }
 
-async function getCheckpointAssignmentsFromDb(): Promise<TeamChallengeCheckpoint[]> {
+async function getCheckpointAssignmentsFromDb(gameId: number): Promise<TeamChallengeCheckpoint[]> {
   try {
+    const challengeIds = await getChallengeIdsForGame(gameId);
+    if (!challengeIds.length) return [];
+
     const { data, error } = await supabase
       .from("team_challenge_checkpoints")
       .select(
         "team_id, challenge_id, checkpoint_label, checkpoint_address, latitude, longitude, unlock_radius_meters"
-      );
+      )
+      .in("challenge_id", challengeIds);
 
     if (error) throw error;
 
     return ((data ?? []) as ChallengeCheckpointRow[]).map(normalizeChallengeCheckpointRow);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
+      if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
       return [];
     }
     if (isMissingCheckpointTable(error)) {
@@ -269,8 +569,8 @@ async function getCheckpointAssignmentsFromDb(): Promise<TeamChallengeCheckpoint
   }
 }
 
-async function requireChallengeMediaEnabled(challengeId: number) {
-  const challenge = await getChallengeById(challengeId);
+async function requireChallengeMediaEnabled(gameId: number, challengeId: number) {
+  const challenge = await getChallengeById(gameId, challengeId);
   if (!challenge) {
     throw new GameError("Challenge was not found.", 404);
   }
@@ -370,13 +670,15 @@ function checkpointLabel(
 function checkpointDescription(
   type: "start" | "challenge" | "finish",
   team: Team,
-  challenge?: Challenge
+  challenge: Challenge | undefined,
+  unionStationName: string,
+  unionFinishLabel: string
 ) {
   if (type === "start") return `Check in from ${team.start_location_name}.`;
-  if (type === "finish") return `Check in when you arrive at ${UNION_STATION.name}.`;
+  if (type === "finish") return `Check in when you arrive at ${unionStationName}.`;
   if (!challenge) return "Check in when you reach the checkpoint.";
   if (challenge.kind === "union") {
-    return `Arrive at ${UNION_STATION.name} to unlock Challenge ${challenge.challenge_order}.`;
+    return `Arrive at ${unionStationName} to unlock Challenge ${challenge.challenge_order}.`;
   }
   return `Arrive at your assigned checkpoint to unlock Challenge ${challenge.challenge_order}.`;
 }
@@ -384,8 +686,10 @@ function checkpointDescription(
 function checkpointExpectedLocation(
   type: "start" | "challenge" | "finish",
   team: Team,
-  challenge?: Challenge,
-  checkpoint?: TeamChallengeCheckpoint | null
+  challenge: Challenge | undefined,
+  checkpoint: TeamChallengeCheckpoint | null | undefined,
+  unionStationName: string,
+  unionFinishLabel: string
 ) {
   if (type === "start") {
     return {
@@ -396,15 +700,15 @@ function checkpointExpectedLocation(
 
   if (type === "finish") {
     return {
-      label: UNION_STATION.name,
-      description: UNION_STATION.finishPoint,
+      label: unionStationName,
+      description: unionFinishLabel,
     };
   }
 
   if (challenge?.kind === "union") {
     return {
-      label: UNION_STATION.name,
-      description: UNION_STATION.finishPoint,
+      label: unionStationName,
+      description: unionFinishLabel,
     };
   }
 
@@ -425,7 +729,9 @@ function deriveCheckpoints(
   team: Team,
   releasedChallenges: Challenge[],
   checkins: TeamCheckin[],
-  checkpointAssignments: TeamChallengeCheckpoint[]
+  checkpointAssignments: TeamChallengeCheckpoint[],
+  unionStationName: string,
+  unionFinishLabel: string
 ): TeamCheckpoint[] {
   const byKey = buildCheckinsByKey(checkins);
 
@@ -438,9 +744,23 @@ function deriveCheckpoints(
       checkin_type: "start",
       challenge_id: null,
       label: "Start Check-In",
-      description: checkpointDescription("start", team),
-      expected_location_label: checkpointExpectedLocation("start", team).label,
-      expected_location_description: checkpointExpectedLocation("start", team).description,
+      description: checkpointDescription("start", team, undefined, unionStationName, unionFinishLabel),
+      expected_location_label: checkpointExpectedLocation(
+        "start",
+        team,
+        undefined,
+        undefined,
+        unionStationName,
+        unionFinishLabel
+      ).label,
+      expected_location_description: checkpointExpectedLocation(
+        "start",
+        team,
+        undefined,
+        undefined,
+        unionStationName,
+        unionFinishLabel
+      ).description,
       status: startLatest?.status ?? "not_started",
       latest_checkin: startLatest,
     },
@@ -452,13 +772,20 @@ function deriveCheckpoints(
         checkpointAssignments.find(
           (item) => item.team_id === team.id && item.challenge_id === challenge.id
         ) ?? defaultCheckpointForTeamChallenge(team.id, challenge.id, challenge.challenge_order);
-      const expected = checkpointExpectedLocation("challenge", team, challenge, checkpoint);
+      const expected = checkpointExpectedLocation(
+        "challenge",
+        team,
+        challenge,
+        checkpoint,
+        unionStationName,
+        unionFinishLabel
+      );
       return {
         key: `challenge-${challenge.id}`,
         checkin_type: "challenge" as const,
         challenge_id: challenge.id,
         label: checkpointLabel("challenge", challenge),
-        description: checkpointDescription("challenge", team, challenge),
+        description: checkpointDescription("challenge", team, challenge, unionStationName, unionFinishLabel),
         expected_location_label: expected.label,
         expected_location_description: expected.description,
         status: (latest?.status ?? "not_started") as TeamCheckpoint["status"],
@@ -471,9 +798,23 @@ function deriveCheckpoints(
       checkin_type: "finish",
       challenge_id: null,
       label: "Finish Check-In",
-      description: checkpointDescription("finish", team),
-      expected_location_label: checkpointExpectedLocation("finish", team).label,
-      expected_location_description: checkpointExpectedLocation("finish", team).description,
+      description: checkpointDescription("finish", team, undefined, unionStationName, unionFinishLabel),
+      expected_location_label: checkpointExpectedLocation(
+        "finish",
+        team,
+        undefined,
+        undefined,
+        unionStationName,
+        unionFinishLabel
+      ).label,
+      expected_location_description: checkpointExpectedLocation(
+        "finish",
+        team,
+        undefined,
+        undefined,
+        unionStationName,
+        unionFinishLabel
+      ).description,
       status: finishLatest?.status ?? "not_started",
       latest_checkin: finishLatest,
     },
@@ -677,16 +1018,6 @@ async function signUploads(uploads: ChallengeUpload[]) {
   return Promise.all(uploads.map(signUploadUrl));
 }
 
-async function getReleasedCount() {
-  const { count, error } = await supabase
-    .from("challenges")
-    .select("*", { count: "exact", head: true })
-    .eq("is_released", true);
-
-  if (error) throw error;
-  return count ?? 0;
-}
-
 async function getChallengeStatusRow(teamId: number, challengeId: number): Promise<StatusRow | null> {
   const { data, error } = await supabase
     .from("team_challenge_status")
@@ -810,10 +1141,11 @@ async function getSubmittedChallengeCount(teamId: number) {
 }
 
 async function getChallengeUnlockTarget(
+  gameId: number,
   teamId: number,
   challengeId: number
 ): Promise<TeamChallengeCheckpoint | { latitude: number; longitude: number; checkpoint_label: string; checkpoint_address: string; unlock_radius_meters: number } | null> {
-  const challenge = await getChallengeById(challengeId);
+  const challenge = await getChallengeById(gameId, challengeId);
   if (!challenge) {
     throw new GameError("Challenge was not found.", 404);
   }
@@ -832,7 +1164,7 @@ async function getChallengeUnlockTarget(
     };
   }
 
-  const explicit = (await getCheckpointAssignmentsFromDb()).find(
+  const explicit = (await getCheckpointAssignmentsFromDb(gameId)).find(
     (item) => item.team_id === teamId && item.challenge_id === challengeId
   );
 
@@ -895,12 +1227,16 @@ async function upsertChallengeArrivalCheckin(input: {
   return normalizeCheckinRow(data as CheckinRow);
 }
 
-async function getAllCheckinsFromDb() {
+async function getAllCheckinsFromDb(gameId: number) {
+  const teamIds = await getTeamIdsForGame(gameId);
+  if (!teamIds.length) return [];
+
   const { data, error } = await supabase
     .from("team_checkins")
     .select(
       "id, team_id, checkin_type, challenge_id, status, checkin_note, latitude, longitude, accuracy_meters, gps_captured_at, created_at, review_note, reviewed_at, reviewed_by"
     )
+    .in("team_id", teamIds)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -920,50 +1256,26 @@ async function getCheckinById(checkinId: number) {
   return data ? normalizeCheckinRow(data as CheckinRow) : null;
 }
 
-async function clearProofBucket() {
-  const bucket = supabase.storage.from(CHALLENGE_PROOF_BUCKET);
-  const stack = [""];
-
-  while (stack.length) {
-    const prefix = stack.pop() ?? "";
-    const { data, error } = await bucket.list(prefix, { limit: 1000 });
-    if (error) throw error;
-
-    const filesToRemove: string[] = [];
-    for (const item of data ?? []) {
-      const nextPath = prefix ? `${prefix}/${item.name}` : item.name;
-      if (item.id) {
-        filesToRemove.push(nextPath);
-      } else {
-        stack.push(nextPath);
-      }
-    }
-
-    if (filesToRemove.length) {
-      const { error: removeError } = await bucket.remove(filesToRemove);
-      if (removeError) throw removeError;
-    }
+async function getTeamChallengePromptsFromDb(
+  gameId: number,
+  options?: {
+    teamId?: number;
+    challengeIds?: number[];
   }
-}
+): Promise<TeamChallengePrompt[]> {
+  let challengeIds = options?.challengeIds;
+  if (!challengeIds?.length) {
+    challengeIds = await getChallengeIdsForGame(gameId);
+  }
+  if (!challengeIds.length) return [];
 
-export function isGameError(error: unknown): error is GameError {
-  return error instanceof GameError;
-}
-
-async function getTeamChallengePromptsFromDb(options?: {
-  teamId?: number;
-  challengeIds?: number[];
-}): Promise<TeamChallengePrompt[]> {
   let query = supabase
     .from("team_challenge_prompts")
-    .select("team_id, challenge_id, prompt_text");
+    .select("team_id, challenge_id, prompt_text")
+    .in("challenge_id", challengeIds);
 
   if (options?.teamId !== undefined) {
     query = query.eq("team_id", options.teamId);
-  }
-
-  if (options?.challengeIds?.length) {
-    query = query.in("challenge_id", options.challengeIds);
   }
 
   const { data, error } = await query;
@@ -1005,11 +1317,12 @@ function resolveChallengeTextForTeam(
   return prompt?.prompt_text ?? "";
 }
 
-export async function getChallenges(includeHidden = true): Promise<Challenge[]> {
+export async function getChallenges(gameId: number, includeHidden = true): Promise<Challenge[]> {
   try {
     let query = supabase
       .from("challenges")
       .select("id, challenge_order, title, text, expected_location, allow_media_upload, is_released")
+      .eq("game_id", gameId)
       .order("challenge_order", { ascending: true });
 
     if (!includeHidden) {
@@ -1019,41 +1332,46 @@ export async function getChallenges(includeHidden = true): Promise<Challenge[]> 
     const { data, error } = await query;
     if (error) throw error;
     const challenges = ((data ?? []) as Omit<Challenge, "kind">[]).map(normalizeChallengeRow);
-    const prompts = await getTeamChallengePromptsFromDb({
+    const prompts = await getTeamChallengePromptsFromDb(gameId, {
       challengeIds: challenges.map((challenge) => challenge.id),
     });
     return attachTeamPromptsToChallenges(challenges, prompts);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return getLocalChallenges(includeHidden);
+      return getLocalChallenges(gameId, includeHidden);
     }
     throw error;
   }
 }
 
-export async function getTeamCheckins(teamId: number): Promise<TeamCheckin[]> {
+export async function getTeamCheckins(gameId: number, teamId: number): Promise<TeamCheckin[]> {
+  if (!(await teamBelongsToGame(gameId, teamId))) return [];
   try {
     return await getTeamCheckinsFromDb(teamId);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return getLocalCheckins(teamId);
+      return getLocalCheckins(gameId, teamId);
     }
     throw error;
   }
 }
 
-export async function getLatestLocations(): Promise<TeamLatestLocation[]> {
+export async function getLatestLocations(gameId: number): Promise<TeamLatestLocation[]> {
   try {
+    const teamIds = await getTeamIdsForGame(gameId);
     const [teamsResult, challenges, checkins] = await Promise.all([
-      supabase
-        .from("teams")
-        .select("id, team_name, color, badge_label")
-        .order("id", { ascending: true }),
-      getChallenges(true),
-      getAllCheckinsFromDb(),
+      teamIds.length
+        ? supabase
+            .from("teams")
+            .select("id, team_name, color, badge_label")
+            .in("id", teamIds)
+            .order("id", { ascending: true })
+        : Promise.resolve({ data: [], error: null } as const),
+      getChallenges(gameId, true),
+      getAllCheckinsFromDb(gameId),
     ]);
 
-    if (teamsResult.error) throw teamsResult.error;
+    if ("error" in teamsResult && teamsResult.error) throw teamsResult.error;
     const checkinsByTeam = new Map<number, TeamCheckin[]>();
     for (const checkin of checkins) {
       const current = checkinsByTeam.get(checkin.team_id) ?? [];
@@ -1061,14 +1379,13 @@ export async function getLatestLocations(): Promise<TeamLatestLocation[]> {
       checkinsByTeam.set(checkin.team_id, current);
     }
 
-    return ((teamsResult.data ?? []) as Array<{
+    const rows = (teamsResult as { data: unknown }).data ?? [];
+    return ((rows ?? []) as Array<{
       id: number;
       team_name: string;
       color: string;
       badge_label: string;
-    }>)
-      .filter((team) => isActiveTeamId(Number(team.id)))
-      .map((team) =>
+    }>).map((team) =>
         getLatestLocationForTeam(
           {
             id: team.id,
@@ -1087,37 +1404,47 @@ export async function getLatestLocations(): Promise<TeamLatestLocation[]> {
       .filter(Boolean) as TeamLatestLocation[];
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return getLocalLatestLocations();
+      return getLocalLatestLocations(gameId);
     }
     throw error;
   }
 }
 
-export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
+export async function getRecentCheckins(gameId: number): Promise<AdminCheckinFeedItem[]> {
   try {
+    const teamIds = await getTeamIdsForGame(gameId);
+    const challengeIds = await getChallengeIdsForGame(gameId);
+    if (!teamIds.length) return [];
+
     const [teamsResult, checkins, challengesResult, promptRows, statusResult, uploadsResult] = await Promise.all([
       supabase
         .from("teams")
         .select("id, team_name, color, badge_label")
+        .in("id", teamIds)
         .order("id", { ascending: true }),
-      getAllCheckinsFromDb(),
-      supabase
-        .from("challenges")
-        .select("id, challenge_order, title, text, expected_location"),
-      getTeamChallengePromptsFromDb(),
+      getAllCheckinsFromDb(gameId),
+      challengeIds.length
+        ? supabase
+            .from("challenges")
+            .select("id, challenge_order, title, text, expected_location")
+            .in("id", challengeIds)
+        : Promise.resolve({ data: [], error: null } as const),
+      getTeamChallengePromptsFromDb(gameId),
       supabase
         .from("team_challenge_status")
-        .select("team_id, challenge_id, proof_note, review_status"),
+        .select("team_id, challenge_id, proof_note, review_status")
+        .in("team_id", teamIds),
       supabase
         .from("challenge_media")
         .select(
           "id, team_id, challenge_id, bucket_name, storage_path, public_url, media_type, file_name, mime_type, file_size_bytes, uploaded_at"
         )
+        .in("team_id", teamIds)
         .order("uploaded_at", { ascending: false }),
     ]);
 
     if (teamsResult.error) throw teamsResult.error;
-    if (challengesResult.error) throw challengesResult.error;
+    if ("error" in challengesResult && challengesResult.error) throw challengesResult.error;
     if (statusResult.error) throw statusResult.error;
     if (uploadsResult.error) throw uploadsResult.error;
     const teamMap = new Map(
@@ -1128,8 +1455,9 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
         badge_label: string;
       }>).map((team) => [team.id, team])
     );
+    const chData = (challengesResult as { data: unknown }).data ?? [];
     const challengeMap = new Map(
-      ((challengesResult.data ?? []) as Array<{
+      ((chData ?? []) as Array<{
         id: number;
         challenge_order: number;
         title: string;
@@ -1160,9 +1488,7 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
       uploadsByKey.set(key, current);
     }
 
-    return checkins
-      .filter((checkin) => isActiveTeamId(checkin.team_id))
-      .map((checkin) => {
+    return checkins.map((checkin) => {
       const team = teamMap.get(checkin.team_id);
       const challenge =
         checkin.challenge_id !== null ? challengeMap.get(checkin.challenge_id) ?? null : null;
@@ -1197,27 +1523,34 @@ export async function getRecentCheckins(): Promise<AdminCheckinFeedItem[]> {
       });
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return getLocalRecentCheckins();
+      return getLocalRecentCheckins(gameId);
     }
     throw error;
   }
 }
 
-export async function getPublicMapData(): Promise<PublicMapResponse> {
+export async function getPublicMapData(gameId: number): Promise<PublicMapResponse> {
   try {
+    const gameRow = await getGameRow(gameId);
+    const teamIds = await getTeamIdsForGame(gameId);
+    const teamsPromise = teamIds.length
+      ? supabase
+          .from("teams")
+          .select("id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label")
+          .in("id", teamIds)
+          .order("id", { ascending: true })
+      : Promise.resolve({ data: [], error: null } as const);
+
     const [teamsResult, challenges, latestLocations, allCheckins] = await Promise.all([
-      supabase
-        .from("teams")
-        .select("id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label")
-        .order("id", { ascending: true }),
-      getChallenges(true),
-      getLatestLocations(),
-      getAllCheckinsFromDb(),
+      teamsPromise,
+      getChallenges(gameId, true),
+      getLatestLocations(gameId),
+      getAllCheckinsFromDb(gameId),
     ]);
 
-    if (teamsResult.error) throw teamsResult.error;
+    if ("error" in teamsResult && teamsResult.error) throw teamsResult.error;
 
-    const teams = (((teamsResult.data ?? []) as Team[]) ?? []).filter((team) => isActiveTeamId(team.id));
+    const teams = ((teamsResult as { data: unknown }).data ?? []) as Team[];
     const checkinsByTeam = new Map<number, TeamCheckin[]>();
     for (const checkin of allCheckins) {
       const current = checkinsByTeam.get(checkin.team_id) ?? [];
@@ -1225,21 +1558,24 @@ export async function getPublicMapData(): Promise<PublicMapResponse> {
       checkinsByTeam.set(checkin.team_id, current);
     }
 
+    const unionName = unionNameFromGame(gameRow);
+    const unionLabel = unionLabelFromGame(gameRow);
+
     return {
       latestLocations,
       teamRoutes: teams.map((team) =>
         buildAdminTeamRoute(team, checkinsByTeam.get(team.id) ?? [], challenges)
       ),
       union: {
-        name: UNION_STATION.name,
+        name: unionName,
         latitude: UNION_STATION.coordinates[1],
         longitude: UNION_STATION.coordinates[0],
-        label: UNION_STATION.finishPoint,
+        label: unionLabel,
       },
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      const adminGame = getLocalAdminGame();
+      const adminGame = getLocalAdminGame(gameId);
       return {
         latestLocations: adminGame.latestLocations,
         teamRoutes: adminGame.teamRoutes,
@@ -1255,29 +1591,38 @@ export async function getPublicMapData(): Promise<PublicMapResponse> {
   }
 }
 
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+export async function getLeaderboard(gameId: number): Promise<LeaderboardEntry[]> {
   try {
+    const teamIds = await getTeamIdsForGame(gameId);
     const [challengesResult, teamsResult, statusResult] = await Promise.all([
-      supabase.from("challenges").select("id, is_released"),
-      supabase
-        .from("teams")
-        .select("id, team_name, start_location_name, walk_time, color, badge_label")
-        .order("id", { ascending: true }),
-      supabase.from("team_challenge_status").select("team_id, challenge_id, status, awarded_points, submitted_at, review_status"),
+      supabase.from("challenges").select("id, is_released").eq("game_id", gameId),
+      teamIds.length
+        ? supabase
+            .from("teams")
+            .select("id, team_name, start_location_name, walk_time, color, badge_label")
+            .in("id", teamIds)
+            .order("id", { ascending: true })
+        : Promise.resolve({ data: [], error: null } as const),
+      teamIds.length
+        ? supabase
+            .from("team_challenge_status")
+            .select("team_id, challenge_id, status, awarded_points, submitted_at, review_status")
+            .in("team_id", teamIds)
+        : Promise.resolve({ data: [], error: null } as const),
     ]);
 
     if (challengesResult.error) throw challengesResult.error;
-    if (teamsResult.error) throw teamsResult.error;
-    if (statusResult.error) throw statusResult.error;
+    if ("error" in teamsResult && teamsResult.error) throw teamsResult.error;
+    if ("error" in statusResult && statusResult.error) throw statusResult.error;
 
-    const teams = ((teamsResult.data ?? []) as Array<{
+    const teams = ((teamsResult as { data: unknown }).data ?? []) as Array<{
       id: number;
       team_name: string;
       start_location_name: string;
       walk_time: string;
       color: string;
       badge_label: string;
-    }>).filter((team) => isActiveTeamId(Number(team.id)));
+    }>;
     const challenges = (challengesResult.data ?? []) as Array<{
       id: number;
       is_released: boolean;
@@ -1371,26 +1716,34 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     return scored.map(({ entry }, index) => ({ ...entry, leaderboard_rank: index + 1 }));
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return getLocalLeaderboard();
+      return getLocalLeaderboard(gameId);
     }
     throw error;
   }
 }
 
-export async function getTeamDashboard(teamId: number): Promise<TeamDashboardResponse | null> {
-  if (!isActiveTeamId(teamId)) {
+export async function getTeamDashboard(
+  gameId: number,
+  teamId: number
+): Promise<TeamDashboardResponse | null> {
+  if (!(await teamBelongsToGame(gameId, teamId))) {
     return null;
   }
 
   try {
+    const gameRow = await getGameRow(gameId);
+    const unionName = unionNameFromGame(gameRow);
+    const unionLabel = unionLabelFromGame(gameRow);
+
     const [teamResult, releasedChallenges, statusResult, uploads, checkins, leaderboard, checkpointAssignments] =
       await Promise.all([
         supabase
           .from("teams")
           .select("id, team_name, start_location_name, address, route_summary, walk_time, color, badge_label")
           .eq("id", teamId)
+          .eq("game_id", gameId)
           .maybeSingle(),
-        getChallenges(false),
+        getChallenges(gameId, false),
         supabase
           .from("team_challenge_status")
           .select(
@@ -1399,8 +1752,8 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
           .eq("team_id", teamId),
         getTeamUploads(teamId),
         getTeamCheckinsFromDb(teamId),
-        getLeaderboard(),
-        getCheckpointAssignmentsFromDb(),
+        getLeaderboard(gameId),
+        getCheckpointAssignmentsFromDb(gameId),
       ]);
 
     if (teamResult.error) throw teamResult.error;
@@ -1478,7 +1831,14 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
     return {
       team,
       challenges,
-      checkpoints: deriveCheckpoints(team, releasedChallenges, checkins, checkpointAssignments),
+      checkpoints: deriveCheckpoints(
+        team,
+        releasedChallenges,
+        checkins,
+        checkpointAssignments,
+        unionName,
+        unionLabel
+      ),
       checkins,
       latestLocation,
       teamStats,
@@ -1486,29 +1846,35 @@ export async function getTeamDashboard(teamId: number): Promise<TeamDashboardRes
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return getLocalTeamDashboard(teamId);
+      return getLocalTeamDashboard(gameId, teamId);
     }
     throw error;
   }
 }
 
-export async function getAdminGame(): Promise<AdminGameResponse> {
+export async function getAdminGame(gameId: number): Promise<AdminGameResponse> {
   try {
+    const teamIds = await getTeamIdsForGame(gameId);
+    const teamsPromise = teamIds.length
+      ? supabase.from("teams").select("id").in("id", teamIds).order("id", { ascending: true })
+      : Promise.resolve({ data: [], error: null } as const);
+
     const [teamsResult, challenges, leaderboard, latestLocations, recentCheckins, credentialsResult, allCheckins] =
       await Promise.all([
-        supabase.from("teams").select("id").order("id", { ascending: true }),
-        getChallenges(true),
-        getLeaderboard(),
-        getLatestLocations(),
-        getRecentCheckins(),
+        teamsPromise,
+        getChallenges(gameId, true),
+        getLeaderboard(gameId),
+        getLatestLocations(gameId),
+        getRecentCheckins(gameId),
         supabase
           .from("access_credentials")
           .select("team_id, display_name, pin")
-          .eq("role", "team"),
-        getAllCheckinsFromDb(),
+          .eq("role", "team")
+          .eq("game_id", gameId),
+        getAllCheckinsFromDb(gameId),
       ]);
 
-    if (teamsResult.error) throw teamsResult.error;
+    if ("error" in teamsResult && teamsResult.error) throw teamsResult.error;
     if (credentialsResult.error) throw credentialsResult.error;
 
     const credentialMap = new Map(
@@ -1527,11 +1893,11 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
         ])
     );
 
+    const teamRows = ((teamsResult as { data: unknown }).data ?? []) as Array<{ id: number }>;
+
     const teams = await Promise.all(
-      ((teamsResult.data ?? []) as Array<{ id: number }>)
-        .filter(({ id }) => isActiveTeamId(Number(id)))
-        .map(async ({ id }) => {
-        const team = await getTeamDashboard(id);
+      teamRows.map(async ({ id }) => {
+        const team = await getTeamDashboard(gameId, id);
         if (!team) return null;
         return {
           ...team,
@@ -1563,19 +1929,19 @@ export async function getAdminGame(): Promise<AdminGameResponse> {
       leaderboard,
       pins: {
         admin_hint: "Stored in Supabase access_credentials table",
-        team_pin_count: ((teamsResult.data ?? []) as Array<{ id: number }>)
-          .filter(({ id }) => isActiveTeamId(Number(id))).length,
+        team_pin_count: teamRows.length,
       },
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return getLocalAdminGame();
+      return getLocalAdminGame(gameId);
     }
     throw error;
   }
 }
 
 export async function updateChallenge(
+  gameId: number,
   challengeId: number,
   title: string,
   text: string,
@@ -1602,7 +1968,7 @@ export async function updateChallenge(
   }
 
   try {
-    const currentChallenge = await getChallengeById(challengeId);
+    const currentChallenge = await getChallengeById(gameId, challengeId);
     if (!currentChallenge) {
       throw new GameError("Challenge was not found.", 404);
     }
@@ -1622,7 +1988,8 @@ export async function updateChallenge(
         expected_location: normalizedExpectedLocation.slice(0, 160),
         allow_media_upload: allowMediaUpload,
       })
-      .eq("id", challengeId);
+      .eq("id", challengeId)
+      .eq("game_id", gameId);
 
     if (error) throw error;
 
@@ -1655,7 +2022,8 @@ export async function updateChallenge(
     }
 
     if (currentChallenge.kind === "game_long") {
-      const rows = TEAM_ROWS.map((team) => ({
+      const gameTeams = await fetchTeamsForGame(gameId);
+      const rows = gameTeams.map((team) => ({
         team_id: team.id,
         challenge_id: challengeId,
         prompt_text:
@@ -1674,13 +2042,15 @@ export async function updateChallenge(
       if (insertPromptError && !isMissingPromptTable(insertPromptError)) throw insertPromptError;
     }
 
-    return getChallenges(true);
+    return getChallenges(gameId, true);
   } catch (error) {
     if (isGameError(error)) throw error;
     if (isSupabaseUnavailable(error)) {
-      const currentChallenge = getLocalChallenges(true).find((item) => item.id === challengeId) ?? null;
-      updateLocalChallenge(challengeId, cleanTitle, cleanText);
+      const currentChallenge =
+        getLocalChallenges(gameId, true).find((item) => item.id === challengeId) ?? null;
+      updateLocalChallenge(gameId, challengeId, cleanTitle, cleanText);
       updateLocalChallengeExpectedLocation(
+        gameId,
         challengeId,
         currentChallenge?.kind === "union"
           ? UNION_STATION.name
@@ -1688,11 +2058,13 @@ export async function updateChallenge(
             ? cleanExpectedLocation || "Per-team route checkpoint"
             : cleanExpectedLocation
       );
-      updateLocalChallengeMediaToggle(challengeId, allowMediaUpload);
+      updateLocalChallengeMediaToggle(gameId, challengeId, allowMediaUpload);
       if (currentChallenge?.kind === "game_long") {
+        const gameTeams = getLocalTeamsForGameId(gameId);
         updateLocalChallengePrompts(
+          gameId,
           challengeId,
-          TEAM_ROWS.map((team) => ({
+          gameTeams.map((team) => ({
             team_id: team.id,
             challenge_id: challengeId,
             prompt_text:
@@ -1702,6 +2074,7 @@ export async function updateChallenge(
       }
       if (currentChallenge?.kind === "checkpoint") {
         updateLocalChallengeCheckpoints(
+          gameId,
           challengeId,
           checkpoints.map((checkpoint) => ({
             team_id: checkpoint.teamId,
@@ -1715,13 +2088,14 @@ export async function updateChallenge(
           }))
         );
       }
-      return getLocalChallenges(true);
+      return getLocalChallenges(gameId, true);
     }
     throw error;
   }
 }
 
 export async function createChallenge(
+  gameId: number,
   title: string,
   text: string,
   expectedLocation: string,
@@ -1735,17 +2109,29 @@ export async function createChallenge(
   }
 
   try {
-    const existing = await getChallenges(true);
+    const gameTeams = await fetchTeamsForGame(gameId);
+    if (!gameTeams.length) {
+      throw new GameError("Add at least one team before creating challenges.", 409);
+    }
+
+    const existing = await getChallenges(gameId, true);
     if (existing.length >= MAX_CHALLENGES) {
       throw new GameError(`You can create up to ${MAX_CHALLENGES} challenges.`, 409);
     }
 
     const nextOrder = existing.length + 1;
-    const nextId =
-      existing.reduce((max, challenge) => Math.max(max, challenge.id), 0) + 1;
+    const { data: maxCh, error: maxErr } = await supabase
+      .from("challenges")
+      .select("id")
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (maxErr) throw maxErr;
+    const nextId = maxCh?.id != null ? Number(maxCh.id) + 1 : 1;
 
     const payload = {
       id: nextId,
+      game_id: gameId,
       challenge_order: nextOrder,
       title: cleanTitle.slice(0, 120),
       text: cleanText.slice(0, 500),
@@ -1762,7 +2148,7 @@ export async function createChallenge(
     const { error: challengeError } = await supabase.from("challenges").insert(payload);
     if (challengeError) throw challengeError;
 
-    const statusRows = TEAM_ROWS.map((team) => ({
+    const statusRows = gameTeams.map((team) => ({
       team_id: team.id,
       challenge_id: nextId,
       status: "not_started",
@@ -1779,7 +2165,7 @@ export async function createChallenge(
     if (statusError) throw statusError;
 
     if (getChallengeKind(nextOrder) === "checkpoint") {
-      const checkpointRows = TEAM_ROWS.map((team) =>
+      const checkpointRows = gameTeams.map((team) =>
         defaultCheckpointForTeamChallenge(team.id, nextId, nextOrder)
       ).filter(Boolean) as TeamChallengeCheckpoint[];
 
@@ -1803,7 +2189,7 @@ export async function createChallenge(
 
     if (getChallengeKind(nextOrder) === "game_long") {
       const { error: promptError } = await supabase.from("team_challenge_prompts").insert(
-        TEAM_ROWS.map((team) => ({
+        gameTeams.map((team) => ({
           team_id: team.id,
           challenge_id: nextId,
           prompt_text: "",
@@ -1812,61 +2198,63 @@ export async function createChallenge(
       if (promptError && !isMissingPromptTable(promptError)) throw promptError;
     }
 
-    return getChallenges(true);
+    return getChallenges(gameId, true);
   } catch (error) {
     if (isGameError(error)) throw error;
     if (isSupabaseUnavailable(error)) {
-      const existing = getLocalChallenges(true);
+      const existing = getLocalChallenges(gameId, true);
       if (existing.length >= MAX_CHALLENGES) {
         throw new GameError(`You can create up to ${MAX_CHALLENGES} challenges.`, 409);
       }
-      createLocalChallenge(cleanTitle, cleanText, cleanExpectedLocation, allowMediaUpload);
-      return getLocalChallenges(true);
+      createLocalChallenge(gameId, cleanTitle, cleanText, cleanExpectedLocation, allowMediaUpload);
+      return getLocalChallenges(gameId, true);
     }
     throw error;
   }
 }
 
-export async function updateChallengeRelease(challengeId: number, isReleased: boolean) {
+export async function updateChallengeRelease(gameId: number, challengeId: number, isReleased: boolean) {
   try {
     const payload = { is_released: isReleased };
     const { error } = await supabase
       .from("challenges")
       .update(payload)
-      .eq("id", challengeId);
+      .eq("id", challengeId)
+      .eq("game_id", gameId);
 
     if (error) throw error;
-    return getChallenges(true);
+    return getChallenges(gameId, true);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      updateLocalChallengeRelease(challengeId, isReleased);
-      return getLocalChallenges(true);
+      updateLocalChallengeRelease(gameId, challengeId, isReleased);
+      return getLocalChallenges(gameId, true);
     }
     throw error;
   }
 }
 
-export async function releaseAllChallenges() {
+export async function releaseAllChallenges(gameId: number) {
   try {
     const { error } = await supabase
       .from("challenges")
       .update({ is_released: true })
-      .eq("is_released", false);
+      .eq("is_released", false)
+      .eq("game_id", gameId);
 
     if (error) throw error;
-    return getChallenges(true);
+    return getChallenges(gameId, true);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      releaseAllLocalChallenges();
-      return getLocalChallenges(true);
+      releaseAllLocalChallenges(gameId);
+      return getLocalChallenges(gameId, true);
     }
     throw error;
   }
 }
 
-export async function deleteChallenge(challengeId: number) {
+export async function deleteChallenge(gameId: number, challengeId: number) {
   try {
-    const challenge = await getChallengeById(challengeId);
+    const challenge = await getChallengeById(gameId, challengeId);
     if (!challenge) {
       throw new GameError("Challenge was not found.", 404);
     }
@@ -1893,10 +2281,14 @@ export async function deleteChallenge(challengeId: number) {
       if (removeError) throw removeError;
     }
 
-    const { error: deleteError } = await supabase.from("challenges").delete().eq("id", challengeId);
+    const { error: deleteError } = await supabase
+      .from("challenges")
+      .delete()
+      .eq("id", challengeId)
+      .eq("game_id", gameId);
     if (deleteError) throw deleteError;
 
-    const remainingChallenges = await getChallenges(true);
+    const remainingChallenges = await getChallenges(gameId, true);
     for (const [index, remainingChallenge] of remainingChallenges.entries()) {
       const nextOrder = index + 1;
       if (remainingChallenge.challenge_order === nextOrder) continue;
@@ -1904,26 +2296,28 @@ export async function deleteChallenge(challengeId: number) {
       const { error: reorderError } = await supabase
         .from("challenges")
         .update({ challenge_order: nextOrder })
-        .eq("id", remainingChallenge.id);
+        .eq("id", remainingChallenge.id)
+        .eq("game_id", gameId);
 
       if (reorderError) throw reorderError;
     }
 
-    return getChallenges(true);
+    return getChallenges(gameId, true);
   } catch (error) {
     if (isGameError(error)) throw error;
     if (isSupabaseUnavailable(error)) {
-      const deleted = deleteLocalChallenge(challengeId);
+      const deleted = deleteLocalChallenge(gameId, challengeId);
       if (!deleted) {
         throw new GameError("Challenge was not found.", 404);
       }
-      return getLocalChallenges(true);
+      return getLocalChallenges(gameId, true);
     }
     throw error;
   }
 }
 
 export async function updateTeamChallengeSubmission(
+  gameId: number,
   teamId: number,
   challengeId: number,
   proofNote: string,
@@ -1935,9 +2329,12 @@ export async function updateTeamChallengeSubmission(
     gpsCapturedAt?: string | null;
   }
 ) {
+  if (!(await teamBelongsToGame(gameId, teamId))) {
+    throw new GameError("Challenge submission was not found.", 404);
+  }
   try {
     const current = await getChallengeStatusRow(teamId, challengeId);
-    const challenge = await getChallengeById(challengeId);
+    const challenge = await getChallengeById(gameId, challengeId);
     if (!current) {
       throw new GameError("Challenge submission was not found.", 404);
     }
@@ -1956,7 +2353,7 @@ export async function updateTeamChallengeSubmission(
       }
 
       if (challenge.kind === "game_long") {
-        const hasStartedRace = (await getTeamCheckins(teamId)).some(
+        const hasStartedRace = (await getTeamCheckins(gameId, teamId)).some(
           (item) => item.checkin_type === "start"
         );
         if (!hasStartedRace) {
@@ -1999,7 +2396,7 @@ export async function updateTeamChallengeSubmission(
       throw error;
     }
     if (isSupabaseUnavailable(error)) {
-      const localDashboard = getLocalTeamDashboard(teamId);
+      const localDashboard = getLocalTeamDashboard(gameId, teamId);
       const localChallenge = localDashboard?.challenges.find((item) => item.id === challengeId) ?? null;
       if (status === "submitted") {
         const hasProofNote = proofNote.trim().length > 0;
@@ -2023,10 +2420,18 @@ export async function updateTeamChallengeSubmission(
   }
 }
 
-export async function uploadTeamChallengeMedia(teamId: number, challengeId: number, file: File) {
+export async function uploadTeamChallengeMedia(
+  gameId: number,
+  teamId: number,
+  challengeId: number,
+  file: File
+) {
+  if (!(await teamBelongsToGame(gameId, teamId))) {
+    throw new GameError("Challenge submission was not found.", 404);
+  }
   try {
-    await requireChallengeMediaEnabled(challengeId);
-    const challenge = await getChallengeById(challengeId);
+    await requireChallengeMediaEnabled(gameId, challengeId);
+    const challenge = await getChallengeById(gameId, challengeId);
     const statusRow = await getChallengeStatusRow(teamId, challengeId);
     if (!statusRow) {
       throw new GameError("Challenge submission was not found.", 404);
@@ -2038,7 +2443,7 @@ export async function uploadTeamChallengeMedia(teamId: number, challengeId: numb
       throw new GameError("This challenge has already been verified by HQ and is locked.", 409);
     }
     if (challenge.kind === "game_long") {
-      const hasStartedRace = (await getTeamCheckins(teamId)).some(
+      const hasStartedRace = (await getTeamCheckins(gameId, teamId)).some(
         (item) => item.checkin_type === "start"
       );
       if (!hasStartedRace) {
@@ -2053,7 +2458,7 @@ export async function uploadTeamChallengeMedia(teamId: number, challengeId: numb
 
     const { mediaType } = ensureAllowedMedia(file);
     const fileName = sanitizeFileName(file.name || "upload");
-    const storagePath = `team-${teamId}/challenge-${challengeId}/${Date.now()}-${fileName}`;
+    const storagePath = `game-${gameId}/team-${teamId}/challenge-${challengeId}/${Date.now()}-${fileName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     const bucket = supabase.storage.from(CHALLENGE_PROOF_BUCKET);
 
@@ -2104,7 +2509,15 @@ export async function uploadTeamChallengeMedia(teamId: number, challengeId: numb
   }
 }
 
-export async function deleteTeamChallengeMedia(teamId: number, challengeId: number, uploadId: number) {
+export async function deleteTeamChallengeMedia(
+  gameId: number,
+  teamId: number,
+  challengeId: number,
+  uploadId: number
+) {
+  if (!(await teamBelongsToGame(gameId, teamId))) {
+    throw new GameError("Challenge submission was not found.", 404);
+  }
   try {
     const statusRow = await getChallengeStatusRow(teamId, challengeId);
     if (!statusRow) {
@@ -2154,12 +2567,16 @@ export async function deleteTeamChallengeMedia(teamId: number, challengeId: numb
 }
 
 export async function reviewTeamChallenge(
+  gameId: number,
   teamId: number,
   challengeId: number,
   reviewStatus: "pending" | "verified" | "rejected",
   reviewNote: string,
   reviewedBy: string
 ) {
+  if (!(await teamBelongsToGame(gameId, teamId))) {
+    throw new GameError("Team was not found.", 404);
+  }
   try {
     const { error } = await supabase
       .from("team_challenge_status")
@@ -2184,16 +2601,23 @@ export async function reviewTeamChallenge(
   }
 }
 
-export async function createTeamCheckin(input: {
-  teamId: number;
-  checkinType: "start" | "challenge" | "finish";
-  challengeId?: number | null;
-  checkinNote?: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  accuracyMeters?: number | null;
-  gpsCapturedAt?: string | null;
-}) {
+export async function createTeamCheckin(
+  gameId: number,
+  input: {
+    teamId: number;
+    checkinType: "start" | "challenge" | "finish";
+    challengeId?: number | null;
+    checkinNote?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracyMeters?: number | null;
+    gpsCapturedAt?: string | null;
+  }
+) {
+  if (!(await teamBelongsToGame(gameId, input.teamId))) {
+    throw new GameError("Team was not found.", 404);
+  }
+
   const challengeId = input.challengeId ?? null;
   let challenge: Challenge | null = null;
 
@@ -2201,10 +2625,10 @@ export async function createTeamCheckin(input: {
     if (!challengeId) {
       throw new GameError("Challenge check-ins require a challenge ID.", 400);
     }
-    if (!(await isChallengeReleased(challengeId))) {
+    if (!(await isChallengeReleased(gameId, challengeId))) {
       throw new GameError("Challenge is not available.", 404);
     }
-    challenge = await getChallengeById(challengeId);
+    challenge = await getChallengeById(gameId, challengeId);
     if (!challenge) {
       throw new GameError("Challenge was not found.", 404);
     }
@@ -2213,7 +2637,7 @@ export async function createTeamCheckin(input: {
       throw new GameError("Challenge 1 unlocks from the start check-in and does not use a checkpoint.", 409);
     }
 
-    const releasedChallenges = await getChallenges(false);
+    const releasedChallenges = await getChallenges(gameId, false);
     const previousChallenge = releasedChallenges.find(
       (item) => item.challenge_order === currentChallenge.challenge_order - 1
     );
@@ -2251,7 +2675,7 @@ export async function createTeamCheckin(input: {
         throw new GameError("Checkpoint unlock requires live GPS at the checkpoint.", 409);
       }
 
-      const target = await getChallengeUnlockTarget(input.teamId, challengeId as number);
+      const target = await getChallengeUnlockTarget(gameId, input.teamId, challengeId as number);
       if (!target || target.latitude === null || target.longitude === null) {
         throw new GameError("HQ has not configured this checkpoint yet.", 409);
       }
@@ -2318,6 +2742,7 @@ export async function createTeamCheckin(input: {
 }
 
 export async function reviewTeamCheckin(
+  gameId: number,
   checkinId: number,
   status: "pending" | "verified" | "rejected",
   reviewNote: string,
@@ -2326,6 +2751,11 @@ export async function reviewTeamCheckin(
   let reviewedCheckin: TeamCheckin | null = null;
 
   try {
+    const prior = await getCheckinById(checkinId);
+    if (!prior || !(await teamBelongsToGame(gameId, prior.team_id))) {
+      throw new GameError("Check-in not found.", 404);
+    }
+
     const { error } = await supabase
       .from("team_checkins")
       .update({
@@ -2338,6 +2768,7 @@ export async function reviewTeamCheckin(
 
     if (error) throw error;
   } catch (error) {
+    if (isGameError(error)) throw error;
     if (isSupabaseUnavailable(error)) {
       const row = reviewLocalCheckin(checkinId, status, reviewNote, reviewedBy);
       if (!row) {
@@ -2357,10 +2788,14 @@ export async function reviewTeamCheckin(
 }
 
 export async function updateTeamScore(
+  gameId: number,
   teamId: number,
   arrivalRank: number | null,
   creativityScore: number
 ) {
+  if (!(await teamBelongsToGame(gameId, teamId))) {
+    throw new GameError("Team was not found.", 404);
+  }
   try {
     const { error } = await supabase
       .from("team_scores")
@@ -2380,7 +2815,12 @@ export async function updateTeamScore(
   }
 }
 
-export async function updateTeamCredentials(teamId: number, teamName: string, pin: string) {
+export async function updateTeamCredentials(
+  gameId: number,
+  teamId: number,
+  teamName: string,
+  pin: string
+) {
   const cleanTeamName = teamName.trim();
   const cleanPin = pin.trim();
 
@@ -2393,6 +2833,7 @@ export async function updateTeamCredentials(teamId: number, teamName: string, pi
       .from("teams")
       .select("id")
       .eq("id", teamId)
+      .eq("game_id", gameId)
       .maybeSingle<{ id: number }>();
 
     if (teamLookupError) throw teamLookupError;
@@ -2403,6 +2844,7 @@ export async function updateTeamCredentials(teamId: number, teamName: string, pi
     const { data: duplicateTeam, error: duplicateError } = await supabase
       .from("teams")
       .select("id")
+      .eq("game_id", gameId)
       .eq("team_name", cleanTeamName)
       .neq("id", teamId)
       .maybeSingle<{ id: number }>();
@@ -2426,7 +2868,8 @@ export async function updateTeamCredentials(teamId: number, teamName: string, pi
         pin: cleanPin.slice(0, 120),
       })
       .eq("role", "team")
-      .eq("team_id", teamId);
+      .eq("team_id", teamId)
+      .eq("game_id", gameId);
 
     if (credentialUpdateError) throw credentialUpdateError;
   } catch (error) {
@@ -2451,7 +2894,12 @@ export async function updateTeamCredentials(teamId: number, teamName: string, pi
   }
 }
 
-export async function updateAdminCredentials(currentPin: string, newName: string, newPin: string) {
+export async function updateAdminCredentials(
+  gameId: number,
+  currentPin: string,
+  newName: string,
+  newPin: string
+) {
   const cleanCurrentPin = currentPin.trim();
   const cleanNewName = newName.trim().slice(0, 120);
   const cleanNewPin = newPin.trim().slice(0, 120);
@@ -2461,23 +2909,23 @@ export async function updateAdminCredentials(currentPin: string, newName: string
   if (!cleanNewPin) throw new GameError("New PIN is required.", 400);
 
   try {
-    // Verify current PIN
     const { data: current, error: lookupError } = await supabase
       .from("access_credentials")
       .select("id, display_name")
       .eq("role", "admin")
+      .eq("game_id", gameId)
       .eq("pin", cleanCurrentPin)
       .maybeSingle<{ id: number; display_name: string }>();
 
     if (lookupError) throw lookupError;
     if (!current) throw new GameError("Current PIN is incorrect.", 401);
 
-    // Check name uniqueness if it changed
     if (cleanNewName !== current.display_name) {
       const { data: dupe, error: dupeError } = await supabase
         .from("access_credentials")
         .select("id")
         .eq("role", "admin")
+        .eq("game_id", gameId)
         .eq("display_name", cleanNewName)
         .maybeSingle<{ id: number }>();
 
@@ -2497,62 +2945,108 @@ export async function updateAdminCredentials(currentPin: string, newName: string
   }
 }
 
-export async function isChallengeReleased(challengeId: number) {
+export async function isChallengeReleased(gameId: number, challengeId: number) {
   try {
     const { data, error } = await supabase
       .from("challenges")
       .select("id, is_released")
       .eq("id", challengeId)
+      .eq("game_id", gameId)
       .maybeSingle();
 
     if (error) throw error;
     return Boolean(data?.is_released);
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return isLocalChallengeReleased(challengeId);
+      return isLocalChallengeReleased(gameId, challengeId);
     }
     throw error;
   }
 }
 
-export async function resetGame() {
+async function removeChallengeMediaFilesForRows(
+  rows: Array<{ bucket_name: string; storage_path: string }>
+) {
+  const uploadsByBucket = new Map<string, string[]>();
+  for (const row of rows) {
+    const bucketName = String(row.bucket_name);
+    const storagePath = String(row.storage_path);
+    const current = uploadsByBucket.get(bucketName) ?? [];
+    current.push(storagePath);
+    uploadsByBucket.set(bucketName, current);
+  }
+  for (const [bucketName, storagePaths] of uploadsByBucket.entries()) {
+    if (storagePaths.length === 0) continue;
+    const { error: removeError } = await supabase.storage.from(bucketName).remove(storagePaths);
+    if (removeError) throw removeError;
+  }
+}
+
+export async function resetGame(gameId: number) {
   try {
-    await clearProofBucket();
-
-    const deletes = await Promise.all([
-      supabase.from("team_checkins").delete().gte("id", 1),
-      supabase.from("challenge_media").delete().gte("id", 1),
-      supabase.from("team_challenge_status").delete().gte("team_id", 1),
-      supabase.from("team_scores").delete().gte("team_id", 1),
-      supabase.from("challenges").delete().gte("id", 1),
-      supabase.from("access_credentials").delete().gte("id", 1),
-      supabase.from("teams").delete().gte("id", 1),
-    ]);
-
-    for (const result of deletes) {
-      if (result.error) throw result.error;
+    const teamIds = await getTeamIdsForGame(gameId);
+    if (!teamIds.length) {
+      return {
+        challenges: await getChallenges(gameId, true),
+        leaderboard: await getLeaderboard(gameId),
+      };
     }
 
-    const inserts = await Promise.all([
-      supabase.from("teams").insert(TEAM_ROWS),
-      supabase.from("team_scores").insert(TEAM_SCORE_ROWS),
-      supabase.from("access_credentials").insert(ACCESS_SEED),
-    ]);
-
-    for (const result of inserts) {
-      if (result.error) throw result.error;
+    const { data: mediaRows, error: mediaListError } = await supabase
+      .from("challenge_media")
+      .select("bucket_name, storage_path")
+      .in("team_id", teamIds);
+    if (mediaListError) throw mediaListError;
+    if (mediaRows?.length) {
+      await removeChallengeMediaFilesForRows(
+        mediaRows as Array<{ bucket_name: string; storage_path: string }>
+      );
     }
+
+    const { data: challengeRows, error: chErr } = await supabase
+      .from("challenges")
+      .select("id")
+      .eq("game_id", gameId);
+    if (chErr) throw chErr;
+    const challengeIds = ((challengeRows ?? []) as Array<{ id: number }>).map((r) => Number(r.id));
+
+    const delCheckins = await supabase.from("team_checkins").delete().in("team_id", teamIds);
+    if (delCheckins.error) throw delCheckins.error;
+
+    const delMedia = await supabase.from("challenge_media").delete().in("team_id", teamIds);
+    if (delMedia.error) throw delMedia.error;
+
+    if (challengeIds.length) {
+      const delStatus = await supabase.from("team_challenge_status").delete().in("challenge_id", challengeIds);
+      if (delStatus.error) throw delStatus.error;
+
+      const cpDel = await supabase.from("team_challenge_checkpoints").delete().in("challenge_id", challengeIds);
+      if (cpDel.error && !isMissingCheckpointTable(cpDel.error)) throw cpDel.error;
+
+      const prDel = await supabase.from("team_challenge_prompts").delete().in("challenge_id", challengeIds);
+      if (prDel.error && !isMissingPromptTable(prDel.error)) throw prDel.error;
+    }
+
+    const delCh = await supabase.from("challenges").delete().eq("game_id", gameId);
+    if (delCh.error) throw delCh.error;
+
+    const scoreReset = await supabase
+      .from("team_scores")
+      .update({ arrival_rank: null, creativity_score: 0 })
+      .in("team_id", teamIds);
+    if (scoreReset.error) throw scoreReset.error;
 
     return {
-      challenges: await getChallenges(true),
-      leaderboard: await getLeaderboard(),
+      challenges: await getChallenges(gameId, true),
+      leaderboard: await getLeaderboard(gameId),
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
-      return resetLocalState();
+      return resetLocalState(gameId);
     }
     throw error;
   }
 }
 
-export { GameError, MAX_FILES_PER_UPLOAD_REQUEST, TEAM_SEED, UNION_STATION };
+export { isGameError, GameError } from "@/lib/game-error";
+export { MAX_FILES_PER_UPLOAD_REQUEST, TEAM_SEED, UNION_STATION };

@@ -30,7 +30,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    await updateAdminCredentials(currentPin, newName, newPin);
+    await updateAdminCredentials(session.gameId, currentPin, newName, newPin);
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isGameError(error)) {

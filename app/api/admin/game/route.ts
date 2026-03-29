@@ -9,5 +9,5 @@ export async function GET() {
     return NextResponse.json({ error: "Admin access required." }, { status: 401 });
   }
 
-  return NextResponse.json(await getAdminGame());
+  return NextResponse.json(await getAdminGame(session.gameId));
 }

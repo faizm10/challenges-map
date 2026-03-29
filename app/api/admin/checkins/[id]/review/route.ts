@@ -21,8 +21,8 @@ export async function PATCH(
     body?.status === "verified" || body?.status === "rejected" ? body.status : "pending";
 
   try {
-    await reviewTeamCheckin(Number(id), status, body?.reviewNote ?? "", "HQ Admin");
-    return NextResponse.json({ ok: true, game: await getAdminGame() });
+    await reviewTeamCheckin(session.gameId, Number(id), status, body?.reviewNote ?? "", "HQ Admin");
+    return NextResponse.json({ ok: true, game: await getAdminGame(session.gameId) });
   } catch (error) {
     if (isGameError(error)) {
       return NextResponse.json({ error: error.message }, { status: error.status });

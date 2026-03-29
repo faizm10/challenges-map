@@ -1,22 +1,31 @@
 import { NextResponse } from "next/server";
 
-import { UNION_STATION } from "@/lib/config";
-import { getChallenges, getLeaderboard } from "@/lib/game";
+import { DEFAULT_DEV_GAME_SLUG } from "@/lib/config";
+import { getChallenges, getGameBySlug, getLeaderboard } from "@/lib/game";
 import { isPublicComingSoon } from "@/lib/public-site-mode";
 
-export async function GET() {
+export async function GET(request: Request) {
   if (isPublicComingSoon()) {
     return NextResponse.json({ error: "coming_soon" }, { status: 403 });
   }
 
-  const challenges = await getChallenges(true);
+  const { searchParams } = new URL(request.url);
+  const slug = (searchParams.get("slug") ?? DEFAULT_DEV_GAME_SLUG).trim().toLowerCase();
+  const game = await getGameBySlug(slug);
+  if (!game) {
+    return NextResponse.json({ error: "Event not found." }, { status: 404 });
+  }
+
+  const challenges = await getChallenges(game.id, true);
+  const finishPoint = game.finish_point_label?.trim() || "Union Station, Front Street entrance";
+
   return NextResponse.json({
     event: {
-      title: "Converge",
-      finish_point: UNION_STATION.finishPoint,
+      title: game.name,
+      finish_point: finishPoint,
       released_count: challenges.filter((challenge) => challenge.is_released).length,
       total_challenges: challenges.length,
     },
-    leaderboard: await getLeaderboard(),
+    leaderboard: await getLeaderboard(game.id),
   });
 }
