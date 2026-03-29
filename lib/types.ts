@@ -226,6 +226,14 @@ export type PublicMapResponse = {
   };
 };
 
+/** Resolved finish / convergence point for an event (defaults to Union Station when unset). */
+export type EventFinishDisplay = {
+  shortName: string;
+  addressLabel: string;
+  latitude: number;
+  longitude: number;
+};
+
 export type TeamDashboardResponse = {
   team: Team;
   challenges: TeamChallengeStatus[];
@@ -234,6 +242,7 @@ export type TeamDashboardResponse = {
   latestLocation: TeamLatestLocation | null;
   teamStats: LeaderboardEntry;
   leaderboard: LeaderboardEntry[];
+  eventFinish: EventFinishDisplay;
   adminAccess?: {
     display_name: string;
     pin: string;
@@ -247,6 +256,7 @@ export type AdminGameResponse = {
   teamRoutes: AdminTeamRoute[];
   recentCheckins: AdminCheckinFeedItem[];
   leaderboard: LeaderboardEntry[];
+  eventFinish: EventFinishDisplay;
   pins: {
     admin_hint: string;
     team_pin_count: number;

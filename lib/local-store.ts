@@ -3,8 +3,9 @@ import {
   DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
   LOCAL_FALLBACK_GAME_ID,
   TEAM_SEED,
-  UNION_STATION,
 } from "@/lib/config";
+import { displayNamesMatch } from "@/lib/credential-match";
+import { resolveEventFinish } from "@/lib/game-finish";
 import type {
   AdminCheckinFeedItem,
   AdminGameResponse,
@@ -30,6 +31,8 @@ import {
   TEAM_ROWS,
   TEAM_SCORE_ROWS,
 } from "@/lib/seed";
+
+const LOCAL_EVENT_FINISH = resolveEventFinish(null, null);
 
 type AccessCredential = {
   game_id: number;
@@ -228,10 +231,10 @@ function buildCheckpointDescription(
   challenge?: Challenge
 ) {
   if (type === "start") return `Check in from ${team.start_location_name}.`;
-  if (type === "finish") return `Check in when you reach ${UNION_STATION.name}.`;
+  if (type === "finish") return `Check in when you reach ${LOCAL_EVENT_FINISH.shortName}.`;
   if (!challenge) return "Check in when you reach the checkpoint.";
   if (challenge.kind === "union") {
-    return `Arrive at ${UNION_STATION.name} to unlock Challenge ${challenge.challenge_order}.`;
+    return `Arrive at ${LOCAL_EVENT_FINISH.shortName} to unlock Challenge ${challenge.challenge_order}.`;
   }
   return `Arrive at your assigned checkpoint to unlock Challenge ${challenge.challenge_order}.`;
 }
@@ -251,15 +254,15 @@ function buildExpectedLocation(
 
   if (type === "finish") {
     return {
-      label: UNION_STATION.name,
-      description: UNION_STATION.finishPoint,
+      label: LOCAL_EVENT_FINISH.shortName,
+      description: LOCAL_EVENT_FINISH.addressLabel,
     };
   }
 
   if (challenge?.kind === "union") {
     return {
-      label: UNION_STATION.name,
-      description: UNION_STATION.finishPoint,
+      label: LOCAL_EVENT_FINISH.shortName,
+      description: LOCAL_EVENT_FINISH.addressLabel,
     };
   }
 
@@ -538,7 +541,7 @@ export function findLocalCredential(
     (credential) =>
       credential.game_id === gameId &&
       credential.role === role &&
-      credential.display_name === name &&
+      displayNamesMatch(credential.display_name, name) &&
       credential.pin === pin
   );
 }
@@ -699,7 +702,18 @@ export function getLocalTeamDashboard(gameId: number, teamId: number): TeamDashb
     const status = state.teamChallengeStatus.find(
       (item) => item.team_id === teamId && item.challenge_id === challenge.id
     );
-    const checkpoint = getLocalChallengeCheckpoint(teamId, challenge);
+    let checkpoint = getLocalChallengeCheckpoint(teamId, challenge);
+    if (challenge.kind === "union" && !checkpoint) {
+      checkpoint = {
+        team_id: teamId,
+        challenge_id: challenge.id,
+        checkpoint_label: LOCAL_EVENT_FINISH.shortName,
+        checkpoint_address: LOCAL_EVENT_FINISH.addressLabel,
+        latitude: LOCAL_EVENT_FINISH.latitude,
+        longitude: LOCAL_EVENT_FINISH.longitude,
+        unlock_radius_meters: DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+      };
+    }
     const hasStartedRace = state.teamCheckins.some(
       (item) => item.team_id === teamId && item.checkin_type === "start"
     );
@@ -746,6 +760,7 @@ export function getLocalTeamDashboard(gameId: number, teamId: number): TeamDashb
     latestLocation: deriveTeamLatestLocation(teamId),
     teamStats,
     leaderboard,
+    eventFinish: LOCAL_EVENT_FINISH,
     adminAccess: (() => {
       const credential = state.accessCredentials.find(
         (entry) => entry.role === "team" && entry.team_id === teamId
@@ -769,6 +784,7 @@ export function getLocalAdminGame(gameId: number): AdminGameResponse {
       teamRoutes: [],
       recentCheckins: [],
       leaderboard: [],
+      eventFinish: LOCAL_EVENT_FINISH,
       pins: { admin_hint: "Local fallback unavailable for this event", team_pin_count: 0 },
     };
   }
@@ -784,6 +800,7 @@ export function getLocalAdminGame(gameId: number): AdminGameResponse {
       .filter(Boolean) as AdminTeamRoute[],
     recentCheckins: getLocalRecentCheckins(gameId),
     leaderboard: getLocalLeaderboard(gameId),
+    eventFinish: LOCAL_EVENT_FINISH,
     pins: {
       admin_hint: "Using local fallback store",
       team_pin_count: state.teams.length,
@@ -840,7 +857,7 @@ export function createLocalChallenge(
     text: text.slice(0, 500),
     expected_location:
       kind === "union"
-        ? UNION_STATION.name
+        ? LOCAL_EVENT_FINISH.shortName
         : kind === "checkpoint"
           ? (expectedLocation.trim() || "Per-team route checkpoint").slice(0, 160)
           : expectedLocation.slice(0, 160),
@@ -1149,8 +1166,8 @@ export function createLocalCheckin(input: {
     const checkpoint =
       challenge.kind === "union"
         ? {
-            latitude: UNION_STATION.coordinates[1],
-            longitude: UNION_STATION.coordinates[0],
+            latitude: LOCAL_EVENT_FINISH.latitude,
+            longitude: LOCAL_EVENT_FINISH.longitude,
             unlock_radius_meters: DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
           }
         : getLocalChallengeCheckpoint(input.teamId, challenge);

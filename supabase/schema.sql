@@ -9,8 +9,8 @@ CREATE TABLE public.access_credentials (
   team_id bigint,
   game_id bigint NOT NULL,
   CONSTRAINT access_credentials_pkey PRIMARY KEY (id),
-  CONSTRAINT access_credentials_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT access_credentials_game_id_fkey FOREIGN KEY (game_id) REFERENCES public.games(id)
+  CONSTRAINT access_credentials_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE,
+  CONSTRAINT access_credentials_game_id_fkey FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE
 );
 CREATE TABLE public.challenge_media (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -25,8 +25,8 @@ CREATE TABLE public.challenge_media (
   file_size_bytes bigint NOT NULL,
   uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT challenge_media_pkey PRIMARY KEY (id),
-  CONSTRAINT challenge_media_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT challenge_media_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+  CONSTRAINT challenge_media_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE,
+  CONSTRAINT challenge_media_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id) ON DELETE CASCADE
 );
 CREATE TABLE public.challenges (
   id bigint NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE public.challenges (
   timer_started_at timestamp with time zone,
   game_id bigint NOT NULL,
   CONSTRAINT challenges_pkey PRIMARY KEY (id),
-  CONSTRAINT challenges_game_id_fkey FOREIGN KEY (game_id) REFERENCES public.games(id)
+  CONSTRAINT challenges_game_id_fkey FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE
 );
 CREATE TABLE public.organizer_accounts (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -69,16 +69,16 @@ CREATE TABLE public.team_challenge_checkpoints (
   longitude double precision,
   unlock_radius_meters integer NOT NULL DEFAULT 150,
   CONSTRAINT team_challenge_checkpoints_pkey PRIMARY KEY (team_id, challenge_id),
-  CONSTRAINT team_challenge_checkpoints_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_challenge_checkpoints_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+  CONSTRAINT team_challenge_checkpoints_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE,
+  CONSTRAINT team_challenge_checkpoints_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id) ON DELETE CASCADE
 );
 CREATE TABLE public.team_challenge_prompts (
   team_id bigint NOT NULL,
   challenge_id bigint NOT NULL,
   prompt_text text NOT NULL DEFAULT ''::text,
   CONSTRAINT team_challenge_prompts_pkey PRIMARY KEY (team_id, challenge_id),
-  CONSTRAINT team_challenge_prompts_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_challenge_prompts_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+  CONSTRAINT team_challenge_prompts_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE,
+  CONSTRAINT team_challenge_prompts_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id) ON DELETE CASCADE
 );
 CREATE TABLE public.team_challenge_status (
   team_id bigint NOT NULL,
@@ -92,8 +92,8 @@ CREATE TABLE public.team_challenge_status (
   reviewed_by text,
   awarded_points integer NOT NULL DEFAULT 0,
   CONSTRAINT team_challenge_status_pkey PRIMARY KEY (team_id, challenge_id),
-  CONSTRAINT team_challenge_status_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_challenge_status_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+  CONSTRAINT team_challenge_status_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE,
+  CONSTRAINT team_challenge_status_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id) ON DELETE CASCADE
 );
 CREATE TABLE public.team_checkins (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -111,15 +111,15 @@ CREATE TABLE public.team_checkins (
   reviewed_at timestamp with time zone,
   reviewed_by text,
   CONSTRAINT team_checkins_pkey PRIMARY KEY (id),
-  CONSTRAINT team_checkins_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_checkins_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+  CONSTRAINT team_checkins_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE,
+  CONSTRAINT team_checkins_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id) ON DELETE CASCADE
 );
 CREATE TABLE public.team_scores (
   team_id bigint NOT NULL,
   arrival_rank integer,
   creativity_score integer NOT NULL DEFAULT 0,
   CONSTRAINT team_scores_pkey PRIMARY KEY (team_id),
-  CONSTRAINT team_scores_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
+  CONSTRAINT team_scores_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE
 );
 CREATE TABLE public.teams (
   id bigint NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE public.teams (
   badge_label text NOT NULL,
   game_id bigint NOT NULL,
   CONSTRAINT teams_pkey PRIMARY KEY (id),
-  CONSTRAINT teams_game_id_fkey FOREIGN KEY (game_id) REFERENCES public.games(id)
+  CONSTRAINT teams_game_id_fkey FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE
 );
 CREATE TABLE public.waitlist_signups (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
