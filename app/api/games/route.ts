@@ -6,7 +6,16 @@ import { requireAdminSession, setSession } from "@/lib/session";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as
-    | { slug?: string; name?: string; adminDisplayName?: string; adminPin?: string }
+    | {
+        slug?: string;
+        name?: string;
+        adminDisplayName?: string;
+        adminPin?: string;
+        finishPointLabel?: string;
+        finishShortName?: string;
+        finishLatitude?: number | null;
+        finishLongitude?: number | null;
+      }
     | null;
 
   try {
@@ -29,6 +38,10 @@ export async function POST(request: Request) {
       name: body?.name ?? "",
       adminDisplayName: body?.adminDisplayName ?? "",
       adminPin: body?.adminPin ?? "",
+      finishPointLabel: body?.finishPointLabel,
+      finishShortName: body?.finishShortName,
+      finishLatitude: body?.finishLatitude,
+      finishLongitude: body?.finishLongitude,
     });
 
     await setSession({ role: "admin", gameId: created.id });

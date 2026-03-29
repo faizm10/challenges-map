@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { LivePodiumLeaderboard } from "@/components/live-podium-leaderboard";
-import { UNION_STATION } from "@/lib/config";
+import { resolveEventFinish } from "@/lib/game-finish";
 import { getChallenges, getGameBySlug, getLeaderboard } from "@/lib/game";
 
 export const dynamic = "force-dynamic";
@@ -24,10 +24,11 @@ export default async function EventLeaderboardPage({ params }: Props) {
   if (!game) notFound();
 
   const challenges = await getChallenges(game.id, true);
+  const fin = resolveEventFinish(game.finish_point_label, game.settings);
   const initialData = {
     event: {
       title: game.name,
-      finish_point: game.finish_point_label?.trim() || UNION_STATION.finishPoint,
+      finish_point: fin.addressLabel,
       released_count: challenges.filter((c) => c.is_released).length,
       total_challenges: challenges.length,
     },

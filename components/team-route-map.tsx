@@ -13,7 +13,7 @@ import {
   useMap,
 } from "@/components/ui/map";
 import { Card } from "@/components/ui/card";
-import { TEAM_SEED, UNION_STATION } from "@/lib/config";
+import { TEAM_SEED } from "@/lib/config";
 import type { TeamDashboardResponse } from "@/lib/types";
 
 type TeamRouteMapProps = {
@@ -80,6 +80,7 @@ function MapAutoFit({ points }: { points: Array<[number, number]> }) {
 
 export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
   const teamSeed = TEAM_SEED.find((team) => team.id === dashboard.team.id) ?? null;
+  const fin = dashboard.eventFinish;
 
   const routeStops = useMemo(() => {
     const stops: Array<{
@@ -108,8 +109,8 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
           return {
             key: checkpoint.key,
             label: "Finish",
-            description: UNION_STATION.finishPoint,
-            coordinates: UNION_STATION.coordinates as [number, number],
+            description: fin.addressLabel,
+            coordinates: [fin.longitude, fin.latitude] as [number, number],
             isComplete: Boolean(checkpoint.latest_checkin),
           };
         }
@@ -119,7 +120,7 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
 
         const coordinates =
           challenge.kind === "union"
-            ? (UNION_STATION.coordinates as [number, number])
+            ? ([fin.longitude, fin.latitude] as [number, number])
             : challenge.checkpoint?.latitude != null && challenge.checkpoint?.longitude != null
               ? ([challenge.checkpoint.longitude, challenge.checkpoint.latitude] as [number, number])
               : null;
@@ -130,11 +131,11 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
           key: checkpoint.key,
           label:
             challenge.kind === "union"
-              ? "Union Challenge"
+              ? `${fin.shortName} checkpoint`
               : challenge.checkpoint?.checkpoint_label || `Challenge ${challenge.challenge_order}`,
           description:
             challenge.kind === "union"
-              ? UNION_STATION.finishPoint
+              ? fin.addressLabel
               : challenge.checkpoint?.checkpoint_address ||
                 checkpoint.expected_location_description ||
                 checkpoint.expected_location_label,
@@ -153,7 +154,7 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
     stops.push(...checkpointStops);
 
     return stops;
-  }, [dashboard, teamSeed]);
+  }, [dashboard, fin.addressLabel, fin.latitude, fin.longitude, fin.shortName, teamSeed]);
 
   const nextStop = routeStops.find((stop) => !stop.isComplete) ?? null;
   const lastCompletedStop = [...routeStops].reverse().find((stop) => stop.isComplete) ?? null;
@@ -199,12 +200,22 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
           isLive: false,
         }
       : {
-          label: UNION_STATION.name,
-          description: UNION_STATION.finishPoint,
-          coordinates: UNION_STATION.coordinates,
+          label: fin.shortName,
+          description: fin.addressLabel,
+          coordinates: [fin.longitude, fin.latitude] as [number, number],
           isLive: false,
         };
-  }, [dashboard.latestLocation, dashboard.team.address, dashboard.team.start_location_name, lastCompletedStop, teamSeed]);
+  }, [
+    dashboard.latestLocation,
+    dashboard.team.address,
+    dashboard.team.start_location_name,
+    fin.addressLabel,
+    fin.latitude,
+    fin.longitude,
+    fin.shortName,
+    lastCompletedStop,
+    teamSeed,
+  ]);
 
   const mapPoints = useMemo(() => {
     const points: Array<[number, number]> = [originPoint.coordinates];
@@ -222,7 +233,7 @@ export function TeamRouteMap({ dashboard }: TeamRouteMapProps) {
     ? nextStop.key === "start"
       ? "Start here to reveal your first live route checkpoint."
       : "Future checkpoints stay hidden until you reach this one."
-    : "The full route is complete. Only the Union finish remains.";
+    : "The full route is complete. Head to the finish line when you are ready.";
 
   return (
     <Card className="overflow-hidden border-white/8 bg-[#120f10]/88 p-0 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">

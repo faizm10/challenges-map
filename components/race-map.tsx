@@ -11,15 +11,18 @@ import {
   MarkerPopup,
 } from "@/components/ui/map";
 import { Card } from "@/components/ui/card";
-import { UNION_STATION } from "@/lib/config";
-import type { TeamLatestLocation, TeamSeed } from "@/lib/types";
+import { resolveEventFinish } from "@/lib/game-finish";
+import type { EventFinishDisplay, TeamLatestLocation, TeamSeed } from "@/lib/types";
 
 type RaceMapProps = {
   teams: Array<Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color" | "routeLine" | "coordinates">>;
   latestLocations?: TeamLatestLocation[];
+  /** When omitted, defaults to the built-in Toronto Union reference point. */
+  eventFinish?: EventFinishDisplay;
 };
 
-export function RaceMap({ teams, latestLocations = [] }: RaceMapProps) {
+export function RaceMap({ teams, latestLocations = [], eventFinish }: RaceMapProps) {
+  const fin = eventFinish ?? resolveEventFinish(null, null);
   return (
     <Card className="overflow-hidden border-white/8 bg-[#120f10]/88 p-0">
       <div className="h-[320px] w-full sm:h-[380px] lg:h-[420px]">
@@ -47,10 +50,7 @@ export function RaceMap({ teams, latestLocations = [] }: RaceMapProps) {
             </MapMarker>
           ))}
 
-          <MapMarker
-            longitude={UNION_STATION.coordinates[0]}
-            latitude={UNION_STATION.coordinates[1]}
-          >
+          <MapMarker longitude={fin.longitude} latitude={fin.latitude}>
             <MarkerContent>
               <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-black text-white shadow-lg">
                 <Flag className="h-4 w-4" />
@@ -58,8 +58,8 @@ export function RaceMap({ teams, latestLocations = [] }: RaceMapProps) {
             </MarkerContent>
             <MarkerPopup>
               <div className="rounded-xl border bg-white px-3 py-2 text-sm shadow-md">
-                <strong>{UNION_STATION.name}</strong>
-                <p className="text-muted-foreground">{UNION_STATION.finishPoint}</p>
+                <strong>{fin.shortName}</strong>
+                <p className="text-muted-foreground">{fin.addressLabel}</p>
               </div>
             </MarkerPopup>
           </MapMarker>

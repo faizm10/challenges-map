@@ -11,6 +11,7 @@ import {
   UNION_STATION,
 } from "@/lib/config";
 import { GameError, isGameError } from "@/lib/game-error";
+import { resolveEventFinish } from "@/lib/game-finish";
 import { isSupabaseUnavailable } from "@/lib/data-source";
 import { EVENT_SLUG_PATTERN } from "@/lib/event-slug";
 import {
@@ -67,6 +68,7 @@ export type GameRow = {
   slug: string;
   name: string;
   finish_point_label: string | null;
+  settings: Record<string, unknown> | null;
 };
 
 type StatusRow = {
@@ -154,7 +156,7 @@ export async function getGameBySlug(slug: string): Promise<GameRow | null> {
   try {
     const { data, error } = await supabase
       .from("games")
-      .select("id, slug, name, finish_point_label")
+      .select("id, slug, name, finish_point_label, settings")
       .eq("slug", clean)
       .maybeSingle();
 
@@ -165,6 +167,10 @@ export async function getGameBySlug(slug: string): Promise<GameRow | null> {
       slug: String(data.slug),
       name: String(data.name),
       finish_point_label: data.finish_point_label ? String(data.finish_point_label) : null,
+      settings:
+        data.settings != null && typeof data.settings === "object" && !Array.isArray(data.settings)
+          ? (data.settings as Record<string, unknown>)
+          : null,
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
@@ -174,6 +180,7 @@ export async function getGameBySlug(slug: string): Promise<GameRow | null> {
             slug: "converge",
             name: "Converge",
             finish_point_label: UNION_STATION.finishPoint,
+            settings: null,
           }
         : null;
     }
@@ -186,11 +193,27 @@ export async function createGameWithAdmin(input: {
   name: string;
   adminDisplayName: string;
   adminPin: string;
+  /** Set when the game is created by a signed-in organizer (product flow). */
+  organizerId?: number | null;
+  finishPointLabel?: string;
+  finishShortName?: string;
+  finishLatitude?: number | null;
+  finishLongitude?: number | null;
 }): Promise<{ id: number; slug: string }> {
   const slug = input.slug.trim().toLowerCase();
   const name = input.name.trim();
   const adminDisplayName = input.adminDisplayName.trim().slice(0, 120);
   const adminPin = input.adminPin.trim().slice(0, 120);
+  const finishLabel = (input.finishPointLabel ?? "").trim() || UNION_STATION.finishPoint;
+  const settings: Record<string, unknown> = {};
+  const finish: Record<string, unknown> = {};
+  const finishSn = (input.finishShortName ?? "").trim();
+  if (finishSn) finish.shortName = finishSn.slice(0, 120);
+  const finLat = toFiniteNumber(input.finishLatitude);
+  const finLng = toFiniteNumber(input.finishLongitude);
+  if (finLat !== null) finish.latitude = finLat;
+  if (finLng !== null) finish.longitude = finLng;
+  if (Object.keys(finish).length) settings.finish = finish;
 
   if (!slug || !EVENT_SLUG_PATTERN.test(slug)) {
     throw new GameError(
@@ -209,7 +232,8 @@ export async function createGameWithAdmin(input: {
     const gameInsert: Record<string, unknown> = {
       slug,
       name: name.slice(0, 200),
-      finish_point_label: UNION_STATION.finishPoint,
+      finish_point_label: finishLabel.slice(0, 500),
+      settings,
     };
 
     const { data: gameRow, error: gameError } = await supabase
@@ -331,7 +355,7 @@ async function getGameRow(gameId: number): Promise<GameRow | null> {
   try {
     const { data, error } = await supabase
       .from("games")
-      .select("id, slug, name, finish_point_label")
+      .select("id, slug, name, finish_point_label, settings")
       .eq("id", gameId)
       .maybeSingle();
     if (error) throw error;
@@ -341,6 +365,10 @@ async function getGameRow(gameId: number): Promise<GameRow | null> {
       slug: String(data.slug),
       name: String(data.name),
       finish_point_label: data.finish_point_label ? String(data.finish_point_label) : null,
+      settings:
+        data.settings != null && typeof data.settings === "object" && !Array.isArray(data.settings)
+          ? (data.settings as Record<string, unknown>)
+          : null,
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
@@ -350,6 +378,7 @@ async function getGameRow(gameId: number): Promise<GameRow | null> {
             slug: "converge",
             name: "Converge",
             finish_point_label: UNION_STATION.finishPoint,
+            settings: null,
           }
         : null;
     }
@@ -357,14 +386,8 @@ async function getGameRow(gameId: number): Promise<GameRow | null> {
   }
 }
 
-function unionLabelFromGame(game: GameRow | null) {
-  return game?.finish_point_label?.trim() || UNION_STATION.finishPoint;
-}
-
-function unionNameFromGame(game: GameRow | null) {
-  const label = unionLabelFromGame(game);
-  const first = label.split(",")[0]?.trim();
-  return first || UNION_STATION.name;
+function eventFinishFromGame(game: GameRow | null) {
+  return resolveEventFinish(game?.finish_point_label ?? null, game?.settings ?? null);
 }
 
 function getMilestones(entry: {
@@ -1150,11 +1173,12 @@ async function getChallengeUnlockTarget(
   }
 
   if (challenge.kind === "union") {
+    const fin = eventFinishFromGame(await getGameRow(gameId));
     return {
-      checkpoint_label: UNION_STATION.name,
-      checkpoint_address: UNION_STATION.finishPoint,
-      latitude: UNION_STATION.coordinates[1],
-      longitude: UNION_STATION.coordinates[0],
+      checkpoint_label: fin.shortName,
+      checkpoint_address: fin.addressLabel,
+      latitude: fin.latitude,
+      longitude: fin.longitude,
       unlock_radius_meters: DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
     };
   }
@@ -1553,8 +1577,7 @@ export async function getPublicMapData(gameId: number): Promise<PublicMapRespons
       checkinsByTeam.set(checkin.team_id, current);
     }
 
-    const unionName = unionNameFromGame(gameRow);
-    const unionLabel = unionLabelFromGame(gameRow);
+    const fin = eventFinishFromGame(gameRow);
 
     return {
       latestLocations,
@@ -1562,23 +1585,24 @@ export async function getPublicMapData(gameId: number): Promise<PublicMapRespons
         buildAdminTeamRoute(team, checkinsByTeam.get(team.id) ?? [], challenges)
       ),
       union: {
-        name: unionName,
-        latitude: UNION_STATION.coordinates[1],
-        longitude: UNION_STATION.coordinates[0],
-        label: unionLabel,
+        name: fin.shortName,
+        latitude: fin.latitude,
+        longitude: fin.longitude,
+        label: fin.addressLabel,
       },
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       const adminGame = getLocalAdminGame(gameId);
+      const fin = adminGame.eventFinish;
       return {
         latestLocations: adminGame.latestLocations,
         teamRoutes: adminGame.teamRoutes,
         union: {
-          name: UNION_STATION.name,
-          latitude: UNION_STATION.coordinates[1],
-          longitude: UNION_STATION.coordinates[0],
-          label: UNION_STATION.finishPoint,
+          name: fin.shortName,
+          latitude: fin.latitude,
+          longitude: fin.longitude,
+          label: fin.addressLabel,
         },
       };
     }
@@ -1727,8 +1751,7 @@ export async function getTeamDashboard(
 
   try {
     const gameRow = await getGameRow(gameId);
-    const unionName = unionNameFromGame(gameRow);
-    const unionLabel = unionLabelFromGame(gameRow);
+    const eventFinish = eventFinishFromGame(gameRow);
 
     const [teamResult, releasedChallenges, statusResult, uploads, checkins, leaderboard, checkpointAssignments] =
       await Promise.all([
@@ -1792,10 +1815,21 @@ export async function getTeamDashboard(
 
     const challenges = releasedChallenges.map((challenge) => {
       const status = statuses.get(challenge.id);
-      const checkpoint =
+      let checkpoint =
         checkpointAssignments.find(
           (item) => item.team_id === teamId && item.challenge_id === challenge.id
         ) ?? defaultCheckpointForTeamChallenge(teamId, challenge.id, challenge.challenge_order);
+      if (challenge.kind === "union" && !checkpoint) {
+        checkpoint = {
+          team_id: teamId,
+          challenge_id: challenge.id,
+          checkpoint_label: eventFinish.shortName,
+          checkpoint_address: eventFinish.addressLabel,
+          latitude: eventFinish.latitude,
+          longitude: eventFinish.longitude,
+          unlock_radius_meters: DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+        };
+      }
       const isUnlocked =
         challenge.kind === "game_long" ? hasStartedRace : challengeCheckinIds.has(challenge.id);
       return {
@@ -1831,13 +1865,14 @@ export async function getTeamDashboard(
         releasedChallenges,
         checkins,
         checkpointAssignments,
-        unionName,
-        unionLabel
+        eventFinish.shortName,
+        eventFinish.addressLabel
       ),
       checkins,
       latestLocation,
       teamStats,
       leaderboard,
+      eventFinish,
     };
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
@@ -1849,6 +1884,8 @@ export async function getTeamDashboard(
 
 export async function getAdminGame(gameId: number): Promise<AdminGameResponse> {
   try {
+    const gameRow = await getGameRow(gameId);
+    const eventFinish = eventFinishFromGame(gameRow);
     const teamIds = await getTeamIdsForGame(gameId);
     const teamsPromise = teamIds.length
       ? supabase.from("teams").select("id").in("id", teamIds).order("id", { ascending: true })
@@ -1933,6 +1970,7 @@ export async function getAdminGame(gameId: number): Promise<AdminGameResponse> {
       teamRoutes,
       recentCheckins,
       leaderboard,
+      eventFinish,
       pins: {
         admin_hint: "Stored in Supabase access_credentials table",
         team_pin_count: teamRows.length,
@@ -2010,9 +2048,10 @@ export async function updateChallenge(
       throw new GameError("Challenge was not found.", 404);
     }
 
+    const finForUnion = eventFinishFromGame(await getGameRow(gameId));
     const normalizedExpectedLocation =
       currentChallenge.kind === "union"
-        ? UNION_STATION.name
+        ? finForUnion.shortName
         : currentChallenge.kind === "checkpoint"
           ? cleanExpectedLocation || "Per-team route checkpoint"
           : cleanExpectedLocation;
@@ -2090,7 +2129,7 @@ export async function updateChallenge(
         gameId,
         challengeId,
         currentChallenge?.kind === "union"
-          ? UNION_STATION.name
+          ? eventFinishFromGame(await getGameRow(gameId)).shortName
           : currentChallenge?.kind === "checkpoint"
             ? cleanExpectedLocation || "Per-team route checkpoint"
             : cleanExpectedLocation
@@ -2165,6 +2204,7 @@ export async function createChallenge(
       .maybeSingle();
     if (maxErr) throw maxErr;
     const nextId = maxCh?.id != null ? Number(maxCh.id) + 1 : 1;
+    const finishForEvent = eventFinishFromGame(await getGameRow(gameId));
 
     const payload = {
       id: nextId,
@@ -2174,7 +2214,7 @@ export async function createChallenge(
       text: cleanText.slice(0, 500),
       expected_location:
         getChallengeKind(nextOrder) === "union"
-          ? UNION_STATION.name
+          ? finishForEvent.shortName
           : getChallengeKind(nextOrder) === "checkpoint"
             ? (cleanExpectedLocation || "Per-team route checkpoint").slice(0, 160)
             : cleanExpectedLocation.slice(0, 160),
@@ -3080,6 +3120,67 @@ export async function resetGame(gameId: number) {
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       return resetLocalState(gameId);
+    }
+    throw error;
+  }
+}
+
+export async function updateGameEventFinish(
+  gameId: number,
+  input: {
+    finishPointLabel: string;
+    finishShortName?: string | null;
+    finishLatitude?: number | null;
+    finishLongitude?: number | null;
+  }
+) {
+  const label = input.finishPointLabel.trim();
+  if (!label) throw new GameError("Finish line description is required.", 400);
+
+  try {
+    const row = await getGameRow(gameId);
+    if (!row) throw new GameError("Event was not found.", 404);
+
+    const settings =
+      row.settings && typeof row.settings === "object" && !Array.isArray(row.settings)
+        ? { ...(row.settings as Record<string, unknown>) }
+        : {};
+
+    const prevFinishRaw = settings.finish;
+    const prevFinish =
+      prevFinishRaw && typeof prevFinishRaw === "object" && !Array.isArray(prevFinishRaw)
+        ? { ...(prevFinishRaw as Record<string, unknown>) }
+        : {};
+    const nextFinish: Record<string, unknown> = { ...prevFinish };
+
+    const sn = (input.finishShortName ?? "").trim();
+    if (sn) nextFinish.shortName = sn.slice(0, 120);
+    else delete nextFinish.shortName;
+
+    const lat = toFiniteNumber(input.finishLatitude);
+    const lng = toFiniteNumber(input.finishLongitude);
+    if (lat !== null) nextFinish.latitude = lat;
+    else delete nextFinish.latitude;
+    if (lng !== null) nextFinish.longitude = lng;
+    else delete nextFinish.longitude;
+
+    settings.finish = nextFinish;
+
+    const { error } = await supabase
+      .from("games")
+      .update({
+        finish_point_label: label.slice(0, 500),
+        settings,
+      })
+      .eq("id", gameId);
+
+    if (error) throw error;
+
+    return resolveEventFinish(label, settings);
+  } catch (error) {
+    if (isGameError(error)) throw error;
+    if (isSupabaseUnavailable(error)) {
+      throw new GameError("Cannot update finish line while offline or without database.", 503);
     }
     throw error;
   }

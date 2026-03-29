@@ -1110,189 +1110,199 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
   }
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 md:px-6 md:py-8">
-      {newChallengeBanner ? (
-        <div className="rounded-[24px] border border-orange-300/18 bg-orange-500/[0.08] p-5 text-white shadow-[0_18px_50px_rgba(255,120,0,0.12)]">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-200">
-            Challenge Drop Is Out
-          </p>
-          <div className="mt-2 flex items-start justify-between gap-4">
+    <main
+      className="relative min-h-screen w-full"
+      style={{
+        backgroundImage: "url('/images/landing/u1194229659_generate_a_pixel_gamified_toronto_landscape_pictu_415a8841-0d4c-4e47-b833-4cfe0a3dc69a_3.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "scroll",
+      }}
+    >
+      <style>{`
+        @keyframes db-fadein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes db-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .db-section { animation: db-fadein 0.45s ease forwards; }
+        .db-live-dot { animation: db-pulse 2s ease-in-out infinite; }
+      `}</style>
+
+      {/* Dark overlay */}
+      <div className="pointer-events-none fixed inset-0 bg-[#090809]/91" />
+
+      {/* ── STICKY MOBILE NAV ───────────────────── */}
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-[#e6d5b8]/10 bg-[#090809]/95 px-4 py-3 md:hidden" style={{ backdropFilter: "blur(10px)" }}>
+        <div>
+          <p className="text-xs uppercase tracking-widest text-orange-500">Converge</p>
+          <p className="text-sm text-[#e6d5b8]">{dashboard.team.team_name}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            asChild
+            className="h-8 border border-[#e6d5b8]/15 bg-transparent px-3 text-xs text-[#e6d5b8]/55 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
+            variant="secondary"
+          >
+            <Link href={`/e/${gameSlug}/leaderboard`}>Board</Link>
+          </Button>
+          <Button
+            className="h-8 border border-[#e6d5b8]/10 bg-transparent px-3 text-xs text-[#e6d5b8]/35 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
+            disabled={isSigningOut}
+            variant="ghost"
+            onClick={onLogout}
+          >
+            {isSigningOut ? <LoaderCircle className="h-3 w-3 animate-spin" /> : "Out"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-6xl space-y-3 px-3 pb-20 pt-4 md:space-y-4 md:px-6 md:pb-16 md:pt-8">
+
+        {/* ── NEW CHALLENGE BANNER ─────────────────── */}
+        {newChallengeBanner ? (
+          <div className="flex items-start justify-between gap-4 border-l-2 border-orange-500 bg-orange-500/8 px-4 py-3">
             <div>
-              <p className="text-2xl font-semibold text-white">{newChallengeBanner.title}</p>
-              <p className="mt-1 text-sm leading-6 text-white/62">
-                A new challenge just landed. Open the card below to upload proof and submit.
-              </p>
+              <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Challenge Drop</p>
+              <p className="mt-1 text-sm text-[#e6d5b8]">{newChallengeBanner.title}</p>
+              <p className="mt-0.5 text-xs text-[#e6d5b8]/50">Scroll to challenge queue to submit.</p>
             </div>
             <button
-              className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
+              className="mt-0.5 shrink-0 text-xs text-[#e6d5b8]/35 transition hover:text-[#e6d5b8]"
               type="button"
               onClick={() => setNewChallengeBanner(null)}
             >
-              Close
+              ✕
             </button>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <Badge className="border-white/10 bg-white/8 text-white/88" variant="secondary">
-                {dashboard.team.badge_label}
-              </Badge>
-              <Badge className="border-white/10 bg-white/8 text-white/72" variant="secondary">
-                {dashboard.team.start_location_name}
-              </Badge>
-            </div>
-            <h1 className="font-serif text-4xl text-white sm:text-5xl">{dashboard.team.team_name}</h1>
-            <p className="max-w-3xl text-lg leading-8 text-white/56">{dashboard.team.route_summary}</p>
-            {shouldShowScrollCue ? (
-              <div className="max-w-2xl rounded-[18px] border border-orange-300/16 bg-orange-500/[0.08] px-4 py-3">
-                <p className="text-sm font-semibold text-white">Next challenge is ready</p>
-                <p className="mt-1 text-sm leading-6 text-white/62">
-                  Scroll down to the challenge queue to view and submit it.
-                </p>
+        {/* ── HEADER ──────────────────────────────── */}
+        <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70">
+          <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start md:justify-between md:p-8">
+            <div className="space-y-2.5 md:space-y-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-orange-500">Converge // Field Ops</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="border border-[#e6d5b8]/15 px-2 py-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/55">
+                  {dashboard.team.badge_label}
+                </span>
+                <span className="border border-[#e6d5b8]/15 px-2 py-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/55">
+                  {dashboard.team.start_location_name}
+                </span>
               </div>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Button
-              asChild
-              className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
-              variant="secondary"
-            >
-              <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
-            </Button>
-            <Button
-              className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"
-              disabled={isSigningOut}
-              variant="ghost"
-              onClick={onLogout}
-            >
-              {isSigningOut ? (
-                <>
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  Signing out...
-                </>
-              ) : (
-                "Log Out"
-              )}
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Walk Time
-            </p>
-            <p className="text-2xl font-semibold text-white">{dashboard.team.walk_time}</p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Rank
-            </p>
-            <p className="text-2xl font-semibold text-white">#{dashboard.teamStats.leaderboard_rank}</p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Last Known
-            </p>
-            <p className="text-lg font-semibold text-white">
-              {dashboard.latestLocation ? dashboard.latestLocation.label : "No GPS yet"}
-            </p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Total
-            </p>
-            <p className="text-2xl font-semibold text-white">{dashboard.teamStats.total_points}</p>
-          </div>
-        </div>
-      </Card>
-
-      <TeamRouteMap dashboard={dashboard} />
-
-      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-        <CardHeader>
-          <CardTitle className="text-3xl text-white">Check-In Progress</CardTitle>
-          <CardDescription className="text-white/52">
-            Start the race, unlock route checkpoints, then finish at Union.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="rounded-[22px] border border-orange-400/14 bg-orange-500/[0.07] p-4 text-white">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-2xl bg-orange-500/14 p-2 text-orange-200">
-                <LocateFixed className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-white">{locationHeaderTitle}</p>
-                  <Badge className="border-orange-300/18 bg-orange-300/10 text-orange-100" variant="secondary">
-                    {locationHeaderBadge}
-                  </Badge>
+              <h1 className="text-3xl text-[#e6d5b8] sm:text-4xl md:text-5xl">{dashboard.team.team_name}</h1>
+              <p className="max-w-2xl text-sm leading-6 text-[#e6d5b8]/50">{dashboard.team.route_summary}</p>
+              {shouldShowScrollCue ? (
+                <div className="border-l-2 border-orange-500 bg-orange-500/8 py-2 pl-3">
+                  <p className="text-sm text-[#e6d5b8]">Next challenge is ready</p>
+                  <p className="mt-0.5 text-xs text-[#e6d5b8]/50">Scroll to the challenge queue to view and submit.</p>
                 </div>
-                <p className="mt-1 text-sm leading-6 text-white/62">
-                  {locationHeaderMessage}
-                </p>
-              </div>
+              ) : null}
             </div>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            {/* Desktop-only nav buttons — mobile has sticky top bar */}
+            <div className="hidden shrink-0 gap-2 md:flex">
               <Button
-                className={`h-11 w-full sm:w-auto ${
-                  hasRecordedGpsFix
-                    ? "bg-emerald-500/90 text-white hover:bg-emerald-500"
-                    : "bg-white/8 text-white hover:bg-white/12"
-                }`}
-                disabled={
-                  hasRecordedGpsFix ||
-                  locationPermissionCopy.actionMode === "disabled" ||
-                  locationPermissionCopy.actionMode === "granted" ||
-                  locationPermissionState === "requesting"
-                }
-                type="button"
+                asChild
+                className="border border-[#e6d5b8]/15 bg-transparent text-[#e6d5b8]/55 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
                 variant="secondary"
-                onClick={() => void requestLocationAccess()}
               >
-                {locationPermissionState === "requesting" ? (
-                  <>
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    {locationPermissionCopy.actionLabel}
-                  </>
-                ) : hasRecordedGpsFix ? (
-                  <>
-                    <LocateFixed className="h-4 w-4" />
-                    Location Enabled
-                  </>
-                ) : (
-                  <>
-                    <LocateFixed className="h-4 w-4" />
-                    {locationPermissionCopy.actionLabel}
-                  </>
-                )}
+                <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
               </Button>
-              <p className="text-sm leading-6 text-white/62">
-                Use Chrome on your phone if possible. {locationHelpText}
+              <Button
+                className="border border-[#e6d5b8]/10 bg-transparent text-[#e6d5b8]/35 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
+                disabled={isSigningOut}
+                variant="ghost"
+                onClick={onLogout}
+              >
+                {isSigningOut ? <><LoaderCircle className="h-4 w-4 animate-spin" />Signing out...</> : "Log Out"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats bar */}
+          <div className="grid grid-cols-2 border-t border-[#e6d5b8]/10 xl:grid-cols-4">
+            <div className="border-r border-[#e6d5b8]/10 p-4 md:p-6">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Walk Time</p>
+              <p className="text-2xl text-[#e6d5b8] md:text-3xl">{dashboard.team.walk_time}</p>
+            </div>
+            <div className="p-4 md:p-6 xl:border-r xl:border-[#e6d5b8]/10">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Rank</p>
+              <p className="text-2xl text-[#e6d5b8] md:text-3xl">#{dashboard.teamStats.leaderboard_rank}</p>
+            </div>
+            <div className="border-r border-t border-[#e6d5b8]/10 p-4 md:p-6 xl:border-t-0">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Last Known</p>
+              <p className="text-base text-[#e6d5b8] md:text-xl">
+                {dashboard.latestLocation ? dashboard.latestLocation.label : "No GPS yet"}
               </p>
             </div>
-            {!hasRecordedGpsFix ? (
-              <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.04] px-3 py-2.5">
-                <p className="text-sm text-white/52">No GPS fix captured yet.</p>
-              </div>
-            ) : null}
+            <div className="border-t border-[#e6d5b8]/10 p-4 md:p-6 xl:border-t-0">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Points</p>
+              <p className="text-2xl text-[#e6d5b8] md:text-3xl">{dashboard.teamStats.total_points}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Map */}
+        <div className="border-x border-[#e6d5b8]/10">
+          <TeamRouteMap dashboard={dashboard} />
+        </div>
+
+        {/* ── CHECK-IN PROGRESS ───────────────────── */}
+        <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70" style={{ animationDelay: "0.1s", opacity: 0 }}>
+          <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-8 md:py-5">
+            <div className="flex items-center gap-2.5">
+              <span className="db-live-dot inline-block h-2 w-2 bg-orange-500" />
+              <h2 className="text-lg text-[#e6d5b8] md:text-xl">Check-In Progress</h2>
+            </div>
+            <p className="mt-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/35">Start → route checkpoints → Union Station</p>
           </div>
 
-          {locationPermissionState === "denied" ? (
-            <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4 text-white">
-              <p className="text-sm font-semibold text-white">Location blocked</p>
-              <p className="mt-2 text-sm leading-6 text-white/64">{locationHelpText}</p>
+          <div className="space-y-3 p-4 md:space-y-4 md:p-8">
+            {/* GPS panel */}
+            <div className="border border-orange-500/20 bg-orange-500/5 p-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 bg-orange-500/10 p-2 text-orange-400">
+                  <LocateFixed className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-[#e6d5b8]">{locationHeaderTitle}</p>
+                    <span className="border border-orange-500/30 px-2 py-0.5 text-xs text-orange-400">
+                      {locationHeaderBadge}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-[#e6d5b8]/50">{locationHeaderMessage}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button
+                  className={`h-10 w-full border sm:w-auto ${hasRecordedGpsFix ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15" : "border-[#e6d5b8]/15 bg-transparent text-[#e6d5b8]/55 hover:bg-[#e6d5b8]/5"}`}
+                  disabled={hasRecordedGpsFix || locationPermissionCopy.actionMode === "disabled" || locationPermissionCopy.actionMode === "granted" || locationPermissionState === "requesting"}
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void requestLocationAccess()}
+                >
+                  {locationPermissionState === "requesting" ? (
+                    <><LoaderCircle className="h-4 w-4 animate-spin" />{locationPermissionCopy.actionLabel}</>
+                  ) : hasRecordedGpsFix ? (
+                    <><LocateFixed className="h-4 w-4" />Location Enabled</>
+                  ) : (
+                    <><LocateFixed className="h-4 w-4" />{locationPermissionCopy.actionLabel}</>
+                  )}
+                </Button>
+                <p className="text-xs text-[#e6d5b8]/40">Use Chrome on your phone if possible. {locationHelpText}</p>
+              </div>
+              {!hasRecordedGpsFix ? (
+                <p className="mt-3 text-xs text-[#e6d5b8]/30">No GPS fix captured yet.</p>
+              ) : null}
             </div>
-          ) : null}
 
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-3 sm:p-4">
-            <div className="grid gap-2">
+            {locationPermissionState === "denied" ? (
+              <div className="border border-[#e6d5b8]/10 p-4">
+                <p className="text-sm text-[#e6d5b8]">Location blocked</p>
+                <p className="mt-1 text-xs leading-5 text-[#e6d5b8]/50">{locationHelpText}</p>
+              </div>
+            ) : null}
+
+            {/* Checkpoint rows */}
+            <div className="space-y-2">
               {visibleCheckpoints.map((checkpoint) => {
                 const isOpen = openCheckpointKey === checkpoint.key;
                 const isFinishLocked =
@@ -1353,14 +1363,17 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                       )
                     : null;
 
+                const statusAccent =
+                  checkpoint.status === "verified"
+                    ? "border-l-emerald-500"
+                    : checkpoint.status === "pending"
+                      ? "border-l-orange-500"
+                      : "border-l-[#e6d5b8]/15";
+
                 return (
                   <div
                     key={checkpoint.key}
-                    className={`rounded-[20px] border transition ${
-                      isOpen
-                        ? "border-orange-400/22 bg-white/[0.06]"
-                        : "border-white/6 bg-transparent"
-                    }`}
+                    className={`border border-[#e6d5b8]/10 border-l-2 transition ${statusAccent} ${isOpen ? "bg-[#e6d5b8]/3" : "bg-transparent"}`}
                   >
                     <button
                       className="flex w-full items-start justify-between gap-3 p-4 text-left"
@@ -1372,31 +1385,24 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                       }
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-lg font-semibold text-white">{checkpoint.label}</p>
-                        <p className="mt-1 text-sm leading-6 text-white/56">{checkpoint.description}</p>
-                        <p className="mt-2 text-sm text-white/76">
-                          <span className="text-white/46">Expected location:</span>{" "}
+                        <p className="text-base text-[#e6d5b8]">{checkpoint.label}</p>
+                        <p className="mt-0.5 text-xs leading-5 text-[#e6d5b8]/50">{checkpoint.description}</p>
+                        <p className="mt-1 text-xs text-[#e6d5b8]/40">
+                          <span className="text-[#e6d5b8]/25">At: </span>
                           {checkpoint.expected_location_label}
                         </p>
-                        {checkpoint.expected_location_description ? (
-                          <p className="text-xs text-white/42">
-                            {checkpoint.expected_location_description}
-                          </p>
-                        ) : null}
                         {checkpoint.latest_checkin ? (
-                          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/42">
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#e6d5b8]/30">
                             <span>{new Date(checkpoint.latest_checkin.created_at).toLocaleString()}</span>
                             {checkpoint.latest_checkin.latitude !== null ? (
                               <span className="inline-flex items-center gap-1">
-                                <MapPin className="h-3.5 w-3.5" />
+                                <MapPin className="h-3 w-3" />
                                 {formatCoordinate(checkpoint.latest_checkin.latitude)},{" "}
                                 {formatCoordinate(checkpoint.latest_checkin.longitude)}
                               </span>
-                            ) : (
-                              <span>No GPS captured</span>
-                            )}
+                            ) : <span>No GPS</span>}
                             {checkpoint.latest_checkin.accuracy_meters !== null ? (
-                              <span>Accuracy {Math.round(checkpoint.latest_checkin.accuracy_meters)}m</span>
+                              <span>±{Math.round(checkpoint.latest_checkin.accuracy_meters)}m</span>
                             ) : null}
                           </div>
                         ) : null}
@@ -1405,18 +1411,14 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                         <Badge variant={checkpointVariant(checkpoint.status)}>
                           {checkpointLabel(checkpoint.status)}
                         </Badge>
-                        <ChevronDown
-                          className={`mt-0.5 h-4 w-4 shrink-0 text-white/52 transition ${
-                            isOpen ? "rotate-180" : ""
-                          }`}
-                        />
+                        <ChevronDown className={`h-4 w-4 text-[#e6d5b8]/35 transition ${isOpen ? "rotate-180" : ""}`} />
                       </div>
                     </button>
 
                     {checkpoint.expected_location_description ? (
                       <div className="px-4 pb-2">
                         <button
-                          className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-medium text-white/64 transition hover:bg-white/[0.08] hover:text-white"
+                          className="inline-flex items-center gap-1 border border-[#e6d5b8]/10 px-2.5 py-1 text-xs text-[#e6d5b8]/40 transition hover:text-[#e6d5b8]"
                           type="button"
                           onClick={() => void copyAddress(checkpoint.expected_location_description ?? "")}
                         >
@@ -1427,7 +1429,7 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                     ) : null}
 
                     {isOpen ? (
-                      <div className="border-t border-white/8 px-4 pb-4 pt-4">
+                      <div className="border-t border-[#e6d5b8]/10 px-4 pb-4 pt-4">
                         <form
                           className="space-y-3"
                           onSubmit={(event) => {
@@ -1451,15 +1453,12 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                             </div>
                           ) : null}
                           {checkpoint.checkin_type === "challenge" ? (
-                            <div className="rounded-[20px] border border-sky-400/12 bg-sky-500/[0.05] p-4">
-                              <p className="text-sm font-semibold text-white">Testing coordinates</p>
-                              <p className="mt-1 text-xs leading-5 text-white/58">
-                                Optional for testing only. If you fill these in, the checkpoint will
-                                use them instead of live GPS.
-                              </p>
+                            <div className="border border-sky-500/15 bg-sky-500/5 p-4">
+                              <p className="text-sm text-[#e6d5b8]">Testing coordinates</p>
+                              <p className="mt-1 text-xs text-[#e6d5b8]/45">Optional. Overrides live GPS if filled in.</p>
                               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                 <Input
-                                  className="border-white/10 bg-white/5 text-white placeholder:text-white/26"
+                                  className="border border-[#e6d5b8]/15 bg-[#e6d5b8]/5 text-[#e6d5b8] placeholder:text-[#e6d5b8]/25"
                                   inputMode="decimal"
                                   placeholder="Latitude"
                                   type="text"
@@ -1469,14 +1468,13 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                                       ...current,
                                       [checkpoint.key]: {
                                         latitude: event.target.value,
-                                        longitude:
-                                          current[checkpoint.key]?.longitude ?? "",
+                                        longitude: current[checkpoint.key]?.longitude ?? "",
                                       },
                                     }))
                                   }
                                 />
                                 <Input
-                                  className="border-white/10 bg-white/5 text-white placeholder:text-white/26"
+                                  className="border border-[#e6d5b8]/15 bg-[#e6d5b8]/5 text-[#e6d5b8] placeholder:text-[#e6d5b8]/25"
                                   inputMode="decimal"
                                   placeholder="Longitude"
                                   type="text"
@@ -1485,8 +1483,7 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                                     setManualCheckpointInputs((current) => ({
                                       ...current,
                                       [checkpoint.key]: {
-                                        latitude:
-                                          current[checkpoint.key]?.latitude ?? "",
+                                        latitude: current[checkpoint.key]?.latitude ?? "",
                                         longitude: event.target.value,
                                       },
                                     }))
@@ -1495,463 +1492,368 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                               </div>
                               {targetLocation ? (
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                  <div className="rounded-[18px] border border-white/8 bg-black/10 px-3 py-3">
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/44">
-                                      Checkpoint target
+                                  <div className="border border-[#e6d5b8]/10 p-3">
+                                    <p className="text-[10px] uppercase tracking-widest text-[#e6d5b8]/30 mb-2">Target</p>
+                                    <p className="font-mono text-xs text-[#e6d5b8]/60">
+                                      {formatCoordinate(targetLocation.latitude)}, {formatCoordinate(targetLocation.longitude)}
                                     </p>
-                                    <p className="mt-2 font-mono text-xs text-white/76">
-                                      {formatCoordinate(targetLocation.latitude)},{" "}
-                                      {formatCoordinate(targetLocation.longitude)}
-                                    </p>
-                                    <p className="mt-2 text-xs text-white/56">
-                                      Acceptance radius: {Math.round(targetLocation.radiusMeters)}m
-                                    </p>
+                                    <p className="mt-1 text-xs text-[#e6d5b8]/40">Radius: {Math.round(targetLocation.radiusMeters)}m</p>
                                   </div>
-                                  <div className="rounded-[18px] border border-white/8 bg-black/10 px-3 py-3">
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/44">
-                                      Actual check-in
-                                    </p>
-                                    {checkpoint.latest_checkin?.latitude != null &&
-                                    checkpoint.latest_checkin.longitude != null ? (
+                                  <div className="border border-[#e6d5b8]/10 p-3">
+                                    <p className="text-[10px] uppercase tracking-widest text-[#e6d5b8]/30 mb-2">Actual</p>
+                                    {checkpoint.latest_checkin?.latitude != null && checkpoint.latest_checkin.longitude != null ? (
                                       <>
-                                        <p className="mt-2 font-mono text-xs text-white/76">
-                                          {formatCoordinate(checkpoint.latest_checkin.latitude)},{" "}
-                                          {formatCoordinate(checkpoint.latest_checkin.longitude)}
+                                        <p className="font-mono text-xs text-[#e6d5b8]/60">
+                                          {formatCoordinate(checkpoint.latest_checkin.latitude)}, {formatCoordinate(checkpoint.latest_checkin.longitude)}
                                         </p>
-                                        <p className="mt-2 text-xs text-white/56">
-                                          Distance from target:{" "}
-                                          {latestSubmittedDistance !== null
-                                            ? `${Math.round(latestSubmittedDistance)}m`
-                                            : "Unknown"}
+                                        <p className="mt-1 text-xs text-[#e6d5b8]/40">
+                                          Δ {latestSubmittedDistance !== null ? `${Math.round(latestSubmittedDistance)}m` : "?"}
                                         </p>
                                       </>
-                                    ) : (
-                                      <p className="mt-2 text-xs text-white/56">
-                                        No submitted checkpoint coordinates yet.
-                                      </p>
-                                    )}
+                                    ) : <p className="text-xs text-[#e6d5b8]/35">No coords yet.</p>}
                                   </div>
-                                  <div className="rounded-[18px] border border-white/8 bg-black/10 px-3 py-3 sm:col-span-2">
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/44">
-                                      Manual test preview
-                                    </p>
+                                  <div className="border border-[#e6d5b8]/10 p-3 sm:col-span-2">
+                                    <p className="text-[10px] uppercase tracking-widest text-[#e6d5b8]/30 mb-2">Manual preview</p>
                                     {hasValidManualPreview ? (
                                       <>
-                                        <p className="mt-2 font-mono text-xs text-white/76">
+                                        <p className="font-mono text-xs text-[#e6d5b8]/60">
                                           {formatCoordinate(manualLatitude)}, {formatCoordinate(manualLongitude)}
                                         </p>
-                                        <p className="mt-2 text-xs text-white/56">
-                                          Distance from target:{" "}
-                                          {manualPreviewDistance !== null
-                                            ? `${Math.round(manualPreviewDistance)}m`
-                                            : "Unknown"}
-                                          {" · "}
-                                          {manualPreviewDistance !== null &&
-                                          manualPreviewDistance <= targetLocation.radiusMeters
-                                            ? "Would pass"
-                                            : "Would fail"}
+                                        <p className="mt-1 text-xs text-[#e6d5b8]/40">
+                                          Δ {manualPreviewDistance !== null ? `${Math.round(manualPreviewDistance)}m` : "?"}{" · "}
+                                          {manualPreviewDistance !== null && manualPreviewDistance <= targetLocation.radiusMeters ? "✓ Would pass" : "✗ Would fail"}
                                         </p>
                                       </>
-                                    ) : (
-                                      <p className="mt-2 text-xs text-white/56">
-                                        Enter a latitude and longitude above to preview whether the
-                                        test check-in is inside the allowed radius.
-                                      </p>
-                                    )}
+                                    ) : <p className="text-xs text-[#e6d5b8]/30">Enter lat/lng above to preview.</p>}
                                   </div>
                                 </div>
                               ) : null}
                             </div>
                           ) : null}
-                          <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
-                            <div className="mb-2 flex items-start gap-3">
-                              <div className="rounded-2xl bg-white/[0.06] p-2 text-orange-200">
+
+                          <div className="border border-[#e6d5b8]/10 bg-[#e6d5b8]/3 p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="bg-orange-500/10 p-2 text-orange-400">
                                 <Navigation className="h-4 w-4" />
                               </div>
                               <div>
-                                <p className="text-sm font-semibold text-white">GPS check-in status</p>
-                                <p className="mt-1 text-sm leading-6 text-white/60">
+                                <p className="text-sm text-[#e6d5b8]">GPS check-in status</p>
+                                <p className="mt-1 text-xs leading-5 text-[#e6d5b8]/50">
                                   {gpsMessages[checkpoint.key] ??
                                     (checkpoint.latest_checkin?.gps_captured_at
-                                      ? "Location was captured on your latest check-in."
-                                      : "Location will be requested as soon as you tap the button below.")}
+                                      ? "Location captured on latest check-in."
+                                      : "Location will be requested when you tap the button below.")}
                                 </p>
                               </div>
                             </div>
                             {!checkpoint.latest_checkin?.gps_captured_at ? (
-                              <p className="text-xs text-white/44">
+                              <p className="mt-2 text-xs text-[#e6d5b8]/30">
                                 {checkpoint.checkin_type === "challenge"
-                                  ? "Live GPS is required to unlock this checkpoint challenge."
-                                  : "If location access is blocked, the check-in still goes through and HQ can review it manually."}
+                                  ? "Live GPS required for this checkpoint challenge."
+                                  : "If location is blocked, check-in still goes through for HQ review."}
                               </p>
                             ) : null}
                           </div>
 
                           {checkpoint.checkin_type === "challenge" &&
                           checkpoint.challenge_id !== null &&
-                          orderedChallenges.find((item) => item.id === checkpoint.challenge_id)
-                            ?.challenge_order !== 4 ? (
-                            <div className="rounded-[20px] border border-orange-400/14 bg-orange-500/[0.07] p-4">
-                              <p className="text-sm font-semibold text-white">After check-in</p>
-                              <p className="mt-1 text-sm leading-6 text-white/62">
-                                Scroll down to the challenge queue to view and submit this challenge.
-                              </p>
+                          orderedChallenges.find((item) => item.id === checkpoint.challenge_id)?.challenge_order !== 4 ? (
+                            <div className="border border-orange-500/15 bg-orange-500/5 p-4">
+                              <p className="text-sm text-[#e6d5b8]">After check-in</p>
+                              <p className="mt-1 text-xs text-[#e6d5b8]/50">Scroll to the challenge queue to view and submit.</p>
                             </div>
                           ) : null}
 
                           <Button
-                            className="h-12 w-full bg-orange-500 text-base text-black hover:bg-orange-400"
+                            className="h-11 w-full border border-orange-500 bg-orange-500 text-black hover:bg-orange-400"
                             disabled={checkingInKey === checkpoint.key || isFinishLocked}
                             type="submit"
                           >
                             {checkingInKey === checkpoint.key ? (
-                              <>
-                                <LoaderCircle className="h-4 w-4 animate-spin" />
-                                Checking in...
-                              </>
-                            ) : (
-                              checkpoint.checkin_type === "start" && !checkpoint.latest_checkin
-                                ? "Accept contract and start"
-                                : checkpoint.checkin_type === "finish"
-                                  ? "Check in at Union"
-                                  : checkpoint.expected_location_label === "Union Station"
-                                    ? "Arrived at Union"
-                                    : "Arrived at checkpoint"
-                            )}
+                              <><LoaderCircle className="h-4 w-4 animate-spin" />Checking in...</>
+                            ) : checkpoint.checkin_type === "start" && !checkpoint.latest_checkin
+                              ? "Accept contract and start"
+                              : checkpoint.checkin_type === "finish"
+                                ? "Check in at Union"
+                                : checkpoint.expected_location_label === "Union Station"
+                                  ? "Arrived at Union"
+                                  : "Arrived at checkpoint"}
                           </Button>
                         </form>
 
                         {checkpoint.latest_checkin?.review_note ? (
-                          <p className="mt-3 text-xs text-white/44">
-                            HQ note: {checkpoint.latest_checkin.review_note}
-                          </p>
+                          <p className="mt-3 text-xs text-[#e6d5b8]/35">HQ note: {checkpoint.latest_checkin.review_note}</p>
                         ) : null}
-
                       </div>
                     ) : null}
                   </div>
                 );
               })}
             </div>
+
+            {!hasStartedRace ? (
+              <div className="border border-[#e6d5b8]/10 p-4">
+                <p className="text-sm text-[#e6d5b8]">Challenges unlock after the start check-in</p>
+                <p className="mt-1 text-xs text-[#e6d5b8]/45">Complete your start check-in first. Challenge cards appear automatically.</p>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        {/* ── CHALLENGE QUEUE ─────────────────────── */}
+        <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70" style={{ animationDelay: "0.2s", opacity: 0 }}>
+          <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-8 md:py-5">
+            <h2 className="text-lg text-[#e6d5b8] md:text-xl">Challenge Queue</h2>
+            <p className="mt-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/35">
+              Mission 1 stays open all race · each next mission appears after current is submitted
+            </p>
           </div>
 
-          {!hasStartedRace ? (
-            <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4 text-white">
-              <p className="text-sm font-semibold text-white">Challenges unlock after the start check-in</p>
-              <p className="mt-1 text-sm leading-6 text-white/58">
-                Complete your start check-in first. Once the race has started, the first challenge
-                card will appear automatically.
-              </p>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+          <div className="p-4 md:p-8">
+            {!hasStartedRace ? (
+              <p className="text-sm text-[#e6d5b8]/40">Start the race to reveal challenge cards.</p>
+            ) : !dashboard.challenges.length ? (
+              <p className="text-sm text-[#e6d5b8]/40">HQ has not released any challenges yet.</p>
+            ) : visibleChallenges.length ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {visibleChallenges.map((challenge) => {
+                  const isLocked = challenge.review_status === "verified";
+                  const latestUploadAt = challenge.uploads[0]?.uploaded_at;
+                  const showMediaSection = Boolean(challenge.allow_media_upload) || challenge.uploads.length > 0;
+                  const kindCopy = challengeKindCopy(challenge);
 
-      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-        <CardHeader>
-          <CardTitle className="text-3xl text-white">Challenge Queue</CardTitle>
-          <CardDescription className="text-white/52">
-            Challenge 1 stays open all race. Each next route challenge appears only after the current one is submitted.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          {!hasStartedRace ? (
-            <p className="text-sm text-white/46">
-              Start the race with your first check-in to reveal challenge cards.
-            </p>
-          ) : !dashboard.challenges.length ? (
-            <p className="text-sm text-white/46">
-              HQ has not released any challenges yet.
-            </p>
-          ) : visibleChallenges.length ? (
-            visibleChallenges.map((challenge) => {
-              const isLocked = challenge.review_status === "verified";
-              const latestUploadAt = challenge.uploads[0]?.uploaded_at;
-              const showMediaSection =
-                Boolean(challenge.allow_media_upload) || challenge.uploads.length > 0;
-              const kindCopy = challengeKindCopy(challenge);
-
-              return (
-                <Card
-                  key={challenge.id}
-                  id={`challenge-proof-${challenge.id}`}
-                  className="rounded-[24px] border border-white/8 bg-white/[0.05] p-5 text-white"
-                >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-                        Challenge {challenge.challenge_order}
-                      </p>
-                      <h3 className="text-xl font-semibold text-white">{challenge.title}</h3>
-                    </div>
-                    <Badge variant={challengeStateVariant(challenge)}>
-                      {challengeStateLabel(challenge)}
-                    </Badge>
-                  </div>
-
-                  <p className="mb-4 text-sm leading-7 text-white/58">{challenge.text}</p>
-
-                  <div className="mb-4 rounded-[20px] border border-emerald-400/12 bg-emerald-500/[0.06] p-4">
-                    <p className="text-sm font-semibold text-white">{kindCopy.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-white/60">
-                      {kindCopy.description}
-                    </p>
-                    {challenge.kind === "union" ? (
-                      <p className="mt-2 text-xs text-white/54">
-                        Required location: Union Station · Front Street entrance
-                      </p>
-                    ) : challenge.checkpoint?.checkpoint_label ? (
-                      <p className="mt-2 text-xs text-white/54">
-                        Required location: {challenge.checkpoint.checkpoint_label}
-                        {challenge.checkpoint.checkpoint_address
-                          ? ` · ${challenge.checkpoint.checkpoint_address}`
-                          : ""}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {showMediaSection ? (
-                    <div className="mb-4 rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                  return (
+                    <div
+                      key={challenge.id}
+                      id={`challenge-proof-${challenge.id}`}
+                      className="flex flex-col border border-[#e6d5b8]/12 bg-[#090809]/50"
+                    >
+                      {/* Card header */}
+                      <div className="flex items-start justify-between gap-3 border-b border-[#e6d5b8]/10 p-4 md:p-5">
                         <div>
-                          <p className="text-sm font-semibold text-white">Proof media</p>
-                          <p className="text-xs text-white/46">
-                            {challenge.uploads.length} file{challenge.uploads.length === 1 ? "" : "s"}
-                            {latestUploadAt
-                              ? ` · latest ${new Date(latestUploadAt).toLocaleString()}`
-                              : " · nothing uploaded yet"}
+                          <p className="mb-1 text-xs uppercase tracking-widest text-orange-500">
+                            Mission {challenge.challenge_order}
                           </p>
+                          <h3 className="text-base text-[#e6d5b8] md:text-lg">{challenge.title}</h3>
                         </div>
-                        {Boolean(challenge.allow_media_upload) ? (
-                          <label className="inline-flex">
-                            <input
-                              accept="image/*,video/*"
-                              className="hidden"
-                              disabled={isLocked || uploadingId === challenge.id}
-                              multiple
-                              type="file"
-                              onChange={(event) => {
-                                void onUploadFiles(challenge.id, event.currentTarget.files);
-                                event.currentTarget.value = "";
-                              }}
-                            />
-                            <span
-                              className={`inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-white transition ${
-                                isLocked || uploadingId === challenge.id
-                                  ? "cursor-not-allowed bg-white/[0.03] text-white/40"
-                                  : "cursor-pointer bg-white/5 hover:bg-white/10"
-                              }`}
-                            >
-                              <ImagePlus className="h-4 w-4" />
-                              {uploadingId === challenge.id ? "Uploading media..." : "Add media"}
-                            </span>
-                          </label>
-                        ) : null}
+                        <Badge variant={challengeStateVariant(challenge)}>
+                          {challengeStateLabel(challenge)}
+                        </Badge>
                       </div>
 
-                      {!Boolean(challenge.allow_media_upload) ? (
-                        <p className="mt-3 text-xs text-white/52">
-                          Media upload is turned off for this challenge.
-                        </p>
-                      ) : null}
-                      {isLocked ? (
-                        <p className="mt-3 text-xs text-emerald-300/80">
-                          HQ verified this challenge. Uploads are locked.
-                        </p>
-                      ) : null}
-                      {challenge.review_status === "rejected" && challenge.review_note ? (
-                        <p className="mt-3 text-xs text-amber-200/80">
-                          HQ note: {challenge.review_note}
-                        </p>
-                      ) : null}
+                      <div className="flex flex-1 flex-col space-y-3 p-4 md:space-y-4 md:p-5">
+                        <p className="text-sm leading-6 text-[#e6d5b8]/55">{challenge.text}</p>
 
-                      {challenge.uploads.length ? (
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                          {challenge.uploads.map((upload) => (
-                            <div
-                              key={upload.id}
-                              className="overflow-hidden rounded-[20px] border border-white/8 bg-black/20"
-                            >
-                              <div className="aspect-[4/3] bg-black/30">
-                                {upload.media_type === "image" ? (
-                                  <img
-                                    alt={upload.file_name}
-                                    className="h-full w-full object-cover"
-                                    decoding="async"
-                                    loading="lazy"
-                                    src={upload.signed_url}
-                                  />
-                                ) : (
-                                  <video
-                                    className="h-full w-full object-cover"
-                                    controls
-                                    playsInline
-                                    preload="none"
-                                    src={upload.signed_url}
-                                  />
-                                )}
-                              </div>
-                              <div className="space-y-2 p-3">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium text-white">{upload.file_name}</p>
-                                    <p className="text-xs text-white/44">
-                                      {upload.media_type === "video" ? "Video" : "Image"} ·{" "}
-                                      {Math.max(1, Math.round(upload.file_size_bytes / 1024 / 1024))}MB
-                                    </p>
-                                  </div>
-                                  {upload.media_type === "video" ? (
-                                    <Video className="mt-0.5 h-4 w-4 shrink-0 text-white/40" />
-                                  ) : null}
-                                </div>
-                                <div className="flex items-center justify-between gap-3">
-                                  <a
-                                    className="text-xs text-orange-300 hover:text-orange-200"
-                                    href={upload.signed_url}
-                                    rel="noreferrer"
-                                    target="_blank"
-                                  >
-                                    Open
-                                  </a>
-                                  {!isLocked ? (
-                                    <button
-                                      className="inline-flex items-center gap-1 text-xs text-white/52 transition hover:text-red-300"
-                                      disabled={removingUploadId === upload.id}
-                                      type="button"
-                                      onClick={() => void onDeleteUpload(challenge.id, upload.id)}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                      {removingUploadId === upload.id ? "Removing file..." : "Remove"}
-                                    </button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                        {/* Kind info */}
+                        <div className="border border-emerald-500/15 bg-emerald-500/5 p-4">
+                          <p className="text-sm text-[#e6d5b8]">{kindCopy.title}</p>
+                          <p className="mt-1 text-xs leading-5 text-[#e6d5b8]/50">{kindCopy.description}</p>
+                          {challenge.kind === "union" ? (
+                            <p className="mt-2 text-xs text-[#e6d5b8]/35">Union Station · Front St entrance</p>
+                          ) : challenge.checkpoint?.checkpoint_label ? (
+                            <p className="mt-2 text-xs text-[#e6d5b8]/35">
+                              {challenge.checkpoint.checkpoint_label}
+                              {challenge.checkpoint.checkpoint_address ? ` · ${challenge.checkpoint.checkpoint_address}` : ""}
+                            </p>
+                          ) : null}
                         </div>
-                      ) : null}
+
+                        {/* Media section */}
+                        {showMediaSection ? (
+                          <div className="border border-[#e6d5b8]/10 p-4 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm text-[#e6d5b8]">Proof media</p>
+                                <p className="text-xs text-[#e6d5b8]/40">
+                                  {challenge.uploads.length} file{challenge.uploads.length === 1 ? "" : "s"}
+                                  {latestUploadAt ? ` · ${new Date(latestUploadAt).toLocaleString()}` : " · none yet"}
+                                </p>
+                              </div>
+                              {Boolean(challenge.allow_media_upload) ? (
+                                <label className="inline-flex">
+                                  <input
+                                    accept="image/*,video/*"
+                                    className="hidden"
+                                    disabled={isLocked || uploadingId === challenge.id}
+                                    multiple
+                                    type="file"
+                                    onChange={(event) => {
+                                      void onUploadFiles(challenge.id, event.currentTarget.files);
+                                      event.currentTarget.value = "";
+                                    }}
+                                  />
+                                  <span className={`inline-flex h-9 cursor-pointer items-center gap-2 border px-3 text-xs transition ${isLocked || uploadingId === challenge.id ? "cursor-not-allowed border-[#e6d5b8]/8 text-[#e6d5b8]/25" : "border-[#e6d5b8]/20 text-[#e6d5b8]/55 hover:border-[#e6d5b8]/40 hover:text-[#e6d5b8]"}`}>
+                                    <ImagePlus className="h-3.5 w-3.5" />
+                                    {uploadingId === challenge.id ? "Uploading..." : "Add media"}
+                                  </span>
+                                </label>
+                              ) : null}
+                            </div>
+                            {!Boolean(challenge.allow_media_upload) ? <p className="text-xs text-[#e6d5b8]/30">Media upload off for this challenge.</p> : null}
+                            {isLocked ? <p className="text-xs text-emerald-400/70">HQ verified. Uploads locked.</p> : null}
+                            {challenge.review_status === "rejected" && challenge.review_note ? (
+                              <p className="text-xs text-amber-300/70">HQ: {challenge.review_note}</p>
+                            ) : null}
+                            {challenge.uploads.length ? (
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                {challenge.uploads.map((upload) => (
+                                  <div key={upload.id} className="overflow-hidden border border-[#e6d5b8]/10">
+                                    <div className="aspect-[4/3] bg-black/30">
+                                      {upload.media_type === "image" ? (
+                                        <img alt={upload.file_name} className="h-full w-full object-cover" decoding="async" loading="lazy" src={upload.signed_url} />
+                                      ) : (
+                                        <video className="h-full w-full object-cover" controls playsInline preload="none" src={upload.signed_url} />
+                                      )}
+                                    </div>
+                                    <div className="p-3">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <p className="truncate text-xs text-[#e6d5b8]/65">{upload.file_name}</p>
+                                          <p className="text-xs text-[#e6d5b8]/35">{upload.media_type === "video" ? "Video" : "Image"} · {Math.max(1, Math.round(upload.file_size_bytes / 1024 / 1024))}MB</p>
+                                        </div>
+                                        {upload.media_type === "video" ? <Video className="h-3.5 w-3.5 shrink-0 text-[#e6d5b8]/30" /> : null}
+                                      </div>
+                                      <div className="mt-2 flex items-center justify-between">
+                                        <a className="text-xs text-orange-400 hover:text-orange-300" href={upload.signed_url} rel="noreferrer" target="_blank">Open</a>
+                                        {!isLocked ? (
+                                          <button className="inline-flex items-center gap-1 text-xs text-[#e6d5b8]/30 transition hover:text-red-400" disabled={removingUploadId === upload.id} type="button" onClick={() => void onDeleteUpload(challenge.id, upload.id)}>
+                                            <Trash2 className="h-3 w-3" />
+                                            {removingUploadId === upload.id ? "Removing..." : "Remove"}
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {/* Submit form */}
+                        <form
+                          className="mt-auto space-y-3"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const formData = new FormData(event.currentTarget);
+                            void onSubmitChallenge(challenge.id, String(formData.get("proofNote") ?? ""));
+                          }}
+                        >
+                          <Textarea
+                            className="border border-[#e6d5b8]/15 bg-[#e6d5b8]/5 text-[#e6d5b8] placeholder:text-[#e6d5b8]/25"
+                            defaultValue={challenge.proof_note}
+                            disabled={isLocked}
+                            name="proofNote"
+                            placeholder="Add a note for HQ if needed. Submit with media only too."
+                          />
+                          <Button
+                            className="border border-orange-500 bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50"
+                            disabled={savingId === challenge.id || isLocked}
+                            type="submit"
+                          >
+                            {savingId === challenge.id ? (
+                              <><LoaderCircle className="h-4 w-4 animate-spin" />Submitting...</>
+                            ) : challenge.status === "submitted" ? "Challenge submitted" : "Submit Challenge"}
+                          </Button>
+                          <p className="text-xs text-[#e6d5b8]/30">
+                            {challenge.submitted_at ? `Last submitted ${new Date(challenge.submitted_at).toLocaleString()}` : "No proof submitted yet."}
+                          </p>
+                        </form>
+                      </div>
                     </div>
-                  ) : null}
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-[#e6d5b8]/40">Submit the current challenge to reveal the next one.</p>
+            )}
+          </div>
+        </section>
 
-                  <form
-                    className="space-y-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const formData = new FormData(event.currentTarget);
-                      void onSubmitChallenge(challenge.id, String(formData.get("proofNote") ?? ""));
-                    }}
-                  >
-                    <Textarea
-                      className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                      defaultValue={challenge.proof_note}
-                      disabled={isLocked}
-                      name="proofNote"
-                      placeholder="Add a note for HQ if needed. You can also submit with uploaded media only."
-                    />
-                    <Button
-                      className="bg-orange-500 text-black hover:bg-orange-400"
-                      disabled={savingId === challenge.id || isLocked}
-                      type="submit"
+        {/* ── LIVE LEADERBOARD ────────────────────── */}
+        <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70" style={{ animationDelay: "0.3s", opacity: 0 }}>
+          <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-8 md:py-5">
+            <div className="flex items-center gap-2.5">
+              <span className="db-live-dot inline-block h-2 w-2 bg-emerald-500" />
+              <h2 className="text-lg text-[#e6d5b8] md:text-xl">Live Leaderboard</h2>
+            </div>
+            <p className="mt-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/35">Standings refresh every few seconds</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#e6d5b8]/10">
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-8">Team</th>
+                  <th className="px-3 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-4">Rank</th>
+                  <th className="px-3 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-4">Pts</th>
+                  <th className="px-3 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-4">Done</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboard.leaderboard.map((entry) => {
+                  const isCurrentTeam = entry.team_name === dashboard.team.team_name;
+                  return (
+                    <tr
+                      key={entry.id}
+                      className={`border-b border-[#e6d5b8]/8 transition ${isCurrentTeam ? "border-l-2 border-l-orange-500 bg-orange-500/8" : "hover:bg-[#e6d5b8]/3"}`}
                     >
-                      {savingId === challenge.id ? (
-                        <>
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        challenge.status === "submitted" ? "Challenge submitted" : "Submit Challenge"
-                      )}
-                    </Button>
-                    <p className="text-xs text-white/42">
-                      {challenge.submitted_at
-                        ? `Last submitted ${new Date(challenge.submitted_at).toLocaleString()}`
-                        : "No proof submitted yet."}
-                    </p>
-                  </form>
-                </Card>
-              );
-            })
-          ) : (
-            <p className="text-sm text-white/46">
-              Submit the current challenge to reveal the next one in your route.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+                      <td className={`px-4 py-3 text-sm md:px-8 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/60"}`}>
+                        <span className="block">{entry.team_name}</span>
+                        {isCurrentTeam ? <span className="text-xs text-orange-400 uppercase tracking-wider">You</span> : null}
+                      </td>
+                      <td className={`px-3 py-3 text-sm md:px-4 ${isCurrentTeam ? "text-orange-400" : "text-[#e6d5b8]/45"}`}>#{entry.leaderboard_rank}</td>
+                      <td className={`px-3 py-3 text-sm md:px-4 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/55"}`}>{entry.total_points}</td>
+                      <td className={`px-3 py-3 text-sm md:px-4 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/45"}`}>
+                        {entry.completed_count}/{entry.total_challenges}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-        <CardHeader>
-          <CardTitle className="text-3xl text-white">Live Leaderboard</CardTitle>
-          <CardDescription className="text-white/52">
-            Public standings refresh every few seconds.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Team</TableHead>
-                <TableHead>Rank</TableHead>
-                <TableHead>Points</TableHead>
-                <TableHead>Completed</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dashboard.leaderboard.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="font-semibold">{entry.team_name}</TableCell>
-                  <TableCell>#{entry.leaderboard_rank}</TableCell>
-                  <TableCell>{entry.total_points}</TableCell>
-                  <TableCell>{entry.completed_count}/{entry.total_challenges}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      </div>
 
+      {/* ── CONTRACT MODAL ──────────────────────── */}
       {pendingContractCheckpoint ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/72 p-4 sm:items-center">
-          <div className="w-full max-w-2xl rounded-[30px] border border-white/10 bg-[#151112] text-white shadow-[0_24px_90px_rgba(0,0,0,0.5)]">
-            <div className="border-b border-white/8 px-5 py-4 sm:px-6">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-orange-300">
-                Converge Contract
-              </p>
-              <h3 className="mt-2 font-serif text-3xl text-white sm:text-4xl">
-                Start Terms
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-2xl border-t border-[#e6d5b8]/15 bg-[#090809] text-[#e6d5b8] sm:border">
+            <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-6 md:py-5">
+              <p className="text-xs uppercase tracking-[0.3em] text-orange-500">Converge Contract</p>
+              <h3 className="mt-1.5 text-2xl text-[#e6d5b8] md:text-3xl">Start Terms</h3>
             </div>
 
-            <div className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
-              <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4 sm:p-5">
-                <p className="text-sm uppercase tracking-[0.18em] text-white/38">Agreement</p>
-                <p className="mt-3 text-base leading-8 text-white/80 sm:text-lg">
+            <div className="max-h-[80vh] space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
+              <div className="border border-[#e6d5b8]/10 bg-[#e6d5b8]/3 p-5">
+                <p className="mb-3 text-xs uppercase tracking-wider text-[#e6d5b8]/30">Agreement</p>
+                <p className="text-base leading-7 text-[#e6d5b8]/70">
                   The winning team gets to decide the losing team&apos;s consequence:
                   either interview people with a question from the winners, or complete a dare set by them.
                 </p>
               </div>
 
-              <div className="rounded-[24px] border border-orange-400/14 bg-orange-500/[0.06] p-4 sm:p-5">
-                <p className="text-sm font-semibold text-white">Acceptance required to begin</p>
-                <p className="mt-2 text-sm leading-7 text-white/64">
-                  Accepting this contract starts your team officially. Until it is accepted,
-                  the race stays locked and challenge cards will not open.
+              <div className="border border-orange-500/20 bg-orange-500/5 p-5 space-y-3">
+                <p className="text-sm text-[#e6d5b8]">Acceptance required to begin</p>
+                <p className="text-sm leading-6 text-[#e6d5b8]/60">
+                  Accepting starts your team officially. Until accepted, the race stays locked and challenge cards will not open.
                 </p>
-                <p className="mt-3 text-sm leading-7 text-white/64">
-                  You cannot cheat on the challenges or submit random check-ins. Adelynn will be
-                  reviewing and approving them.
+                <p className="text-sm leading-6 text-[#e6d5b8]/60">
+                  You cannot cheat on the challenges or submit random check-ins. Adelynn will be reviewing and approving them.
                 </p>
-                <p className="mt-3 text-sm font-bold leading-7 text-orange-400 [text-shadow:0_0_12px_theme(colors.orange.400/0.5)]">
+                <p className="text-sm font-bold text-orange-400 [text-shadow:0_0_12px_theme(colors.orange.400/0.5)]">
                   James is the one who created this so YOU CANNOT LOSE AT ALL. LOCK IN CLUCK IN 🔒
                 </p>
-                <p className="mt-3 rounded-[12px] bg-yellow-400/10 px-3 py-2 text-sm font-bold leading-7 text-yellow-300 ring-1 ring-yellow-400/30 [text-shadow:0_0_14px_theme(colors.yellow.300/0.5)]">
+                <p className="border border-yellow-400/25 bg-yellow-400/8 px-4 py-3 text-sm font-bold text-yellow-300">
                   🎥 YOU HAVE TO RECORD POV OF DOING THE CHALLENGE FOR THE ENTIRE DURATION
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Button
-                  className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  className="border border-[#e6d5b8]/15 bg-transparent text-[#e6d5b8]/50 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
                   type="button"
                   variant="secondary"
                   onClick={() => setPendingContractCheckpoint(null)}
@@ -1959,7 +1861,7 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                   Not now
                 </Button>
                 <Button
-                  className="bg-orange-500 text-black hover:bg-orange-400"
+                  className="border border-orange-500 bg-orange-500 text-black hover:bg-orange-400"
                   type="button"
                   onClick={() => void onStartContractAccept()}
                 >
