@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   ChevronDown,
@@ -23,11 +23,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 import { DASHBOARD_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
-  MAX_CHALLENGES,
-  UNION_STATION,
-} from "@/lib/config";
+import { DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS, MAX_CHALLENGES } from "@/lib/config";
 import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
 
 function formatCoordinate(value: number | null | undefined) {
@@ -137,17 +133,6 @@ function challengeKindLabel(challenge: TeamChallengeStatus | AdminGameResponse["
   return "Checkpoint";
 }
 
-const CHECKIN_MESSAGES = [
-  { title: "hey adelynn 👋", description: "it's faiz — just checking in on you" },
-  { title: "yo adelynn!", description: "faiz here, checking in real quick" },
-  { title: "adelynn, hey!", description: "faiz stopping by — just checking in" },
-  { title: "checking in 🫡", description: "adelynn — faiz here, you good?" },
-  { title: "hey! it's faiz 👀", description: "just checking in on you, adelynn" },
-  { title: "adelynn!", description: "faiz dropping by to check in — all good?" },
-  { title: "yo! faiz here 🤙", description: "checking in on adelynn, as promised" },
-  { title: "hey adelynn 🙌", description: "faiz popping in to check in on you" },
-];
-
 export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
   const [adminName, setAdminName] = useState("");
@@ -167,27 +152,11 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
   const [credNewPin, setCredNewPin] = useState("");
   const [credConfirmPin, setCredConfirmPin] = useState("");
   const [credError, setCredError] = useState("");
+  const [finishPointLabel, setFinishPointLabel] = useState("");
+  const [finishShortName, setFinishShortName] = useState("");
+  const [finishLatitude, setFinishLatitude] = useState("");
+  const [finishLongitude, setFinishLongitude] = useState("");
   const { toast } = useToast();
-  const lastCheckInSlotRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      const now = new Date();
-      const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
-      const et = new Date(etStr);
-      const h = et.getHours();
-      const m = et.getMinutes();
-      if (h < 11 || (h === 11 && m < 26)) return;
-      const minutesSince = (h - 11) * 60 + (m - 24);
-      if (minutesSince % 15 !== 0) return;
-      const slotKey = h * 60 + m;
-      if (lastCheckInSlotRef.current === slotKey) return;
-      lastCheckInSlotRef.current = slotKey;
-      const msg = CHECKIN_MESSAGES[(minutesSince / 15) % CHECKIN_MESSAGES.length];
-      toast({ title: msg.title, description: msg.description, variant: "success", persistent: true });
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [toast]);
 
   const loadGame = async () => {
     const next = await api<AdminGameResponse>("/api/admin/game");
@@ -224,6 +193,19 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
       Math.min(current, Math.max(0, activeRecentCheckin.uploads.length - 1))
     );
   }, [activeRecentCheckin]);
+
+  useEffect(() => {
+    if (!game?.eventFinish) return;
+    setFinishPointLabel(game.eventFinish.addressLabel);
+    setFinishShortName(game.eventFinish.shortName);
+    setFinishLatitude(String(game.eventFinish.latitude));
+    setFinishLongitude(String(game.eventFinish.longitude));
+  }, [
+    game?.eventFinish.addressLabel,
+    game?.eventFinish.shortName,
+    game?.eventFinish.latitude,
+    game?.eventFinish.longitude,
+  ]);
 
   useEffect(() => {
     if (!game) return;
@@ -353,6 +335,33 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
     } finally {
       setPendingAction((current) => (current === pendingKey ? null : current));
     }
+  }
+
+  async function onSaveFinishLine(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const latParsed = finishLatitude.trim() === "" ? null : Number(finishLatitude);
+    const lngParsed = finishLongitude.trim() === "" ? null : Number(finishLongitude);
+    await runAdminAction(
+      "save-finish",
+      async () => {
+        const data = await api<{ eventFinish?: AdminGameResponse["eventFinish"] }>("/api/admin/game", {
+          method: "PATCH",
+          body: JSON.stringify({
+            finishPointLabel: finishPointLabel.trim(),
+            finishShortName: finishShortName.trim() || null,
+            finishLatitude:
+              latParsed !== null && Number.isFinite(latParsed) ? latParsed : null,
+            finishLongitude:
+              lngParsed !== null && Number.isFinite(lngParsed) ? lngParsed : null,
+          }),
+        });
+        if (data.eventFinish) {
+          setGame((prev) => (prev ? { ...prev, eventFinish: data.eventFinish! } : null));
+        }
+      },
+      "Finish line saved",
+      "Maps, GPS unlock, and team directions now use this location."
+    );
   }
 
   async function copyAddress(address: string) {
@@ -654,6 +663,88 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
         </div>
       </Card>
 
+      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+        <CardHeader>
+          <CardTitle className="text-xl text-white sm:text-2xl">Finish line</CardTitle>
+          <CardDescription className="text-white/52">
+            Teams converge here for the union checkpoint and the finish check-in. Set coordinates for
+            GPS unlock; if you clear latitude or longitude and save, the app falls back to the default
+            downtown reference point.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4 sm:grid-cols-2" onSubmit={onSaveFinishLine}>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-xs font-medium text-white/60" htmlFor="finishPointLabel">
+                Address or description
+              </label>
+              <Textarea
+                className="min-h-[88px] border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                id="finishPointLabel"
+                value={finishPointLabel}
+                onChange={(e) => setFinishPointLabel(e.target.value)}
+                placeholder="Full address or venue description shown to teams"
+                required
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2 sm:max-w-md">
+              <label className="text-xs font-medium text-white/60" htmlFor="finishShortName">
+                Short map label
+              </label>
+              <Input
+                className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                id="finishShortName"
+                value={finishShortName}
+                onChange={(e) => setFinishShortName(e.target.value)}
+                placeholder="e.g. Nathan Phillips Square"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-white/60" htmlFor="finishLatitude">
+                Latitude (decimal)
+              </label>
+              <Input
+                className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                id="finishLatitude"
+                value={finishLatitude}
+                onChange={(e) => setFinishLatitude(e.target.value)}
+                placeholder="43.6426"
+                inputMode="decimal"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-white/60" htmlFor="finishLongitude">
+                Longitude (decimal)
+              </label>
+              <Input
+                className="border-white/10 bg-white/[0.08] text-white placeholder:text-white/35"
+                id="finishLongitude"
+                value={finishLongitude}
+                onChange={(e) => setFinishLongitude(e.target.value)}
+                placeholder="-79.3871"
+                inputMode="decimal"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Button
+                className="bg-orange-500 text-black hover:bg-orange-400"
+                disabled={pendingAction === "save-finish"}
+                type="submit"
+              >
+                {pendingAction === "save-finish" ? (
+                  <>
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save finish line"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
       <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
           <CardHeader>
@@ -663,7 +754,11 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CheckinMap latestLocations={game.latestLocations} teamRoutes={game.teamRoutes} />
+            <CheckinMap
+              eventFinish={game.eventFinish}
+              latestLocations={game.latestLocations}
+              teamRoutes={game.teamRoutes}
+            />
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {game.latestLocations.length ? (
                 game.latestLocations.map((location) => (
@@ -1180,9 +1275,13 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
                       </>
                     ) : challenge.kind === "union" ? (
                       <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
-                        <p className="text-sm font-semibold text-white">Union checkpoint</p>
-                        <p className="mt-1 text-sm text-white/58">{UNION_STATION.finishPoint}</p>
-                        <input name="expectedLocation" type="hidden" value={UNION_STATION.name} />
+                        <p className="text-sm font-semibold text-white">Convergence checkpoint</p>
+                        <p className="mt-1 text-sm text-white/58">{game.eventFinish.addressLabel}</p>
+                        <p className="mt-1 font-mono text-[11px] text-white/40">
+                          {formatCoordinate(game.eventFinish.latitude)},{" "}
+                          {formatCoordinate(game.eventFinish.longitude)}
+                        </p>
+                        <input name="expectedLocation" type="hidden" value={game.eventFinish.shortName} />
                       </div>
                     ) : (
                       <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">

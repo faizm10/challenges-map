@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { DEFAULT_DEV_GAME_SLUG } from "@/lib/config";
+import { resolveEventFinish } from "@/lib/game-finish";
 import { getChallenges, getGameBySlug, getLeaderboard } from "@/lib/game";
 import { isPublicComingSoon } from "@/lib/public-site-mode";
 
@@ -17,12 +18,12 @@ export async function GET(request: Request) {
   }
 
   const challenges = await getChallenges(game.id, true);
-  const finishPoint = game.finish_point_label?.trim() || "Union Station, Front Street entrance";
+  const fin = resolveEventFinish(game.finish_point_label, game.settings);
 
   return NextResponse.json({
     event: {
       title: game.name,
-      finish_point: finishPoint,
+      finish_point: fin.addressLabel,
       released_count: challenges.filter((challenge) => challenge.is_released).length,
       total_challenges: challenges.length,
     },

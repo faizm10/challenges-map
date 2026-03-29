@@ -15,6 +15,10 @@ export default function CreateEventPage() {
   const [name, setName] = useState("");
   const [adminDisplayName, setAdminDisplayName] = useState("");
   const [adminPin, setAdminPin] = useState("");
+  const [finishPointLabel, setFinishPointLabel] = useState("");
+  const [finishShortName, setFinishShortName] = useState("");
+  const [finishLatitude, setFinishLatitude] = useState("");
+  const [finishLongitude, setFinishLongitude] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +36,8 @@ export default function CreateEventPage() {
     setError("");
     setLoading(true);
     try {
+      const latParsed = finishLatitude.trim() === "" ? null : Number(finishLatitude);
+      const lngParsed = finishLongitude.trim() === "" ? null : Number(finishLongitude);
       const res = await fetch("/api/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,6 +46,12 @@ export default function CreateEventPage() {
           name: name.trim(),
           adminDisplayName: adminDisplayName.trim(),
           adminPin: adminPin.trim(),
+          ...(finishPointLabel.trim()
+            ? { finishPointLabel: finishPointLabel.trim() }
+            : {}),
+          ...(finishShortName.trim() ? { finishShortName: finishShortName.trim() } : {}),
+          ...(latParsed !== null && Number.isFinite(latParsed) ? { finishLatitude: latParsed } : {}),
+          ...(lngParsed !== null && Number.isFinite(lngParsed) ? { finishLongitude: lngParsed } : {}),
         }),
         credentials: "same-origin",
       });
@@ -122,6 +134,40 @@ export default function CreateEventPage() {
                 onChange={(e) => setAdminPin(e.target.value)}
                 required
               />
+            </div>
+            <div className="space-y-2 border-t border-border pt-4">
+              <p className="text-xs font-medium text-muted-foreground">Finish line (optional)</p>
+              <p className="text-xs text-muted-foreground/90">
+                Defaults to the downtown reference finish if you skip this. You can change it anytime in HQ.
+              </p>
+              <Input
+                className="text-sm"
+                placeholder="Address or description"
+                value={finishPointLabel}
+                onChange={(e) => setFinishPointLabel(e.target.value)}
+              />
+              <Input
+                className="text-sm"
+                placeholder="Short label for maps"
+                value={finishShortName}
+                onChange={(e) => setFinishShortName(e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  className="font-mono text-sm"
+                  inputMode="decimal"
+                  placeholder="Latitude"
+                  value={finishLatitude}
+                  onChange={(e) => setFinishLatitude(e.target.value)}
+                />
+                <Input
+                  className="font-mono text-sm"
+                  inputMode="decimal"
+                  placeholder="Longitude"
+                  value={finishLongitude}
+                  onChange={(e) => setFinishLongitude(e.target.value)}
+                />
+              </div>
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <div className="flex flex-wrap gap-3 pt-2">
