@@ -785,7 +785,11 @@ export function getLocalAdminGame(gameId: number): AdminGameResponse {
       recentCheckins: [],
       leaderboard: [],
       eventFinish: LOCAL_EVENT_FINISH,
-      pins: { admin_hint: "Local fallback unavailable for this event", team_pin_count: 0 },
+      pins: {
+        admin_hint: "Local fallback unavailable for this event",
+        team_pin_count: 0,
+        event_join_pin: null,
+      },
     };
   }
   const state = getState();
@@ -804,6 +808,7 @@ export function getLocalAdminGame(gameId: number): AdminGameResponse {
     pins: {
       admin_hint: "Using local fallback store",
       team_pin_count: state.teams.length,
+      event_join_pin: null,
     },
   };
 }

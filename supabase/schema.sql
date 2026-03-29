@@ -41,14 +41,6 @@ CREATE TABLE public.challenges (
   CONSTRAINT challenges_pkey PRIMARY KEY (id),
   CONSTRAINT challenges_game_id_fkey FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE
 );
-CREATE TABLE public.organizer_accounts (
-  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  email text NOT NULL UNIQUE,
-  display_name text NOT NULL,
-  password_hash text NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT organizer_accounts_pkey PRIMARY KEY (id)
-);
 CREATE TABLE public.games (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   slug text NOT NULL UNIQUE,
@@ -56,9 +48,7 @@ CREATE TABLE public.games (
   finish_point_label text,
   settings jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  organizer_id bigint,
-  CONSTRAINT games_pkey PRIMARY KEY (id),
-  CONSTRAINT games_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.organizer_accounts(id)
+  CONSTRAINT games_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.team_challenge_checkpoints (
   team_id bigint NOT NULL,

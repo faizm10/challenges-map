@@ -1,5 +1,5 @@
 /** Values used in the session cookie; see `SessionPayload` in `lib/session.ts`. */
-export type SessionRole = "admin" | "team" | "organizer";
+export type SessionRole = "admin" | "team";
 
 export type TeamSeed = {
   id: number;
@@ -260,5 +260,6 @@ export type AdminGameResponse = {
   pins: {
     admin_hint: string;
     team_pin_count: number;
+    event_join_pin: string | null;
   };
 };

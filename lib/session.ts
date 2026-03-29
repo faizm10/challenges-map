@@ -6,7 +6,6 @@ import { COOKIE_NAME, SESSION_SECRET } from "@/lib/config";
 import { verifyTeamBelongsToGame } from "@/lib/team-session-guard";
 
 export type SessionPayload =
-  | { role: "organizer"; organizerId: number }
   | { role: "admin"; gameId: number }
   | { role: "team"; gameId: number; teamId: number };
 
@@ -31,7 +30,6 @@ function decode(value: string): SessionPayload | null {
 
   try {
     const parsed = JSON.parse(Buffer.from(base, "base64url").toString("utf8")) as SessionPayload;
-    if (parsed.role === "organizer" && typeof parsed.organizerId === "number") return parsed;
     if (parsed.role === "admin" && typeof parsed.gameId === "number") return parsed;
     if (
       parsed.role === "team" &&
@@ -53,11 +51,7 @@ export async function getSession() {
 }
 
 export async function setSession(payload: SessionPayload) {
-  if (payload.role === "organizer") {
-    if (payload.organizerId == null || !Number.isFinite(payload.organizerId)) {
-      throw new Error("Organizer session requires a valid organizerId.");
-    }
-  } else if (payload.role === "admin") {
+  if (payload.role === "admin") {
     if (payload.gameId == null || !Number.isFinite(payload.gameId)) {
       throw new Error("Admin session requires a valid gameId.");
     }
@@ -89,12 +83,6 @@ export async function clearSession() {
 export async function requireAdminSession() {
   const session = await getSession();
   if (session?.role !== "admin") return null;
-  return session;
-}
-
-export async function requireOrganizerSession() {
-  const session = await getSession();
-  if (session?.role !== "organizer") return null;
   return session;
 }
 

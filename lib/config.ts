@@ -161,8 +161,8 @@ export const LOCAL_FALLBACK_GAME_ID = 1;
 export const DEFAULT_DEV_GAME_SLUG = "converge";
 
 /**
- * Server-only env name: if value is `"true"` or `"1"`, `/e/create` and `POST /api/games` work without
- * organizer sign-up (local QA only). Never enable in production.
+ * Server-only env name: if value is `"true"` or `"1"`, `/e/admin` and `POST /api/games` work without
+ * admin sign-in (local QA only). Never enable in production.
  */
 export const ALLOW_ANONYMOUS_GAME_CREATE_ENV = "ALLOW_ANONYMOUS_GAME_CREATE" as const;
 

@@ -137,10 +137,12 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
   const [adminName, setAdminName] = useState("");
   const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const [eventJoinPin, setEventJoinPin] = useState("");
+  const [eventJoinPinError, setEventJoinPinError] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamPin, setNewTeamPin] = useState("");
   const [teamFormError, setTeamFormError] = useState("");
-  const [error, setError] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [openCheckpointByTeam, setOpenCheckpointByTeam] = useState<Record<number, string | null>>({});
   const [activeRecentCheckinId, setActiveRecentCheckinId] = useState<number | null>(null);
@@ -189,6 +191,11 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
       loadGame().catch(() => undefined);
     }, DASHBOARD_POLL_MS);
   }, [game]);
+
+  useEffect(() => {
+    if (!game) return;
+    setEventJoinPin(game.pins.event_join_pin ?? "");
+  }, [game?.pins.event_join_pin]);
 
   const activeRecentCheckin =
     game?.recentCheckins.find((item) => item.id === activeRecentCheckinId) ?? null;
@@ -759,6 +766,81 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
               </Button>
             </div>
           </div>
+        </div>
+
+        <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4 sm:p-5">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+            Team Join PIN
+          </p>
+          <p className="mb-4 text-sm text-white/60">
+            Create the 6-digit event PIN that players enter on the Join page.
+          </p>
+          <form
+            className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setEventJoinPinError("");
+              if (!/^\d{6}$/.test(eventJoinPin.trim())) {
+                setEventJoinPinError("Event join PIN must be exactly 6 digits.");
+                return;
+              }
+              await runAdminAction(
+                "save-event-join-pin",
+                async () => {
+                  const response = await api<{ game?: AdminGameResponse }>("/api/admin/join-pin", {
+                    method: "PATCH",
+                    body: JSON.stringify({ joinPin: eventJoinPin }),
+                  });
+                  if (response.game) {
+                    setGame(response.game);
+                  } else {
+                    await loadGame();
+                  }
+                },
+                "Join PIN saved",
+                "Teams can now join with this 6-digit event PIN."
+              );
+            }}
+          >
+            <div className="min-w-0 flex-1 space-y-2">
+              <label className="text-xs font-medium text-white/60">Event PIN</label>
+              <Input
+                className="border-white/10 bg-white/5 text-white tracking-[0.25em]"
+                inputMode="numeric"
+                maxLength={6}
+                value={eventJoinPin}
+                onChange={(e) => setEventJoinPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                required
+              />
+            </div>
+            <Button
+              className="bg-orange-500 text-black hover:bg-orange-400"
+              disabled={pendingAction === "save-event-join-pin"}
+              type="submit"
+            >
+              {pendingAction === "save-event-join-pin" ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save PIN"
+              )}
+            </Button>
+            <Button
+              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                const randomPin = String(
+                  Math.floor(100000 + Math.random() * 900000)
+                );
+                setEventJoinPin(randomPin);
+                setEventJoinPinError("");
+              }}
+            >
+              Generate PIN
+            </Button>
+          </form>
+          {eventJoinPinError ? <p className="mt-2 text-sm text-red-400">{eventJoinPinError}</p> : null}
         </div>
 
         {game.teams.length === 0 ? (
