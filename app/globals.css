@@ -21,11 +21,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-gb-darkest: #0f380f;
-  --color-gb-dark: #306230;
-  --color-gb-medium: #8bac0f;
-  --color-gb-light: #9bbc0f;
-  --color-gb-lightest: #e0f8cf;
+  --color-gb-darkest: #1b1513;
+  --color-gb-dark: #5a3c2a;
+  --color-gb-medium: #b88d5d;
+  --color-gb-light: #d6b17a;
+  --color-gb-lightest: #e6d3b5;
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -77,8 +77,8 @@ body::before {
   background-image: repeating-linear-gradient(0deg,
       transparent,
       transparent 3px,
-      rgba(15, 56, 15, 0.03) 3px,
-      rgba(15, 56, 15, 0.03) 4px);
+      rgba(90, 60, 42, 0.06) 3px,
+      rgba(90, 60, 42, 0.06) 4px);
   z-index: 9999;
 }
 

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { safeNextPath } from "@/lib/safe-redirect";
-
-import { SignupClient } from "./signup-client";
 
 export const metadata: Metadata = {
   title: "Sign up — organizer",
@@ -13,5 +12,7 @@ type Props = { searchParams: Promise<{ next?: string }> };
 
 export default async function SignupPage({ searchParams }: Props) {
   const { next } = await searchParams;
-  return <SignupClient nextPath={safeNextPath(next)} />;
+  redirect(
+    `/host?mode=signup&next=${encodeURIComponent(safeNextPath(next))}`
+  );
 }

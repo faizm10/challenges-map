@@ -33,7 +33,7 @@ export function SignupClient({ nextPath }: { nextPath: string }) {
         setError(data.error ?? "Could not create account.");
         return;
       }
-      router.push(nextPath);
+      router.push(nextPath as any);
       router.refresh();
     } finally {
       setLoading(false);

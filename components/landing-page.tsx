@@ -6,7 +6,6 @@ import {
   Camera,
   Flag,
   Laugh,
-  Linkedin,
   MapPinned,
   MessageCircleMore,
   Play,
@@ -16,7 +15,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DEFAULT_DEV_GAME_SLUG } from "@/lib/config";
 import type { PublicLeaderboardResponse, TeamSeed } from "@/lib/types";
 
 type LandingPageProps = {
@@ -229,24 +227,27 @@ export function LandingPage({
               Ready to play or run HQ?
             </h2>
             <p className="mx-auto mt-4 max-w-sm text-xs leading-5 text-primary-foreground/80">
-              Teams: enter the link your organizer sent, then sign in. Organizers: create an account and
-              set up your event URL.
+              Teams: enter the 6-digit PIN your organizer sent, then sign in.
             </p>
+            <p className="mx-auto mt-4 max-w-sm text-xs leading-5 text-primary-foreground/80">
+              Organizers: create an account and set up your game URL.
+            </p>
+            
             <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:justify-center">
               <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
-                <Link href="/join">Join your event</Link>
+                <Link href="/join">Join your game</Link>
               </Button>
               <Button
                 asChild
                 size="lg"
                 className="w-full border-primary-foreground bg-[#e6d3b5] text-[#5a3c2a] shadow-[3px_3px_0px_0px_var(--primary-foreground)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] sm:w-auto"
               >
-                <Link href="/signup">Host an event</Link>
+                <Link href="/host?mode=signup&next=%2Fe%2Fcreate">Host a game</Link>
               </Button>
             </div>
             <p className="mt-4 flex flex-col items-center gap-2 text-center sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-4 sm:gap-y-1">
               <Link
-                href="/organizer/login?next=%2Fe%2Fcreate"
+                href="/host?mode=login&next=%2Fe%2Fcreate"
                 className="font-pixel text-[9px] uppercase tracking-wider text-primary-foreground/90 underline-offset-4 hover:underline"
               >
                 Organizer log in
@@ -255,7 +256,7 @@ export function LandingPage({
                 ·
               </span>
               <Link
-                href={`/e/${DEFAULT_DEV_GAME_SLUG}/leaderboard`}
+                href="/leaderboard"
                 className="font-pixel text-[9px] uppercase tracking-wider text-primary-foreground/90 underline-offset-4 hover:underline"
               >
                 Live leaderboard
@@ -278,7 +279,7 @@ export function LandingPage({
               rel="noopener noreferrer"
               className="underline-offset-2 hover:underline"
             >
-              Adelynn
+            Adelynn 
             </a>
             <span>&amp;</span>
             <a
@@ -287,7 +288,7 @@ export function LandingPage({
               rel="noopener noreferrer"
               className="underline-offset-2 hover:underline"
             >
-              Faiz
+            Faiz
             </a>
           </div>
         </footer>
