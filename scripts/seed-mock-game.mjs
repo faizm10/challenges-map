@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
- * Inserts a disposable mock game: random slug, admin credential, N teams, optional 4 challenges
- * (matching app challenge orders: game_long, checkpoint, checkpoint, union) with DB checkpoint rows
- * so teams do not rely on lib/config TEAM_SEED.
+ * Inserts a disposable mock game: random slug (or --slug=), fixed HQ + team credentials for easy QA,
+ * optional 4 challenges (game_long, checkpoint, checkpoint, union) with DB checkpoint rows.
+ *
+ * HQ login is always:  Mock HQ  /  MOCKHQ2026  (for this script’s game only — use /e/<slug>/admin).
+ * Default `converge` demo in the app uses lib/seed.ts:  HQ Admin  /  UNIONHQ2026  (local + DB seed).
  *
  * Usage:
  *   node scripts/seed-mock-game.mjs
  *   node scripts/seed-mock-game.mjs --teams=5
  *   node scripts/seed-mock-game.mjs --slug=my-qa-event
  *   node scripts/seed-mock-game.mjs --no-challenges
- *   node scripts/seed-mock-game.mjs --delete-slug=mock-abc123   # removes game (CASCADE)
+ *   node scripts/seed-mock-game.mjs --delete-slug=mock-abc123   # or: npm run delete:mock -- --slug=...
  *
  * Env (or .env.local): NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
  */
@@ -26,6 +28,10 @@ const DEFAULT_FINISH = "Union Station, Front Street entrance";
 const UNLOCK_M = 150;
 
 const COLORS = ["#d85f3a", "#2c7a7b", "#2563eb", "#8b5cf6", "#ca8a04", "#db2777", "#0d9488", "#ea580c"];
+
+/** Stable credentials for every run (per created game). */
+const MOCK_HQ_DISPLAY_NAME = "Mock HQ";
+const MOCK_HQ_PIN = "MOCKHQ2026";
 
 function loadEnvLocal() {
   try {
@@ -132,9 +138,9 @@ async function main() {
   }
 
   const slug = args.slug || randomSlug();
-  const adminName = `Mock Admin ${randomDigits(4)}`;
-  const adminPin = `ADM${randomDigits(5)}`;
-  const gameName = `Mock Event ${randomDigits(4)}`;
+  const adminName = MOCK_HQ_DISPLAY_NAME;
+  const adminPin = MOCK_HQ_PIN;
+  const gameName = `Mock event — ${slug}`;
 
   const { data: existing } = await supabase.from("games").select("id").eq("slug", slug).maybeSingle();
   if (existing) {
@@ -169,8 +175,8 @@ async function main() {
   const createdTeams = [];
 
   for (let i = 0; i < args.teams; i++) {
-    const teamName = `Team Mock ${randomDigits(3)}-${i + 1}`;
-    const pin = `T${randomDigits(5)}`;
+    const teamName = `Mock Team ${i + 1}`;
+    const pin = `MOCKTEAM${i + 1}`;
     const nextId = await nextTableId(supabase, "teams");
 
     const { error: teamErr } = await supabase.from("teams").insert({

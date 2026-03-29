@@ -5,6 +5,7 @@ import {
   TEAM_SEED,
   UNION_STATION,
 } from "@/lib/config";
+import { displayNamesMatch } from "@/lib/credential-match";
 import type {
   AdminCheckinFeedItem,
   AdminGameResponse,
@@ -538,7 +539,7 @@ export function findLocalCredential(
     (credential) =>
       credential.game_id === gameId &&
       credential.role === role &&
-      credential.display_name === name &&
+      displayNamesMatch(credential.display_name, name) &&
       credential.pin === pin
   );
 }

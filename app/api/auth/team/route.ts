@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { DEFAULT_DEV_GAME_SLUG } from "@/lib/config";
+import { displayNamesMatch } from "@/lib/credential-match";
 import { isSupabaseUnavailable } from "@/lib/data-source";
 import { getGameBySlug } from "@/lib/game";
 import { findLocalCredential } from "@/lib/local-store";
@@ -28,22 +29,28 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from("access_credentials")
-      .select("team_id")
+      .select("team_id, display_name, pin")
       .eq("role", "team")
-      .eq("game_id", game.id)
-      .eq("display_name", name)
-      .eq("pin", pin)
-      .maybeSingle<{ team_id: number | null }>();
+      .eq("game_id", game.id);
 
     if (error) throw error;
-    if (!data?.team_id) {
+
+    const row = (rows ?? []).find(
+      (r) =>
+        displayNamesMatch(String(r.display_name), name) &&
+        String(r.pin) === pin &&
+        r.team_id != null
+    );
+
+    if (row?.team_id == null) {
       return NextResponse.json({ error: "Invalid team name or PIN." }, { status: 401 });
     }
 
-    await setSession({ role: "team", gameId: game.id, teamId: Number(data.team_id) });
-    return NextResponse.json({ ok: true, teamId: Number(data.team_id) });
+    const teamId = Number(row.team_id);
+    await setSession({ role: "team", gameId: game.id, teamId });
+    return NextResponse.json({ ok: true, teamId });
   } catch (error) {
     if (!isSupabaseUnavailable(error)) {
       return NextResponse.json(

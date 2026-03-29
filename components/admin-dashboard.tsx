@@ -44,8 +44,11 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
     },
   });
 
-  const data = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || "Request failed.");
+  const data = (await response.json().catch(() => ({}))) as T & { error?: string; hint?: string };
+  if (!response.ok) {
+    const base = data.error || "Request failed.";
+    throw new Error(data.hint ? `${base} ${data.hint}` : base);
+  }
   return data;
 }
 
@@ -435,7 +438,13 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
             <div className="space-y-1 border-l-2 border-orange-500 pl-4">
               <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Registration</p>
               <h2 className="text-3xl text-[#e6d5b8]">HQ Access</h2>
-              <p className="text-xs text-[#e6d5b8]/40">Admin credentials only. No public access.</p>
+              <p className="text-xs text-[#e6d5b8]/40">
+                Admin credentials only. Verified against{" "}
+                <span className="font-mono text-[#e6d5b8]/55">access_credentials</span> for this event.
+              </p>
+              <p className="pt-1 font-mono text-[10px] leading-relaxed text-[#e6d5b8]/50">
+                Event: /e/{gameSlug}/admin
+              </p>
             </div>
 
             <form className="space-y-5" onSubmit={onLogin}>
@@ -469,7 +478,7 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
 
               {error ? (
                 <div className="border-l-2 border-red-500 bg-red-500/8 px-3 py-2">
-                  <p className="text-xs text-red-400">{error}</p>
+                  <p className="whitespace-pre-wrap text-left text-xs leading-relaxed text-red-400">{error}</p>
                 </div>
               ) : null}
 
@@ -484,13 +493,13 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
                     Verifying...
                   </span>
                 ) : (
-                  "Register & Enter HQ"
+                  "Sign in to HQ"
                 )}
               </Button>
             </form>
 
             <p className="text-center text-xs uppercase tracking-wider text-[#e6d5b8]/18">
-              Converge — HQ access only
+              {gameSlug} — HQ access only
             </p>
           </div>
         </div>

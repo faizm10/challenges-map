@@ -16,13 +16,13 @@ function milestonesFor(completedCount: number, totalChallenges: number): string[
  */
 export function getMarketingHomeMockData(): PublicLeaderboardResponse {
   const total_challenges = MAX_CHALLENGES;
-  const released_count = 3;
+  const released_count = 2;
 
   const seedRows: Array<{ challenge_points: number; completed_count: number }> = [
-    { challenge_points: 28, completed_count: 2 },
-    { challenge_points: 34, completed_count: 3 },
+    { challenge_points: 26, completed_count: 2 },
+    { challenge_points: 22, completed_count: 2 },
     { challenge_points: 18, completed_count: 1 },
-    { challenge_points: 24, completed_count: 2 },
+    { challenge_points: 14, completed_count: 1 },
   ];
 
   const maxPoints = released_count * CHALLENGE_SUBMISSION_RANK_POINTS[0];
@@ -51,7 +51,7 @@ export function getMarketingHomeMockData(): PublicLeaderboardResponse {
     };
 
     const lastSubmittedAt =
-      completed_count > 0 ? `2026-03-20T${20 + index}:15:00.000Z` : null;
+      completed_count > 0 ? `2026-03-29T${14 + index}:22:00.000Z` : null;
 
     return { entry, lastSubmittedAt };
   });
@@ -72,7 +72,7 @@ export function getMarketingHomeMockData(): PublicLeaderboardResponse {
 
   return {
     event: {
-      title: "Converge",
+      title: "Converge Toronto",
       finish_point: UNION_STATION.finishPoint,
       released_count,
       total_challenges,
