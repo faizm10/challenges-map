@@ -162,7 +162,7 @@ export const DEFAULT_DEV_GAME_SLUG = "converge";
 
 /**
  * Server-only env name: if value is `"true"` or `"1"`, `/e/create` and `POST /api/games` work without
- * organizer sign-up (local QA only). Never enable in production.
+ * admin sign-in (local QA only). Never enable in production.
  */
 export const ALLOW_ANONYMOUS_GAME_CREATE_ENV = "ALLOW_ANONYMOUS_GAME_CREATE" as const;
 

@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-
-import { safeNextPath } from "@/lib/safe-redirect";
+import { OrganizerLoginClient } from "@/app/organizer/login/organizer-login-client";
 
 export const metadata: Metadata = {
-  title: "Organizer log in",
-  description: "Log in to create or manage challenge events.",
+  title: "Organizer Sign In",
+  description: "Sign in with organizer credentials.",
 };
 
 type Props = { searchParams: Promise<{ next?: string }> };
 
 export default async function OrganizerLoginPage({ searchParams }: Props) {
-  const { next } = await searchParams;
-  redirect(
-    `/host?mode=login&next=${encodeURIComponent(safeNextPath(next))}`
-  );
+  const params = await searchParams;
+  const nextPath = params.next && params.next.startsWith("/") ? params.next : "/e/create";
+  return <OrganizerLoginClient nextPath={nextPath} />;
 }

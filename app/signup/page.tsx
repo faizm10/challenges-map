@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-
-import { safeNextPath } from "@/lib/safe-redirect";
+import { SignupClient } from "@/app/signup/signup-client";
 
 export const metadata: Metadata = {
-  title: "Sign up — organizer",
-  description: "Create an organizer account to set up a multi-team challenge event.",
+  title: "Organizer Sign Up",
+  description: "Create organizer credentials.",
 };
 
 type Props = { searchParams: Promise<{ next?: string }> };
 
 export default async function SignupPage({ searchParams }: Props) {
-  const { next } = await searchParams;
-  redirect(
-    `/host?mode=signup&next=${encodeURIComponent(safeNextPath(next))}`
-  );
+  const params = await searchParams;
+  const nextPath = params.next && params.next.startsWith("/") ? params.next : "/e/create";
+  return <SignupClient nextPath={nextPath} />;
 }

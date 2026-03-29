@@ -186,8 +186,6 @@ export async function createGameWithAdmin(input: {
   name: string;
   adminDisplayName: string;
   adminPin: string;
-  /** Set when the game is created by a signed-in organizer (product flow). */
-  organizerId?: number | null;
 }): Promise<{ id: number; slug: string }> {
   const slug = input.slug.trim().toLowerCase();
   const name = input.name.trim();
@@ -213,9 +211,6 @@ export async function createGameWithAdmin(input: {
       name: name.slice(0, 200),
       finish_point_label: UNION_STATION.finishPoint,
     };
-    if (input.organizerId != null && Number.isFinite(input.organizerId)) {
-      gameInsert.organizer_id = input.organizerId;
-    }
 
     const { data: gameRow, error: gameError } = await supabase
       .from("games")
@@ -1859,7 +1854,7 @@ export async function getAdminGame(gameId: number): Promise<AdminGameResponse> {
       ? supabase.from("teams").select("id").in("id", teamIds).order("id", { ascending: true })
       : Promise.resolve({ data: [], error: null } as const);
 
-    const [teamsResult, challenges, leaderboard, latestLocations, recentCheckins, credentialsResult, allCheckins] =
+    const [teamsResult, challenges, leaderboard, latestLocations, recentCheckins, credentialsResult, allCheckins, gameResult] =
       await Promise.all([
         teamsPromise,
         getChallenges(gameId, true),
@@ -1872,10 +1867,21 @@ export async function getAdminGame(gameId: number): Promise<AdminGameResponse> {
           .eq("role", "team")
           .eq("game_id", gameId),
         getAllCheckinsFromDb(gameId),
+        supabase.from("games").select("settings").eq("id", gameId).maybeSingle<{ settings: Record<string, unknown> | null }>(),
       ]);
 
     if ("error" in teamsResult && teamsResult.error) throw teamsResult.error;
     if (credentialsResult.error) throw credentialsResult.error;
+    if (gameResult.error) throw gameResult.error;
+
+    const eventJoinPinRaw =
+      gameResult.data && typeof gameResult.data.settings === "object" && gameResult.data.settings
+        ? (gameResult.data.settings as Record<string, unknown>).join_pin
+        : null;
+    const eventJoinPin =
+      typeof eventJoinPinRaw === "string" && /^\d{6}$/.test(eventJoinPinRaw)
+        ? eventJoinPinRaw
+        : null;
 
     const credentialMap = new Map(
       ((credentialsResult.data ?? []) as Array<{
@@ -1930,6 +1936,7 @@ export async function getAdminGame(gameId: number): Promise<AdminGameResponse> {
       pins: {
         admin_hint: "Stored in Supabase access_credentials table",
         team_pin_count: teamRows.length,
+        event_join_pin: eventJoinPin,
       },
     };
   } catch (error) {
@@ -1938,6 +1945,36 @@ export async function getAdminGame(gameId: number): Promise<AdminGameResponse> {
     }
     throw error;
   }
+}
+
+export async function updateEventJoinPin(gameId: number, joinPin: string) {
+  const cleanJoinPin = joinPin.trim();
+  if (!/^\d{6}$/.test(cleanJoinPin)) {
+    throw new GameError("Event join PIN must be exactly 6 digits.", 400);
+  }
+
+  const { data: game, error: lookupError } = await supabase
+    .from("games")
+    .select("id, settings")
+    .eq("id", gameId)
+    .maybeSingle<{ id: number; settings: Record<string, unknown> | null }>();
+
+  if (lookupError) throw lookupError;
+  if (!game?.id) throw new GameError("Event not found.", 404);
+
+  const currentSettings =
+    game.settings && typeof game.settings === "object" ? game.settings : {};
+  const nextSettings: Record<string, unknown> = {
+    ...currentSettings,
+    join_pin: cleanJoinPin,
+  };
+
+  const { error: updateError } = await supabase
+    .from("games")
+    .update({ settings: nextSettings })
+    .eq("id", gameId);
+
+  if (updateError) throw updateError;
 }
 
 export async function updateChallenge(

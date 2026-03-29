@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { allowAnonymousGameCreateFromEnv } from "@/lib/config";
 import { createGameWithAdmin, isGameError } from "@/lib/game";
-import { requireOrganizerSession, setSession } from "@/lib/session";
+import { requireAdminSession, setSession } from "@/lib/session";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as
@@ -10,20 +10,18 @@ export async function POST(request: Request) {
     | null;
 
   try {
-    let organizerId: number | null = null;
     if (!allowAnonymousGameCreateFromEnv()) {
-      const org = await requireOrganizerSession();
-      if (!org) {
+      const admin = await requireAdminSession();
+      if (!admin) {
         return NextResponse.json(
           {
             error:
-              "Create a free organizer account first, then set up your event. Open Sign up from the home page.",
-            code: "ORGANIZER_REQUIRED",
+              "Admin sign-in required before creating a new event.",
+            code: "ADMIN_REQUIRED",
           },
           { status: 401 }
         );
       }
-      organizerId = org.organizerId;
     }
 
     const created = await createGameWithAdmin({
@@ -31,7 +29,6 @@ export async function POST(request: Request) {
       name: body?.name ?? "",
       adminDisplayName: body?.adminDisplayName ?? "",
       adminPin: body?.adminPin ?? "",
-      organizerId: organizerId ?? undefined,
     });
 
     await setSession({ role: "admin", gameId: created.id });

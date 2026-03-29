@@ -1,20 +1,18 @@
 import type { Metadata } from "next";
-
-import { safeNextPath } from "@/lib/safe-redirect";
-
-import { HostClient } from "./host-client";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Host — organizer",
-  description: "Sign up or log in to host and manage your event.",
+  title: "Host",
+  description: "Redirect to organizer sign up or sign in.",
 };
 
 type Props = { searchParams: Promise<{ next?: string; mode?: string }> };
 
 export default async function HostPage({ searchParams }: Props) {
-  const { next, mode } = await searchParams;
-  const nextPath = safeNextPath(next);
-  const initialMode = mode === "login" ? "login" : "signup";
-
-  return <HostClient nextPath={nextPath} initialMode={initialMode} />;
+  const params = await searchParams;
+  const nextPath = params.next && params.next.startsWith("/") ? params.next : "/e/create";
+  if (params.mode === "login") {
+    redirect(`/organizer/login?next=${encodeURIComponent(nextPath)}`);
+  }
+  redirect(`/signup?next=${encodeURIComponent(nextPath)}`);
 }

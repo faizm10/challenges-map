@@ -15,39 +15,32 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data: credentials, error: credentialError } = await supabase
-      .from("access_credentials")
-      .select("game_id")
-      .eq("role", "admin")
-      .eq("pin", pin)
-      .limit(2);
+    const { data: games, error: gamesError } = await supabase
+      .from("games")
+      .select("slug, settings");
 
-    if (credentialError) throw credentialError;
+    if (gamesError) throw gamesError;
 
-    const rows = (credentials ?? []) as Array<{ game_id: number | string | null }>;
-    if (rows.length === 0 || rows[0]?.game_id == null) {
+    const matches = ((games ?? []) as Array<{ slug: string | null; settings: Record<string, unknown> | null }>)
+      .filter((game) => {
+        if (!game?.slug || !game?.settings || typeof game.settings !== "object") return false;
+        const joinPin = (game.settings as Record<string, unknown>).join_pin;
+        return typeof joinPin === "string" && joinPin === pin;
+      })
+      .map((game) => game.slug)
+      .filter((slug): slug is string => Boolean(slug));
+
+    if (matches.length === 0) {
       return NextResponse.json({ error: "Event PIN not found." }, { status: 404 });
     }
-    if (rows.length > 1) {
+    if (matches.length > 1) {
       return NextResponse.json(
         { error: "This PIN matches multiple events. Ask organizer for the event link." },
         { status: 409 }
       );
     }
 
-    const gameId = Number(rows[0].game_id);
-    const { data: game, error: gameError } = await supabase
-      .from("games")
-      .select("slug")
-      .eq("id", gameId)
-      .maybeSingle<{ slug: string | null }>();
-
-    if (gameError) throw gameError;
-    if (!game?.slug) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
-    }
-
-    return NextResponse.json({ ok: true, slug: game.slug });
+    return NextResponse.json({ ok: true, slug: matches[0] });
   } catch (error) {
     if (!isSupabaseUnavailable(error)) {
       return NextResponse.json(

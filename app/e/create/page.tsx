@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,15 +17,6 @@ export default function CreateEventPage() {
   const [adminPin, setAdminPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/organizer/me", { credentials: "same-origin" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { displayName?: string } | null) => {
-        if (data?.displayName) setAdminDisplayName(data.displayName);
-      })
-      .catch(() => undefined);
-  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

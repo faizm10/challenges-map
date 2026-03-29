@@ -147,12 +147,11 @@ const CHECKIN_MESSAGES = [
 
 export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
-  const [adminName, setAdminName] = useState("");
-  const [pin, setPin] = useState("");
+  const [eventJoinPin, setEventJoinPin] = useState("");
+  const [eventJoinPinError, setEventJoinPinError] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamPin, setNewTeamPin] = useState("");
   const [teamFormError, setTeamFormError] = useState("");
-  const [error, setError] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [openCheckpointByTeam, setOpenCheckpointByTeam] = useState<Record<number, string | null>>({});
   const [activeRecentCheckinId, setActiveRecentCheckinId] = useState<number | null>(null);
@@ -203,6 +202,11 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
     }, DASHBOARD_POLL_MS);
   }, [game]);
 
+  useEffect(() => {
+    if (!game) return;
+    setEventJoinPin(game.pins.event_join_pin ?? "");
+  }, [game?.pins.event_join_pin]);
+
   const activeRecentCheckin =
     game?.recentCheckins.find((item) => item.id === activeRecentCheckinId) ?? null;
 
@@ -245,26 +249,6 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
       return next;
     });
   }, [game]);
-
-  async function onLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setPendingAction("login");
-
-    try {
-      await api("/api/auth/admin", {
-        method: "POST",
-        body: JSON.stringify({ gameSlug, name: adminName, pin }),
-      });
-      setAdminName("");
-      setPin("");
-      await loadGame();
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to log in.");
-    } finally {
-      setPendingAction((current) => (current === "login" ? null : current));
-    }
-  }
 
   async function onLogout() {
     setPendingAction("logout");
@@ -375,125 +359,13 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
 
   if (!game) {
     return (
-      <main className="relative flex min-h-screen w-full flex-col lg:flex-row">
-        <style>{`
-          @keyframes reg-fadein { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
-          @keyframes reg-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-          .reg-form { animation: reg-fadein 0.5s ease forwards; }
-          .reg-dot { animation: reg-blink 1.4s step-end infinite; }
-        `}</style>
-
-        {/* Left: Toronto city image panel */}
-        <div
-          className="relative flex min-h-[40vh] flex-col justify-between p-8 lg:min-h-screen lg:w-[58%] lg:p-14"
-          style={{
-            backgroundImage: "url('/images/landing/u1194229659_generate_a_pixel_gamified_toronto_landscape_pictu_eacc8824-0c44-43d2-a4cf-3af8d79357b3_0.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          {/* Dark gradient: strong bottom so text reads, light in middle to show city */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#090809]/70 via-[#090809]/30 to-[#090809]/85" />
-          {/* Right fade so it bleeds into the form panel */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#090809]/60 lg:to-[#090809]" />
-
-          {/* Top: brand */}
-          <div className="relative z-10">
-            <p className="text-xs uppercase tracking-[0.35em] text-orange-500">Converge</p>
-          </div>
-
-          {/* Bottom: headline */}
-          <div className="relative z-10 space-y-4">
-            <p className="text-xs uppercase tracking-[0.25em] text-orange-400">HQ Command</p>
-            <h1 className="text-4xl leading-tight text-[#e6d5b8] sm:text-5xl lg:text-6xl">
-              Control<br />the chaos.
-            </h1>
-            <p className="max-w-xs text-sm leading-6 text-[#e6d5b8]/55">
-              Release challenges, verify check-ins, review media, and keep the
-              Converge leaderboard accurate in real time.
-            </p>
-            <Button
-              asChild
-              className="mt-2 border border-[#e6d5b8]/20 bg-transparent text-[#e6d5b8]/50 hover:bg-[#e6d5b8]/8 hover:text-[#e6d5b8]"
-              variant="secondary"
-            >
-              <Link href={`/e/${gameSlug}/leaderboard`}>← Back to Leaderboard</Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Right: Registration form panel */}
-        <div className="relative flex flex-1 flex-col items-center justify-center bg-[#090809] px-8 py-14 lg:px-14">
-          {/* Subtle top-right decoration */}
-          <div className="absolute right-6 top-6 flex items-center gap-2">
-            <span className="reg-dot inline-block h-2 w-2 bg-orange-500" />
-            <span className="text-xs uppercase tracking-widest text-[#e6d5b8]/25">Restricted</span>
-          </div>
-
-          <div className="reg-form w-full max-w-[360px] space-y-8">
-            {/* Form header */}
-            <div className="space-y-1 border-l-2 border-orange-500 pl-4">
-              <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Registration</p>
-              <h2 className="text-3xl text-[#e6d5b8]">HQ Access</h2>
-              <p className="text-xs text-[#e6d5b8]/40">Admin credentials only. No public access.</p>
-            </div>
-
-            <form className="space-y-5" onSubmit={onLogin}>
-              <div className="space-y-1.5">
-                <label className="block text-xs uppercase tracking-widest text-[#e6d5b8]/45">
-                  Admin Name
-                </label>
-                <Input
-                  className="border border-[#e6d5b8]/12 bg-[#e6d5b8]/4 text-[#e6d5b8] placeholder:text-[#e6d5b8]/20 focus:border-orange-500 focus:ring-0"
-                  type="text"
-                  value={adminName}
-                  onChange={(event) => setAdminName(event.target.value)}
-                  placeholder="Enter admin name"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs uppercase tracking-widest text-[#e6d5b8]/45">
-                  PIN
-                </label>
-                <Input
-                  className="border border-[#e6d5b8]/12 bg-[#e6d5b8]/4 tracking-widest text-[#e6d5b8] placeholder:text-[#e6d5b8]/20 focus:border-orange-500 focus:ring-0"
-                  type="password"
-                  value={pin}
-                  onChange={(event) => setPin(event.target.value)}
-                  placeholder="••••••"
-                  required
-                />
-              </div>
-
-              {error ? (
-                <div className="border-l-2 border-red-500 bg-red-500/8 px-3 py-2">
-                  <p className="text-xs text-red-400">{error}</p>
-                </div>
-              ) : null}
-
-              <Button
-                className="w-full border border-orange-500 bg-orange-500 text-black hover:bg-orange-400 hover:border-orange-400 disabled:opacity-50"
-                disabled={pendingAction === "login"}
-                type="submit"
-              >
-                {pendingAction === "login" ? (
-                  <span className="flex items-center gap-2">
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    Verifying...
-                  </span>
-                ) : (
-                  "Register & Enter HQ"
-                )}
-              </Button>
-            </form>
-
-            <p className="text-center text-xs uppercase tracking-wider text-[#e6d5b8]/18">
-              Converge — HQ access only
-            </p>
-          </div>
-        </div>
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-xl border-white/8 bg-[#120f10]/88 text-white">
+          <CardContent className="flex items-center justify-center gap-3 p-8 text-white/72">
+            <LoaderCircle className="h-5 w-5 animate-spin" />
+            Loading HQ dashboard...
+          </CardContent>
+        </Card>
       </main>
     );
   }
@@ -516,13 +388,7 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
-            <Button
-              asChild
-              className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
-              variant="secondary"
-            >
-              <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
-            </Button>
+
             <Button
               className="w-full bg-red-500/90 text-white hover:bg-red-500 sm:w-auto"
               disabled={pendingAction === "reset"}
@@ -564,6 +430,81 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
               )}
             </Button>
           </div>
+        </div>
+
+        <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4 sm:p-5">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+            Team Join PIN
+          </p>
+          <p className="mb-4 text-sm text-white/60">
+            Create the 6-digit event PIN that players enter on the Join page.
+          </p>
+          <form
+            className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setEventJoinPinError("");
+              if (!/^\d{6}$/.test(eventJoinPin.trim())) {
+                setEventJoinPinError("Event join PIN must be exactly 6 digits.");
+                return;
+              }
+              await runAdminAction(
+                "save-event-join-pin",
+                async () => {
+                  const response = await api<{ game?: AdminGameResponse }>("/api/admin/join-pin", {
+                    method: "PATCH",
+                    body: JSON.stringify({ joinPin: eventJoinPin }),
+                  });
+                  if (response.game) {
+                    setGame(response.game);
+                  } else {
+                    await loadGame();
+                  }
+                },
+                "Join PIN saved",
+                "Teams can now join with this 6-digit event PIN."
+              );
+            }}
+          >
+            <div className="min-w-0 flex-1 space-y-2">
+              <label className="text-xs font-medium text-white/60">Event PIN</label>
+              <Input
+                className="border-white/10 bg-white/5 text-white tracking-[0.25em]"
+                inputMode="numeric"
+                maxLength={6}
+                value={eventJoinPin}
+                onChange={(e) => setEventJoinPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                required
+              />
+            </div>
+            <Button
+              className="bg-orange-500 text-black hover:bg-orange-400"
+              disabled={pendingAction === "save-event-join-pin"}
+              type="submit"
+            >
+              {pendingAction === "save-event-join-pin" ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save PIN"
+              )}
+            </Button>
+            <Button
+              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                const randomPin = String(
+                  Math.floor(100000 + Math.random() * 900000)
+                );
+                setEventJoinPin(randomPin);
+                setEventJoinPinError("");
+              }}
+            >
+              Generate PIN
+            </Button>
+          </form>
+          {eventJoinPinError ? <p className="mt-2 text-sm text-red-400">{eventJoinPinError}</p> : null}
         </div>
 
         {game.teams.length === 0 ? (

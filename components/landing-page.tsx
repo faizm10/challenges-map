@@ -230,7 +230,7 @@ export function LandingPage({
               Teams: enter the 6-digit PIN your organizer sent, then sign in.
             </p>
             <p className="mx-auto mt-4 max-w-sm text-xs leading-5 text-primary-foreground/80">
-              Organizers: create an account and set up your game URL.
+              Organizers: sign in at HQ to create and manage your game.
             </p>
             
             <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:justify-center">
@@ -247,20 +247,12 @@ export function LandingPage({
             </div>
             <p className="mt-4 flex flex-col items-center gap-2 text-center sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-4 sm:gap-y-1">
               <Link
-                href="/host?mode=login&next=%2Fe%2Fcreate"
+                href="/organizer/login?next=%2Fe%2Fcreate"
                 className="font-pixel text-[9px] uppercase tracking-wider text-primary-foreground/90 underline-offset-4 hover:underline"
               >
-                Organizer log in
+                Organizer sign in
               </Link>
-              <span className="hidden text-primary-foreground/40 sm:inline" aria-hidden>
-                ·
-              </span>
-              <Link
-                href="/leaderboard"
-                className="font-pixel text-[9px] uppercase tracking-wider text-primary-foreground/90 underline-offset-4 hover:underline"
-              >
-                Live leaderboard
-              </Link>
+              
             </p>
           </Card>
         </section>
