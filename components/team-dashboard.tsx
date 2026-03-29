@@ -1116,7 +1116,7 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
         backgroundImage: "url('/images/landing/u1194229659_generate_a_pixel_gamified_toronto_landscape_pictu_415a8841-0d4c-4e47-b833-4cfe0a3dc69a_3.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
-        backgroundAttachment: "fixed",
+        backgroundAttachment: "scroll",
       }}
     >
       <style>{`
@@ -1126,21 +1126,46 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
         .db-live-dot { animation: db-pulse 2s ease-in-out infinite; }
       `}</style>
 
-      {/* Fixed dark overlay — city shows as ghost */}
+      {/* Dark overlay */}
       <div className="pointer-events-none fixed inset-0 bg-[#090809]/91" />
 
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-6 md:pt-8">
+      {/* ── STICKY MOBILE NAV ───────────────────── */}
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-[#e6d5b8]/10 bg-[#090809]/95 px-4 py-3 md:hidden" style={{ backdropFilter: "blur(10px)" }}>
+        <div>
+          <p className="text-xs uppercase tracking-widest text-orange-500">Converge</p>
+          <p className="text-sm text-[#e6d5b8]">{dashboard.team.team_name}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            asChild
+            className="h-8 border border-[#e6d5b8]/15 bg-transparent px-3 text-xs text-[#e6d5b8]/55 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
+            variant="secondary"
+          >
+            <Link href={`/e/${gameSlug}/leaderboard`}>Board</Link>
+          </Button>
+          <Button
+            className="h-8 border border-[#e6d5b8]/10 bg-transparent px-3 text-xs text-[#e6d5b8]/35 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
+            disabled={isSigningOut}
+            variant="ghost"
+            onClick={onLogout}
+          >
+            {isSigningOut ? <LoaderCircle className="h-3 w-3 animate-spin" /> : "Out"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-6xl space-y-3 px-3 pb-20 pt-4 md:space-y-4 md:px-6 md:pb-16 md:pt-8">
 
         {/* ── NEW CHALLENGE BANNER ─────────────────── */}
         {newChallengeBanner ? (
-          <div className="mb-6 flex items-start justify-between gap-4 border-l-2 border-orange-500 bg-orange-500/8 px-5 py-4">
+          <div className="flex items-start justify-between gap-4 border-l-2 border-orange-500 bg-orange-500/8 px-4 py-3">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Challenge Drop</p>
-              <p className="mt-1 text-base text-[#e6d5b8]">{newChallengeBanner.title}</p>
-              <p className="mt-0.5 text-xs text-[#e6d5b8]/50">Scroll to challenge queue to view and submit.</p>
+              <p className="mt-1 text-sm text-[#e6d5b8]">{newChallengeBanner.title}</p>
+              <p className="mt-0.5 text-xs text-[#e6d5b8]/50">Scroll to challenge queue to submit.</p>
             </div>
             <button
-              className="mt-0.5 text-xs text-[#e6d5b8]/35 transition hover:text-[#e6d5b8]"
+              className="mt-0.5 shrink-0 text-xs text-[#e6d5b8]/35 transition hover:text-[#e6d5b8]"
               type="button"
               onClick={() => setNewChallengeBanner(null)}
             >
@@ -1151,27 +1176,28 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
 
         {/* ── HEADER ──────────────────────────────── */}
         <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70">
-          <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-start lg:justify-between md:p-8">
-            <div className="space-y-3">
+          <div className="flex flex-col gap-4 p-4 md:flex-row md:items-start md:justify-between md:p-8">
+            <div className="space-y-2.5 md:space-y-3">
               <p className="text-xs uppercase tracking-[0.3em] text-orange-500">Converge // Field Ops</p>
               <div className="flex flex-wrap gap-2">
-                <span className="border border-[#e6d5b8]/15 px-2.5 py-1 text-xs uppercase tracking-wider text-[#e6d5b8]/55">
+                <span className="border border-[#e6d5b8]/15 px-2 py-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/55">
                   {dashboard.team.badge_label}
                 </span>
-                <span className="border border-[#e6d5b8]/15 px-2.5 py-1 text-xs uppercase tracking-wider text-[#e6d5b8]/55">
+                <span className="border border-[#e6d5b8]/15 px-2 py-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/55">
                   {dashboard.team.start_location_name}
                 </span>
               </div>
-              <h1 className="text-4xl text-[#e6d5b8] sm:text-5xl">{dashboard.team.team_name}</h1>
-              <p className="max-w-2xl text-sm leading-7 text-[#e6d5b8]/50">{dashboard.team.route_summary}</p>
+              <h1 className="text-3xl text-[#e6d5b8] sm:text-4xl md:text-5xl">{dashboard.team.team_name}</h1>
+              <p className="max-w-2xl text-sm leading-6 text-[#e6d5b8]/50">{dashboard.team.route_summary}</p>
               {shouldShowScrollCue ? (
-                <div className="border-l-2 border-orange-500 bg-orange-500/8 pl-4 py-2">
+                <div className="border-l-2 border-orange-500 bg-orange-500/8 py-2 pl-3">
                   <p className="text-sm text-[#e6d5b8]">Next challenge is ready</p>
                   <p className="mt-0.5 text-xs text-[#e6d5b8]/50">Scroll to the challenge queue to view and submit.</p>
                 </div>
               ) : null}
             </div>
-            <div className="flex shrink-0 gap-2">
+            {/* Desktop-only nav buttons — mobile has sticky top bar */}
+            <div className="hidden shrink-0 gap-2 md:flex">
               <Button
                 asChild
                 className="border border-[#e6d5b8]/15 bg-transparent text-[#e6d5b8]/55 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
@@ -1192,23 +1218,23 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
 
           {/* Stats bar */}
           <div className="grid grid-cols-2 border-t border-[#e6d5b8]/10 xl:grid-cols-4">
-            <div className="border-r border-[#e6d5b8]/10 p-5 md:p-6">
-              <p className="mb-2 text-xs uppercase tracking-widest text-orange-500">Walk Time</p>
-              <p className="text-3xl text-[#e6d5b8]">{dashboard.team.walk_time}</p>
+            <div className="border-r border-[#e6d5b8]/10 p-4 md:p-6">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Walk Time</p>
+              <p className="text-2xl text-[#e6d5b8] md:text-3xl">{dashboard.team.walk_time}</p>
             </div>
-            <div className="p-5 md:p-6 xl:border-r xl:border-[#e6d5b8]/10">
-              <p className="mb-2 text-xs uppercase tracking-widest text-orange-500">Rank</p>
-              <p className="text-3xl text-[#e6d5b8]">#{dashboard.teamStats.leaderboard_rank}</p>
+            <div className="p-4 md:p-6 xl:border-r xl:border-[#e6d5b8]/10">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Rank</p>
+              <p className="text-2xl text-[#e6d5b8] md:text-3xl">#{dashboard.teamStats.leaderboard_rank}</p>
             </div>
-            <div className="border-r border-t border-[#e6d5b8]/10 p-5 md:p-6 xl:border-t-0">
-              <p className="mb-2 text-xs uppercase tracking-widest text-orange-500">Last Known</p>
-              <p className="text-xl text-[#e6d5b8]">
+            <div className="border-r border-t border-[#e6d5b8]/10 p-4 md:p-6 xl:border-t-0">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Last Known</p>
+              <p className="text-base text-[#e6d5b8] md:text-xl">
                 {dashboard.latestLocation ? dashboard.latestLocation.label : "No GPS yet"}
               </p>
             </div>
-            <div className="border-t border-[#e6d5b8]/10 p-5 md:p-6 xl:border-t-0">
-              <p className="mb-2 text-xs uppercase tracking-widest text-orange-500">Points</p>
-              <p className="text-3xl text-[#e6d5b8]">{dashboard.teamStats.total_points}</p>
+            <div className="border-t border-[#e6d5b8]/10 p-4 md:p-6 xl:border-t-0">
+              <p className="mb-1.5 text-xs uppercase tracking-widest text-orange-500">Points</p>
+              <p className="text-2xl text-[#e6d5b8] md:text-3xl">{dashboard.teamStats.total_points}</p>
             </div>
           </div>
         </section>
@@ -1220,15 +1246,15 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
 
         {/* ── CHECK-IN PROGRESS ───────────────────── */}
         <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70" style={{ animationDelay: "0.1s", opacity: 0 }}>
-          <div className="border-b border-[#e6d5b8]/10 px-6 py-5 md:px-8">
+          <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-8 md:py-5">
             <div className="flex items-center gap-2.5">
               <span className="db-live-dot inline-block h-2 w-2 bg-orange-500" />
-              <h2 className="text-xl text-[#e6d5b8]">Check-In Progress</h2>
+              <h2 className="text-lg text-[#e6d5b8] md:text-xl">Check-In Progress</h2>
             </div>
-            <p className="mt-1 text-xs uppercase tracking-wider text-[#e6d5b8]/35">Start → route checkpoints → Union Station</p>
+            <p className="mt-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/35">Start → route checkpoints → Union Station</p>
           </div>
 
-          <div className="space-y-4 p-6 md:p-8">
+          <div className="space-y-3 p-4 md:space-y-4 md:p-8">
             {/* GPS panel */}
             <div className="border border-orange-500/20 bg-orange-500/5 p-4">
               <div className="flex items-start gap-3">
@@ -1576,14 +1602,14 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
 
         {/* ── CHALLENGE QUEUE ─────────────────────── */}
         <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70" style={{ animationDelay: "0.2s", opacity: 0 }}>
-          <div className="border-b border-[#e6d5b8]/10 px-6 py-5 md:px-8">
-            <h2 className="text-xl text-[#e6d5b8]">Challenge Queue</h2>
-            <p className="mt-1 text-xs uppercase tracking-wider text-[#e6d5b8]/35">
+          <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-8 md:py-5">
+            <h2 className="text-lg text-[#e6d5b8] md:text-xl">Challenge Queue</h2>
+            <p className="mt-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/35">
               Mission 1 stays open all race · each next mission appears after current is submitted
             </p>
           </div>
 
-          <div className="p-6 md:p-8">
+          <div className="p-4 md:p-8">
             {!hasStartedRace ? (
               <p className="text-sm text-[#e6d5b8]/40">Start the race to reveal challenge cards.</p>
             ) : !dashboard.challenges.length ? (
@@ -1603,19 +1629,19 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                       className="flex flex-col border border-[#e6d5b8]/12 bg-[#090809]/50"
                     >
                       {/* Card header */}
-                      <div className="flex items-start justify-between gap-3 border-b border-[#e6d5b8]/10 p-5">
+                      <div className="flex items-start justify-between gap-3 border-b border-[#e6d5b8]/10 p-4 md:p-5">
                         <div>
                           <p className="mb-1 text-xs uppercase tracking-widest text-orange-500">
                             Mission {challenge.challenge_order}
                           </p>
-                          <h3 className="text-lg text-[#e6d5b8]">{challenge.title}</h3>
+                          <h3 className="text-base text-[#e6d5b8] md:text-lg">{challenge.title}</h3>
                         </div>
                         <Badge variant={challengeStateVariant(challenge)}>
                           {challengeStateLabel(challenge)}
                         </Badge>
                       </div>
 
-                      <div className="flex flex-1 flex-col space-y-4 p-5">
+                      <div className="flex flex-1 flex-col space-y-3 p-4 md:space-y-4 md:p-5">
                         <p className="text-sm leading-6 text-[#e6d5b8]/55">{challenge.text}</p>
 
                         {/* Kind info */}
@@ -1746,22 +1772,22 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
 
         {/* ── LIVE LEADERBOARD ────────────────────── */}
         <section className="db-section border border-[#e6d5b8]/10 bg-[#090809]/70" style={{ animationDelay: "0.3s", opacity: 0 }}>
-          <div className="border-b border-[#e6d5b8]/10 px-6 py-5 md:px-8">
+          <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-8 md:py-5">
             <div className="flex items-center gap-2.5">
               <span className="db-live-dot inline-block h-2 w-2 bg-emerald-500" />
-              <h2 className="text-xl text-[#e6d5b8]">Live Leaderboard</h2>
+              <h2 className="text-lg text-[#e6d5b8] md:text-xl">Live Leaderboard</h2>
             </div>
-            <p className="mt-1 text-xs uppercase tracking-wider text-[#e6d5b8]/35">Standings refresh every few seconds</p>
+            <p className="mt-0.5 text-xs uppercase tracking-wider text-[#e6d5b8]/35">Standings refresh every few seconds</p>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[#e6d5b8]/10">
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-8">Team</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30">Rank</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30">Points</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-6">Done</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-8">Team</th>
+                  <th className="px-3 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-4">Rank</th>
+                  <th className="px-3 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-4">Pts</th>
+                  <th className="px-3 py-3 text-left text-xs uppercase tracking-widest text-[#e6d5b8]/30 md:px-4">Done</th>
                 </tr>
               </thead>
               <tbody>
@@ -1772,13 +1798,13 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
                       key={entry.id}
                       className={`border-b border-[#e6d5b8]/8 transition ${isCurrentTeam ? "border-l-2 border-l-orange-500 bg-orange-500/8" : "hover:bg-[#e6d5b8]/3"}`}
                     >
-                      <td className={`px-6 py-3.5 text-sm md:px-8 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/60"}`}>
-                        {entry.team_name}
-                        {isCurrentTeam ? <span className="ml-2 text-xs text-orange-400 uppercase tracking-wider">You</span> : null}
+                      <td className={`px-4 py-3 text-sm md:px-8 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/60"}`}>
+                        <span className="block">{entry.team_name}</span>
+                        {isCurrentTeam ? <span className="text-xs text-orange-400 uppercase tracking-wider">You</span> : null}
                       </td>
-                      <td className={`px-4 py-3.5 text-sm ${isCurrentTeam ? "text-orange-400" : "text-[#e6d5b8]/45"}`}>#{entry.leaderboard_rank}</td>
-                      <td className={`px-4 py-3.5 text-sm ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/55"}`}>{entry.total_points}</td>
-                      <td className={`px-4 py-3.5 text-sm md:px-6 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/45"}`}>
+                      <td className={`px-3 py-3 text-sm md:px-4 ${isCurrentTeam ? "text-orange-400" : "text-[#e6d5b8]/45"}`}>#{entry.leaderboard_rank}</td>
+                      <td className={`px-3 py-3 text-sm md:px-4 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/55"}`}>{entry.total_points}</td>
+                      <td className={`px-3 py-3 text-sm md:px-4 ${isCurrentTeam ? "text-[#e6d5b8]" : "text-[#e6d5b8]/45"}`}>
                         {entry.completed_count}/{entry.total_challenges}
                       </td>
                     </tr>
@@ -1793,14 +1819,14 @@ export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
 
       {/* ── CONTRACT MODAL ──────────────────────── */}
       {pendingContractCheckpoint ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4 sm:items-center">
-          <div className="w-full max-w-2xl border border-[#e6d5b8]/15 bg-[#090809] text-[#e6d5b8]">
-            <div className="border-b border-[#e6d5b8]/10 px-6 py-5">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-2xl border-t border-[#e6d5b8]/15 bg-[#090809] text-[#e6d5b8] sm:border">
+            <div className="border-b border-[#e6d5b8]/10 px-4 py-4 md:px-6 md:py-5">
               <p className="text-xs uppercase tracking-[0.3em] text-orange-500">Converge Contract</p>
-              <h3 className="mt-2 text-3xl text-[#e6d5b8]">Start Terms</h3>
+              <h3 className="mt-1.5 text-2xl text-[#e6d5b8] md:text-3xl">Start Terms</h3>
             </div>
 
-            <div className="space-y-4 px-6 py-6">
+            <div className="max-h-[80vh] space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
               <div className="border border-[#e6d5b8]/10 bg-[#e6d5b8]/3 p-5">
                 <p className="mb-3 text-xs uppercase tracking-wider text-[#e6d5b8]/30">Agreement</p>
                 <p className="text-base leading-7 text-[#e6d5b8]/70">

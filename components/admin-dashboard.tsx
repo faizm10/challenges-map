@@ -146,6 +146,10 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
   const [activeRecentCheckinId, setActiveRecentCheckinId] = useState<number | null>(null);
   const [activeProofIndex, setActiveProofIndex] = useState(0);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [mobileSection, setMobileSection] = useState<"overview" | "map" | "challenges" | "teams">("overview");
+  const [mobileChallengeId, setMobileChallengeId] = useState<number | null>(null);
+  const [mobileTeamId, setMobileTeamId] = useState<number | null>(null);
   const [showCredentials, setShowCredentials] = useState(false);
   const [credCurrentPin, setCredCurrentPin] = useState("");
   const [credNewName, setCredNewName] = useState("");
@@ -169,6 +173,17 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const media = window.matchMedia("(max-width: 1023px)");
+    const onChange = () => setIsMobileViewport(media.matches);
+
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
     if (!game) return;
     return subscribeWhileVisible(() => {
       loadGame().catch(() => undefined);
@@ -177,6 +192,23 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
 
   const activeRecentCheckin =
     game?.recentCheckins.find((item) => item.id === activeRecentCheckinId) ?? null;
+  const visibleChallenges = game
+    ? isMobileViewport
+      ? game.challenges.filter((challenge) => challenge.id === (mobileChallengeId ?? game.challenges[0]?.id))
+      : game.challenges
+    : [];
+  const visibleTeams = game
+    ? isMobileViewport
+      ? game.teams.filter((teamView) => teamView.team.id === (mobileTeamId ?? game.teams[0]?.team.id))
+      : game.teams
+    : [];
+
+  const mobileSections = [
+    { key: "overview" as const, label: "Overview" },
+    { key: "map" as const, label: "Map + Feed" },
+    { key: "challenges" as const, label: "Challenges" },
+    { key: "teams" as const, label: "Teams" },
+  ];
 
   useEffect(() => {
     if (!activeRecentCheckin) {
@@ -229,6 +261,22 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
 
       return next;
     });
+  }, [game]);
+
+  useEffect(() => {
+    if (!game) return;
+
+    setMobileChallengeId((current) =>
+      current && game.challenges.some((challenge) => challenge.id === current)
+        ? current
+        : (game.challenges[0]?.id ?? null)
+    );
+
+    setMobileTeamId((current) =>
+      current && game.teams.some((teamView) => teamView.team.id === current)
+        ? current
+        : (game.teams[0]?.team.id ?? null)
+    );
   }, [game]);
 
   async function onLogin(event: FormEvent<HTMLFormElement>) {
@@ -520,67 +568,196 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
     <>
     <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
       <Card className="grid gap-5 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+        <div className="space-y-4 lg:hidden">
+          <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-300">
               HQ Dashboard
             </p>
-            <h1 className="font-serif text-3xl text-white sm:text-4xl">
-              Release challenges, verify check-ins, score teams.
+            <h1 className="mt-2 text-xl leading-tight text-white">
+              Admin control
             </h1>
-            <p className="max-w-3xl text-white/56">
-              The admin view refreshes every few seconds and highlights the latest team
-              movement, proof, and checkpoint activity.
+            <p className="mt-2 text-xs leading-5 text-white/54">
+              Review live activity, release challenges, and manage teams from one screen.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
-            <Button
-              asChild
-              className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
-              variant="secondary"
-            >
-              <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
-            </Button>
-            <Button
-              className="w-full bg-red-500/90 text-white hover:bg-red-500 sm:w-auto"
-              disabled={pendingAction === "reset"}
-              variant="destructive"
-              onClick={() =>
-                runAdminAction(
-                  "reset",
-                  async () => {
-                    await api("/api/admin/reset", { method: "POST" });
-                    await loadGame();
-                  },
-                  "Event reset",
-                  "Challenges, submissions, media, and check-ins cleared for this event. Teams and PINs are unchanged."
-                )
-              }
-            >
-              Reset Game
-            </Button>
-            <Button
-              className="w-full border-white/10 bg-white/5 text-white/72 hover:bg-white/10 hover:text-white sm:w-auto"
-              variant="secondary"
-              onClick={() => setShowCredentials(true)}
-            >
-              Change Credentials
-            </Button>
-            <Button
-              className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"
-              disabled={pendingAction === "logout"}
-              variant="ghost"
-              onClick={onLogout}
-            >
-              {pendingAction === "logout" ? (
-                <>
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  Signing out...
-                </>
-              ) : (
-                "Log Out"
-              )}
-            </Button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-[18px] border border-white/8 bg-white/[0.06] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-orange-300">Released</p>
+              <p className="mt-2 text-xl text-white">
+                {game.challenges.filter((challenge) => challenge.is_released).length}/{game.challenges.length || 0}
+              </p>
+            </div>
+            <div className="rounded-[18px] border border-white/8 bg-white/[0.06] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-orange-300">GPS</p>
+              <p className="mt-2 text-xl text-white">{game.latestLocations.length}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/8 bg-white/[0.06] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-orange-300">Activity</p>
+              <p className="mt-2 text-xl text-white">{game.recentCheckins.length}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/8 bg-white/[0.06] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-orange-300">Leader</p>
+              <p className="mt-2 truncate text-base text-white">{game.leaderboard[0]?.team_name ?? "TBD"}</p>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-300">Quick controls</p>
+              <p className="text-[11px] text-white/44">Mobile shortcuts</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                asChild
+                className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+                size="sm"
+                variant="secondary"
+              >
+                <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
+              </Button>
+              <Button
+                className="w-full border-white/10 bg-white/5 text-white/72 hover:bg-white/10 hover:text-white"
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowCredentials(true)}
+              >
+                Credentials
+              </Button>
+              <Button
+                className="w-full text-white/72 hover:bg-white/6 hover:text-white"
+                disabled={pendingAction === "logout"}
+                size="sm"
+                variant="ghost"
+                onClick={onLogout}
+              >
+                {pendingAction === "logout" ? "Signing out..." : "Log out"}
+              </Button>
+              <Button
+                className="w-full bg-red-500/90 text-white hover:bg-red-500"
+                disabled={pendingAction === "reset"}
+                size="sm"
+                variant="destructive"
+                onClick={() =>
+                  runAdminAction(
+                    "reset",
+                    async () => {
+                      await api("/api/admin/reset", { method: "POST" });
+                      await loadGame();
+                    },
+                    "Event reset",
+                    "Challenges, submissions, media, and check-ins cleared for this event. Teams and PINs are unchanged."
+                  )
+                }
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden gap-5 lg:grid xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                HQ Dashboard
+              </p>
+              <h1 className="font-serif text-3xl text-white sm:text-4xl">
+                Release challenges, verify check-ins, score teams.
+              </h1>
+              <p className="max-w-3xl text-white/56">
+                The admin view refreshes every few seconds and highlights the latest team
+                movement, proof, and checkpoint activity.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                  Released
+                </p>
+                <p className="text-2xl font-semibold text-white">
+                  {game.challenges.filter((challenge) => challenge.is_released).length}/
+                  {game.challenges.length || 0}
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                  Latest GPS
+                </p>
+                <p className="text-2xl font-semibold text-white">{game.latestLocations.length}</p>
+              </div>
+              <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                  Recent Activity
+                </p>
+                <p className="text-2xl font-semibold text-white">{game.recentCheckins.length}</p>
+              </div>
+              <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                  Leader
+                </p>
+                <p className="text-xl font-semibold text-white">{game.leaderboard[0]?.team_name ?? "TBD"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.05] p-4 sm:p-5">
+            <div className="mb-4">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">Quick controls</p>
+              <p className="mt-2 text-sm text-white/54">
+                High-priority actions stay grouped here for phone use.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <Button
+                asChild
+                className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+                variant="secondary"
+              >
+                <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
+              </Button>
+              <Button
+                className="w-full border-white/10 bg-white/5 text-white/72 hover:bg-white/10 hover:text-white"
+                variant="secondary"
+                onClick={() => setShowCredentials(true)}
+              >
+                Change Credentials
+              </Button>
+              <Button
+                className="w-full bg-red-500/90 text-white hover:bg-red-500"
+                disabled={pendingAction === "reset"}
+                variant="destructive"
+                onClick={() =>
+                  runAdminAction(
+                    "reset",
+                    async () => {
+                      await api("/api/admin/reset", { method: "POST" });
+                      await loadGame();
+                    },
+                    "Event reset",
+                    "Challenges, submissions, media, and check-ins cleared for this event. Teams and PINs are unchanged."
+                  )
+                }
+              >
+                Reset Game
+              </Button>
+              <Button
+                className="w-full text-white/72 hover:bg-white/6 hover:text-white"
+                disabled={pendingAction === "logout"}
+                variant="ghost"
+                onClick={onLogout}
+              >
+                {pendingAction === "logout" ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Signing out...
+                  </>
+                ) : (
+                  "Log Out"
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -632,38 +809,36 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
           </div>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Released
-            </p>
-            <p className="text-2xl font-semibold text-white">
-              {game.challenges.filter((challenge) => challenge.is_released).length}/
-              {game.challenges.length || 0}
-            </p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Latest GPS
-            </p>
-            <p className="text-2xl font-semibold text-white">{game.latestLocations.length}</p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Recent Activity
-            </p>
-            <p className="text-2xl font-semibold text-white">{game.recentCheckins.length}</p>
-          </div>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Leader
-            </p>
-            <p className="text-xl font-semibold text-white">{game.leaderboard[0]?.team_name ?? "TBD"}</p>
+        <div className="sticky top-3 z-20 -mx-1 lg:hidden">
+          <div className="rounded-[20px] border border-white/8 bg-[#120f10]/92 p-2 shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur">
+            <div className="grid grid-cols-2 gap-2">
+              {mobileSections.map((section) => {
+                const isActive = mobileSection === section.key;
+                return (
+                  <button
+                    key={section.key}
+                    className={`rounded-[16px] border px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
+                      isActive
+                        ? "border-orange-400/40 bg-orange-500/15 text-orange-100"
+                        : "border-white/10 bg-white/[0.04] text-white/56"
+                    }`}
+                    type="button"
+                    onClick={() => setMobileSection(section.key)}
+                  >
+                    {section.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </Card>
 
-      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+      <Card
+        className={`border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${
+          mobileSection === "overview" ? "block" : "hidden lg:block"
+        }`}
+      >
         <CardHeader>
           <CardTitle className="text-xl text-white sm:text-2xl">Finish line</CardTitle>
           <CardDescription className="text-white/52">
@@ -745,7 +920,11 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
         </CardContent>
       </Card>
 
-      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <section
+        className={`grid gap-5 xl:grid-cols-[1.1fr_0.9fr] ${
+          mobileSection === "map" ? "grid" : "hidden lg:grid"
+        }`}
+      >
         <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
           <CardHeader>
             <CardTitle className="text-2xl text-white sm:text-3xl">Check-In Map</CardTitle>
@@ -979,7 +1158,11 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
         </Card>
       </section>
 
-      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+      <Card
+        className={`border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${
+          mobileSection === "challenges" ? "block" : "hidden lg:block"
+        }`}
+      >
         <CardHeader>
           <CardTitle className="text-2xl text-white sm:text-3xl">Challenge Control</CardTitle>
           <CardDescription className="text-white/52">
@@ -1099,8 +1282,41 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
             </form>
           </Card>
 
+          {game.challenges.length > 1 ? (
+            <div className="lg:hidden">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+                  Select challenge
+                </p>
+                <p className="text-[11px] text-white/48">One card at a time on mobile</p>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {game.challenges.map((challenge) => {
+                  const isActive = mobileChallengeId === challenge.id;
+                  return (
+                    <button
+                      key={`mobile-challenge-${challenge.id}`}
+                      className={`shrink-0 rounded-[18px] border px-4 py-3 text-left transition ${
+                        isActive
+                          ? "border-orange-400/30 bg-orange-500/10"
+                          : "border-white/8 bg-white/[0.04]"
+                      }`}
+                      type="button"
+                      onClick={() => setMobileChallengeId(challenge.id)}
+                    >
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-200">
+                        Challenge {challenge.challenge_order}
+                      </p>
+                      <p className="mt-1 text-sm text-white">{challenge.title}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-4 lg:grid-cols-2">
-            {game.challenges.map((challenge) => {
+            {visibleChallenges.map((challenge) => {
               const checkpointTeams = game.teams
                 .map((teamView) => ({
                   team: teamView.team,
@@ -1539,7 +1755,11 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
         </div>
       ) : null}
 
-      <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+      <Card
+        className={`border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)] ${
+          mobileSection === "teams" ? "block" : "hidden lg:block"
+        }`}
+      >
         <CardHeader>
           <CardTitle className="text-2xl text-white sm:text-3xl">Team Review</CardTitle>
           <CardDescription className="text-white/52">
@@ -1547,7 +1767,43 @@ export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 xl:grid-cols-2">
-          {game.teams.map((teamView) => (
+          {game.teams.length > 1 ? (
+            <div className="xl:hidden xl:col-span-2">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">Select team</p>
+                <p className="text-[11px] text-white/48">Review one team at a time on mobile</p>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {game.teams.map((teamView) => {
+                  const isActive = mobileTeamId === teamView.team.id;
+                  return (
+                    <button
+                      key={`mobile-team-${teamView.team.id}`}
+                      className={`shrink-0 rounded-[18px] border px-4 py-3 text-left transition ${
+                        isActive
+                          ? "border-orange-400/30 bg-orange-500/10"
+                          : "border-white/8 bg-white/[0.04]"
+                      }`}
+                      type="button"
+                      onClick={() => setMobileTeamId(teamView.team.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: teamView.team.color }}
+                        />
+                        <p className="text-sm font-semibold text-white">{teamView.team.team_name}</p>
+                      </div>
+                      <p className="mt-1 text-[11px] text-white/56">
+                        #{teamView.teamStats.leaderboard_rank} · {teamView.teamStats.total_points} pts
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+          {visibleTeams.map((teamView) => (
             <Card
               key={teamView.team.id}
               className="rounded-[24px] border border-white/8 bg-white/[0.05] p-4 text-white sm:p-5"
