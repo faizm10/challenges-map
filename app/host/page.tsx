@@ -10,7 +10,7 @@ type Props = { searchParams: Promise<{ next?: string; mode?: string }> };
 
 export default async function HostPage({ searchParams }: Props) {
   const params = await searchParams;
-  const nextPath = params.next && params.next.startsWith("/") ? params.next : "/e/create";
+  const nextPath = params.next && params.next.startsWith("/") ? params.next : "/e/admin";
   if (params.mode === "login") {
     redirect(`/organizer/login?next=${encodeURIComponent(nextPath)}`);
   }

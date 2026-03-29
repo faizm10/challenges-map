@@ -71,6 +71,13 @@ export type GameRow = {
   settings: Record<string, unknown> | null;
 };
 
+/** Minimal row for HQ hub listing (`/e/admin`). */
+export type GameSummary = {
+  id: number;
+  slug: string;
+  name: string;
+};
+
 type StatusRow = {
   team_id: number;
   challenge_id: number;
@@ -183,6 +190,33 @@ export async function getGameBySlug(slug: string): Promise<GameRow | null> {
             settings: null,
           }
         : null;
+    }
+    throw error;
+  }
+}
+
+export async function listGameSummaries(): Promise<GameSummary[]> {
+  try {
+    const { data, error } = await supabase
+      .from("games")
+      .select("id, slug, name")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return ((data ?? []) as Array<{ id: unknown; slug: unknown; name: unknown }>).map((row) => ({
+      id: Number(row.id),
+      slug: String(row.slug),
+      name: String(row.name),
+    }));
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      return [
+        {
+          id: LOCAL_FALLBACK_GAME_ID,
+          slug: "converge",
+          name: "Converge",
+        },
+      ];
     }
     throw error;
   }

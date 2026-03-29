@@ -6,12 +6,11 @@ import { allowAnonymousGameCreateFromEnv } from "@/lib/config";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
-  title: "Create event",
-  description:
-    "Create your event URL, HQ PIN, and open the dashboard to add teams and challenges.",
+  title: "HQ events",
+  description: "Open HQ for an event or create a new one.",
 };
 
-export default async function CreateEventLayout({ children }: { children: ReactNode }) {
+export default async function AdminHubLayout({ children }: { children: ReactNode }) {
   if (!allowAnonymousGameCreateFromEnv()) {
     const session = await getSession();
     if (session?.role !== "admin") {

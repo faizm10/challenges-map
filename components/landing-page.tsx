@@ -242,12 +242,12 @@ export function LandingPage({
                 size="lg"
                 className="w-full border-primary-foreground bg-[#e6d3b5] text-[#5a3c2a] shadow-[3px_3px_0px_0px_var(--primary-foreground)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] sm:w-auto"
               >
-                <Link href="/host?mode=signup&next=%2Fe%2Fcreate">Host a game</Link>
+                <Link href="/host?mode=signup&next=%2Fe%2Fadmin">Host a game</Link>
               </Button>
             </div>
             <p className="mt-4 flex flex-col items-center gap-2 text-center sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-4 sm:gap-y-1">
               <Link
-                href="/organizer/login?next=%2Fe%2Fcreate"
+                href="/organizer/login?next=%2Fe%2Fadmin"
                 className="font-pixel text-[9px] uppercase tracking-wider text-primary-foreground/90 underline-offset-4 hover:underline"
               >
                 Organizer sign in
