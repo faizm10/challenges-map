@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pixel Toronto — 4K Gamified Skyline</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+}
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 100vw;
+  height: auto;
+  max-height: 100vh;
+  max-width: 177.78vh;
+}
+</style>
+</head>
+<body>
+<canvas id="c" width="3840" height="2160"></canvas>
+<script>
+// ═══════════════════════════════════════════════
+//  PIXEL TORONTO — 4K Gamified Skyline
+//  Grid: 480 × 270  |  Scale: 8px/cell = 3840×2160
+// ═══════════════════════════════════════════════
+const C = document.getElementById('c');
+const ctx = C.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const GW = 480, GH = 270, S = 8, HORIZON = 192;
+
+// ── seeded random (deterministic scene) ──────────
+function mkrng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s ^ (s << 13)) >>> 0;
+    s = (s ^ (s >> 17)) >>> 0;
+    s = (s ^ (s << 5))  >>> 0;
+    return s / 4294967296;
+  };
+}
+const rng = mkrng(0xCAFEBABE);
+
+// ── core drawing ─────────────────────────────────
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function lerp(a, b, t) { return Math.round(a + (b - a) * clamp(t, 0, 1)); }
+function rgb(r, g, b) { return `rgb(${r},${g},${b})`; }
+function hex2rgb(h) {
+  const n = parseInt(h.replace('#',''), 16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function lerpH(h1, h2, t) {
+  const [r1,g1,b1]=hex2rgb(h1), [r2,g2,b2]=hex2rgb(h2);
+  return rgb(lerp(r1,r2,t),lerp(g1,g2,t),lerp(b1,b2,t));
+}
+
+function px(gx, gy, col) {
+  if (gx < 0 || gx >= GW || gy < 0 || gy >= GH) return;
+  ctx.fillStyle = col;
+  ctx.fillRect(gx * S, gy * S, S, S);
+}
+
+function fr(x1, y1, x2, y2, col) {
+  for (let y = y1; y <= y2; y++)
+    for (let x = x1; x <= x2; x++)
+      px(x, y, col);
+}
+
+// ════════════════════════════════════════════════
+//  1. SKY — deep navy gradient
+// ════════════════════════════════════════════════
+for (let y = 0; y < HORIZON; y++) {
+  const t = y / HORIZON;
+  // Deep charcoal-navy at zenith → muted steel-blue at horizon
+  const r = lerp(5, 45, t);
+  const g = lerp(7, 58, t);
+  const b = lerp(18, 90, t);
+  for (let x = 0; x < GW; x++) px(x, y, rgb(r, g, b));
+}
+
+// Horizon luminance bleed (city light glow)
+for (let y = HORIZON - 12; y < HORIZON; y++) {
+  const t = (y - (HORIZON - 12)) / 12;
+  for (let x = 0; x < GW; x++) {
+    const r = lerp(45, 68, t);
+    const g = lerp(58, 80, t);
+    const b = lerp(90, 105, t);
+    px(x, y, rgb(r, g, b));
+  }
+}
+
+// ════════════════════════════════════════════════
+//  2. STARS
+// ════════════════════════════════════════════════
+const starData = [
+  [14,4,'#b0bcd8'],[40,7,'#ccd8f0'],[72,3,'#a8b4d0'],[106,10,'#c4d0e8'],
+  [140,5,'#b8c4dc'],[175,8,'#d0dcf4'],[212,3,'#b0bcd8'],[250,12,'#c0ccec'],
+  [285,6,'#a8b4d0'],[316,10,'#ccd8f0'],[352,4,'#b8c4dc'],[386,8,'#c4d0e8'],
+  [416,3,'#a0acd0'],[450,13,'#b0bcd8'],[26,18,'#ccd8f0'],[86,16,'#b8c4dc'],
+  [146,20,'#c4d0e8'],[206,23,'#b0bcd8'],[266,18,'#ccd8f0'],[326,16,'#b8c4dc'],
+  [406,20,'#c0ccec'],[456,6,'#ccd8f0'],[11,28,'#b0bcd8'],[56,26,'#a8b4d0'],
+  [116,33,'#c4d0e8'],[170,28,'#b8c4dc'],[236,26,'#d0dcf4'],[296,30,'#b0bcd8'],
+  [366,23,'#c4d0e8'],[426,28,'#b8c4dc'],[468,18,'#ccd8f0'],[4,41,'#b0bcd8'],
+  [46,37,'#c4d0e8'],[96,43,'#b8c4dc'],[156,39,'#a8b4d0'],[216,35,'#ccd8f0'],
+  [276,41,'#b0bcd8'],[336,37,'#c0ccec'],[396,43,'#b8c4dc'],[446,35,'#ccd8f0'],
+  [20,51,'#a8b4d0'],[66,47,'#b8c4dc'],[126,54,'#c4d0e8'],[186,49,'#b0bcd8'],
+  [246,46,'#ccd8f0'],[306,52,'#b8c4dc'],[366,47,'#a8b4d0'],[426,54,'#c4d0e8'],
+  // Bright accent stars
+  [198,14,'#e4eeff'],[318,24,'#dce8ff'],[83,41,'#e4eeff'],[408,34,'#dce8ff'],
+  [52,12,'#e0ecff'],[380,18,'#e4eeff'],[160,7,'#dce8ff'],[490,30,'#e0ecff'],
+];
+for (const [sx, sy, col] of starData) px(sx, sy, col);
+
+// ════════════════════════════════════════════════
+//  3. CLOUDS
+// ════════════════════════════════════════════════
+function drawCloud(cx, cy, spans, dark, light) {
+  for (const [ox, oy, w, h] of spans) fr(cx+ox, cy+oy, cx+ox+w, cy+oy+h, dark);
+  // Lighter top-edge to simulate volumetric cloud
+  for (const [ox, oy, w] of spans)
+    for (let x = cx+ox; x <= cx+ox+w; x++) px(x, cy+oy, light);
+  // Dark base shadow
+  for (const [ox, oy, w, h] of spans)
+    for (let x = cx+ox; x <= cx+ox+w; x++) px(x, cy+oy+h, '#0a1530');
+}
+
+const cloudDefs = [
+  { cx:3,  cy:25, spans:[[0,2,92,5],[10,0,74,2],[22,-2,48,2]], dk:'#0d1b3f', lt:'#152348' },
+  { cx:128,cy:13, spans:[[0,2,112,6],[12,0,88,2],[26,-2,58,2]], dk:'#0b193d', lt:'#132145' },
+  { cx:278,cy:20, spans:[[0,2,98,5],[9,0,80,2],[20,-2,52,2]], dk:'#0d1b3f', lt:'#152348' },
+  { cx:378,cy:30, spans:[[0,1,78,4],[7,0,64,2],[16,-1,40,1]], dk:'#0b193d', lt:'#132145' },
+  { cx:38, cy:53, spans:[[0,1,68,4],[6,0,56,2],[13,-1,36,1]], dk:'#091738', lt:'#111e40' },
+  { cx:193,cy:40, spans:[[0,2,124,6],[14,0,96,2],[30,-2,62,2]], dk:'#0b193d', lt:'#132145' },
+  { cx:343,cy:46, spans:[[0,1,82,4],[8,0,66,2],[18,-1,42,1]], dk:'#0d1b3f', lt:'#152348' },
+  { cx:0,  cy:68, spans:[[0,1,55,3],[5,0,45,1],[11,-1,30,1]], dk:'#091738', lt:'#111e40' },
+  { cx:230,cy:62, spans:[[0,1,90,4],[9,0,72,2],[20,-1,48,1]], dk:'#0b193d', lt:'#132145' },
+  { cx:420,cy:58, spans:[[0,1,55,3],[5,0,45,1],[12,-1,28,1]], dk:'#091738', lt:'#111e40' },
+];
+for (const cl of cloudDefs) drawCloud(cl.cx, cl.cy, cl.spans, cl.dk, cl.lt);
+
+// ════════════════════════════════════════════════
+//  4. WATER
+// ════════════════════════════════════════════════
+for (let y = HORIZON; y < GH; y++) {
+  const t = (y - HORIZON) / (GH - HORIZON);
+  const r = lerp(14, 6, t);
+  const g = lerp(20, 10, t);
+  const b = lerp(42, 20, t);
+  for (let x = 0; x < GW; x++) px(x, y, rgb(r, g, b));
+}
+
+// Subtle horizontal shimmer
+const rng2 = mkrng(0xDEADBEEF);
+for (let y = HORIZON; y < HORIZON + 55; y += 2) {
+  for (let x = 0; x < GW; x++) {
+    if (rng2() > 0.82) px(x, y, '#16263e');
+    if (rng2() > 0.93) px(x, y, '#1e3050');
+  }
+}
+
+// ════════════════════════════════════════════════
+//  5. HELPER — windows for buildings
+// ════════════════════════════════════════════════
+const litColors   = ['#f0d060','#f8e878','#e8c850','#ffe890','#d0e8f8','#e0f0ff'];
+const dimColors   = ['#1e2235','#1a1e30','#161a2a'];
+
+function windows(bx1, by1, bx2, by2, stride = 3) {
+  const winRng = mkrng((bx1 * 997 + by1) >>> 0);
+  for (let wy = by1 + 1; wy < by2; wy += stride) {
+    for (let wx = bx1 + 1; wx < bx2; wx += 3) {
+      const lit = winRng() > 0.30;
+      const col = lit
+        ? litColors[Math.floor(winRng() * litColors.length)]
+        : dimColors[Math.floor(winRng() * dimColors.length)];
+      px(wx, wy, col);
+      if (bx2 - bx1 > 5) px(wx + 1, wy, col);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════
+//  6. BACKGROUND BUILDINGS (left fringe, faint)
+// ════════════════════════════════════════════════
+const bgBldgs = [
+  [0,  HORIZON,12,22,'#111420'],[11,HORIZON,8, 16,'#10131e'],[18,HORIZON,14,30,'#121522'],
+  [30,HORIZON,9, 20,'#111420'],[38,HORIZON,18,38,'#14172a'],[54,HORIZON,11,25,'#121522'],
+  [63,HORIZON,8, 18,'#111420'],[70,HORIZON,14,32,'#13162a'],
+  // right fringe
+  [380,HORIZON,12,20,'#111420'],[390,HORIZON,9, 14,'#10131e'],[397,HORIZON,16,28,'#121522'],
+  [411,HORIZON,10,18,'#111420'],[419,HORIZON,20,38,'#14172a'],[437,HORIZON,12,24,'#121522'],
+  [447,HORIZON,8, 16,'#111420'],[453,HORIZON,15,30,'#13162a'],[466,HORIZON,14,22,'#121522'],
+];
+for (const [bx,by,w,h,col] of bgBldgs) {
+  fr(bx, by-h, bx+w-1, by-1, col);
+  windows(bx, by-h, bx+w-1, by-1, 4);
+}
+
+// ════════════════════════════════════════════════
+//  7. MAIN SKYLINE BUILDINGS
+// ════════════════════════════════════════════════
+// ── Rogers Centre dome (left landmark) ──────────
+// Main body / podium
+fr(68, HORIZON-22, 108, HORIZON-1, '#182030');
+windows(68, HORIZON-22, 108, HORIZON-1, 5);
+
+// Dome itself (rasterised semicircle)
+const domeCX = 88, domeCY = HORIZON - 22, domeRX = 22, domeRY = 14;
+for (let dy = 0; dy >= -domeRY; dy--) {
+  const halfW = Math.round(domeRX * Math.sqrt(1 - (dy/domeRY)**2));
+  const col = dy < -3 ? '#1e2d42' : '#1a2838';
+  fr(domeCX - halfW, domeCY + dy, domeCX + halfW, domeCY + dy, col);
+}
+// Dome highlight seam
+for (let x = domeCX - 10; x <= domeCX + 10; x++) px(x, domeCY - domeRY + 1, '#283848');
+// Dome rib lines
+for (let rib = -18; rib <= 18; rib += 6) px(domeCX + rib, domeCY - 6, '#243040');
+
+// ── Left cluster ─────────────────────────────────
+const leftBldgs = [
+  //  x    baseY      w   h   body         edge
+  [  82, HORIZON,   6,  45, '#182030', '#1e2838'],
+  [  86, HORIZON,   5,  55, '#1a2234', '#202a3e'],
+  [ 110, HORIZON,  10,  48, '#1c2436', '#222c42'],
+  [ 118, HORIZON,   7,  58, '#1e2638', '#242e44'],
+  [ 125, HORIZON,   9,  42, '#1a2234', '#202a3e'],
+  [ 132, HORIZON,  12,  65, '#202840', '#283048'],
+  [ 142, HORIZON,   8,  52, '#1c2436', '#222c42'],
+  [ 148, HORIZON,  11,  70, '#222a42', '#2a3250'],
+  [ 158, HORIZON,   6,  44, '#1e2638', '#242e44'],
+  [ 162, HORIZON,  13,  80, '#242c44', '#2c3452'],
+  [ 173, HORIZON,   7,  58, '#202840', '#283048'],
+  [ 178, HORIZON,  10,  55, '#1e2638', '#242e44'],
+];
+for (const [bx, by, w, h, body, edge] of leftBldgs) {
+  fr(bx, by-h, bx+w-1, by-1, body);
+  // Left/right edge highlight
+  for (let y = by-h; y < by; y++) {
+    px(bx,     y, edge);
+    px(bx+w-1, y, edge);
+  }
+  // Roof detail
+  fr(bx+1, by-h, bx+w-2, by-h, '#2c3452');
+  windows(bx, by-h, bx+w-1, by-1, 3);
+}
+
+// ── Main downtown towers (tallest cluster) ────────
+const mainTowers = [
+  // x,  baseY,    w,  h,     body,      edge,      antenna
+  [ 186, HORIZON, 14,  90, '#202840', '#283050', true ],
+  [ 198, HORIZON, 11,  75, '#1e2638', '#262e48', false],
+  [ 207, HORIZON, 16, 105, '#232b43', '#2b3351', true ],
+  [ 221, HORIZON, 10,  82, '#202840', '#283050', false],
+  [ 229, HORIZON, 18, 118, '#262e46', '#2e3654', true ],
+  [ 245, HORIZON, 13,  88, '#222a42', '#2a3250', false],
+  [ 256, HORIZON, 15,  95, '#242c44', '#2c3452', true ],
+  [ 269, HORIZON,  9,  70, '#202840', '#283050', false],
+  [ 276, HORIZON, 20, 110, '#272f47', '#2f3755', true ],
+  [ 294, HORIZON, 12,  85, '#232b43', '#2b3351', false],
+  [ 304, HORIZON, 17,  98, '#252d45', '#2d3553', true ],
+  [ 319, HORIZON, 11,  72, '#202840', '#283050', false],
+  [ 328, HORIZON, 14,  88, '#222a42', '#2a3250', false],
+  [ 340, HORIZON, 16,  65, '#1e2638', '#262e48', false],
+  [ 354, HORIZON, 12,  78, '#242c44', '#2c3452', true ],
+  [ 364, HORIZON, 18,  92, '#262e46', '#2e3654', false],
+  [ 380, HORIZON, 10,  58, '#202840', '#283050', false],
+];
+for (const [bx, by, w, h, body, edge, antenna] of mainTowers) {
+  fr(bx, by-h, bx+w-1, by-1, body);
+  for (let y = by-h; y < by; y++) {
+    px(bx,     y, edge);
+    px(bx+w-1, y, edge);
+  }
+  // Roof
+  fr(bx+1, by-h, bx+w-2, by-h, '#303858');
+  // Antenna / spire
+  if (antenna) {
+    const mid = bx + Math.floor(w/2);
+    for (let ay = by-h-8; ay < by-h; ay++) px(mid, ay, '#383c50');
+    px(mid, by-h-9, '#484c64');
+    px(mid, by-h-10,'#545870');
+  }
+  windows(bx, by-h, bx+w-1, by-1, 3);
+}
+
+// ════════════════════════════════════════════════
+//  8. CN TOWER  (the icon)
+// ════════════════════════════════════════════════
+const CN_X = 120;  // centre x
+const CN_BASE = HORIZON;  // bottom y
+
+// Three spread legs at base
+// Leg 1 (centre)
+for (let y = CN_BASE - 28; y < CN_BASE; y++) {
+  const spread = Math.round((y - (CN_BASE-28)) / 28 * 4);
+  fr(CN_X - 2 - spread, y, CN_X + 2 + spread, y, '#2a2e40');
+}
+// Side angled legs
+for (let y = CN_BASE - 20; y < CN_BASE; y++) {
+  const t = (y - (CN_BASE-20)) / 20;
+  const lx = Math.round(lerp(CN_X - 3, CN_X - 12, t));
+  const rx = Math.round(lerp(CN_X + 3, CN_X + 12, t));
+  fr(lx, y, lx+2, y, '#282c3e');
+  fr(rx-2, y, rx, y, '#282c3e');
+}
+
+// Lower shaft (below pod)
+fr(CN_X-3, CN_BASE-145, CN_X+3, CN_BASE-28, '#32364a');
+// Shaft highlights
+for (let y = CN_BASE-145; y < CN_BASE-28; y++) {
+  px(CN_X-3, y, '#383c52');  // left highlight
+  px(CN_X+3, y, '#2c3044');  // right shadow
+}
+
+// Main pod (observation level) — classic disc silhouette
+// Main disc
+fr(CN_X-10, CN_BASE-162, CN_X+10, CN_BASE-146, '#3c4058');
+// Pod shape rounding
+fr(CN_X-8,  CN_BASE-165, CN_X+8,  CN_BASE-163, '#383c54');
+fr(CN_X-5,  CN_BASE-167, CN_X+5,  CN_BASE-165, '#343850');
+fr(CN_X-8,  CN_BASE-145, CN_X+8,  CN_BASE-143, '#343850');
+fr(CN_X-5,  CN_BASE-143, CN_X+5,  CN_BASE-141, '#30344c');
+// Pod window band
+for (let x = CN_X-8; x <= CN_X+8; x += 2) px(x, CN_BASE-158, '#f0e060');
+for (let x = CN_X-7; x <= CN_X+7; x += 3) px(x, CN_BASE-152, '#c8d8f0');
+// Pod highlights
+for (let x = CN_X-9; x <= CN_X+9; x++) px(x, CN_BASE-163, '#484c68');
+
+// Upper pod (Space Deck)
+fr(CN_X-5, CN_BASE-178, CN_X+5, CN_BASE-168, '#30344c');
+fr(CN_X-3, CN_BASE-181, CN_X+3, CN_BASE-178, '#2c3048');
+for (let x = CN_X-4; x <= CN_X+4; x += 2) px(x, CN_BASE-175, '#b0c0e0');
+
+// Antenna shaft
+fr(CN_X-1, CN_BASE-215, CN_X+1, CN_BASE-181, '#2e3248');
+px(CN_X,   CN_BASE-215, '#383c52');
+// Antenna (single-pixel spire)
+for (let y = CN_BASE-240; y < CN_BASE-215; y++) px(CN_X, y, '#2a2e44');
+// Red beacon lights
+px(CN_X, CN_BASE-238, '#e03020');
+px(CN_X, CN_BASE-228, '#cc2818');
+px(CN_X, CN_BASE-220, '#b82010');
+
+// ════════════════════════════════════════════════
+//  9. CONSTRUCTION CRANES
+// ════════════════════════════════════════════════
+function drawCrane(baseX, baseY, height, armLen) {
+  // Mast
+  for (let y = baseY - height; y < baseY; y++) {
+    px(baseX, y, '#384048');
+    px(baseX+1, y, '#2e3840');
+  }
+  // Horizontal arm
+  fr(baseX - 8, baseY - height, baseX + armLen, baseY - height, '#384048');
+  // Counter arm
+  fr(baseX - 8, baseY - height + 1, baseX - 2, baseY - height + 1, '#2e3840');
+  // Cable (single pixel diagonal)
+  for (let i = 0; i < 10; i++) px(baseX + Math.floor(armLen * 0.7) + i*0, baseY - height + i, '#303840');
+  // Hook point
+  px(baseX + Math.floor(armLen * 0.7), baseY - height + 10, '#404850');
+}
+
+drawCrane(238, HORIZON, 72, 32);
+drawCrane(310, HORIZON, 80, 28);
+drawCrane(368, HORIZON, 60, 24);
+
+// ════════════════════════════════════════════════
+//  10. WATER REFLECTIONS
+// ════════════════════════════════════════════════
+// Distorted building reflections in water
+function addReflection(bx, bw, baseY, refH, col) {
+  for (let y = 0; y < refH; y++) {
+    const distort = Math.floor(Math.sin(y * 0.8) * 1.5);
+    const alpha = 1 - (y / refH) * 0.85;
+    const [r,g,b] = hex2rgb(col);
+    const rc = rgb(Math.round(r*alpha), Math.round(g*alpha), Math.round(b*alpha));
+    for (let x = bx + distort; x < bx + bw + distort; x++) px(x, baseY + y, rc);
+  }
+}
+
+// CN Tower reflection
+for (let y = 0; y < 40; y++) {
+  const w = 3 + Math.floor(y * 0.3);
+  const d = Math.floor(Math.sin(y*0.9) * 2);
+  const a = 1 - y/50;
+  const r2 = Math.round(50*a), g2 = Math.round(52*a), b2 = Math.round(74*a);
+  fr(CN_X - w + d, HORIZON + y, CN_X + w + d, HORIZON + y, rgb(r2, g2, b2));
+}
+
+// Building reflections (simplified bright streaks)
+const refStreaks = [
+  [115,4,22,'#2a3048'],[130,3,28,'#283050'],[150,6,20,'#243045'],
+  [190,4,30,'#2c3455'],[210,7,35,'#2e3658'],[230,3,40,'#30385c'],
+  [250,8,38,'#2c3455'],[275,6,42,'#2e3658'],[300,5,35,'#283050'],
+  [320,4,28,'#2a3254'],[345,7,32,'#2c3455'],[366,5,25,'#283050'],
+];
+for (const [bx, bw, h, col] of refStreaks) addReflection(bx, bw, HORIZON, h, col);
+
+// Reflection shimmer overlay
+const rng3 = mkrng(0xFEEDFACE);
+for (let y = HORIZON; y < HORIZON + 45; y++) {
+  for (let x = 80; x < GW - 10; x++) {
+    if (rng3() > 0.94) px(x, y, '#1e3050');
+  }
+}
+
+// Bright window reflection glints on water
+const glintPositions = [
+  [130,194],[148,196],[165,195],[195,198],[220,196],[246,200],
+  [268,197],[290,199],[312,201],[340,198],[362,200],[196,203],
+  [228,205],[260,202],[108,195],[158,193],[178,197],[242,193],
+];
+for (const [gx, gy] of glintPositions) {
+  px(gx, gy, '#f0d870');
+  if (gy < GH-1) px(gx, gy+1, '#c8a848');
+}
+
+// ════════════════════════════════════════════════
+//  11. GAMIFIED HUD OVERLAY  (drawn with Canvas API)
+// ════════════════════════════════════════════════
+// Switch off pixel rendering for UI layer
+ctx.imageSmoothingEnabled = true;
+
+// ── scan line overlay (subtle CRT pixel art feel) ─
+ctx.globalAlpha = 0.04;
+ctx.fillStyle = '#000000';
+for (let y = 0; y < 2160; y += 2) ctx.fillRect(0, y, 3840, 1);
+ctx.globalAlpha = 1.0;
+
+// ── outer pixel border ────────────────────────────
+const BW = 12;  // border pixel size (3 grid units)
+ctx.strokeStyle = '#3a5080';
+ctx.lineWidth = BW * 2;
+ctx.strokeRect(BW, BW, 3840 - BW*2, 2160 - BW*2);
+ctx.strokeStyle = '#1e2e50';
+ctx.lineWidth = BW;
+ctx.strokeRect(BW*3, BW*3, 3840 - BW*6, 2160 - BW*6);
+
+// ── top HUD bar ───────────────────────────────────
+ctx.fillStyle = 'rgba(8,12,28,0.82)';
+ctx.fillRect(0, 0, 3840, 96);
+ctx.fillStyle = 'rgba(8,12,28,0.82)';
+ctx.fillRect(0, 2064, 3840, 96);
+
+// HUD top border line
+ctx.fillStyle = '#3a5080';
+ctx.fillRect(0, 96, 3840, 4);
+
+// ── SCORE panel ───────────────────────────────────
+// Score box left
+ctx.fillStyle = 'rgba(20,40,80,0.7)';
+ctx.fillRect(32, 12, 320, 72);
+ctx.fillStyle = '#3a5080';
+ctx.fillRect(32, 12, 320, 4);   // top
+ctx.fillRect(32, 80, 320, 4);   // bottom
+ctx.fillRect(32, 12, 4, 72);    // left
+ctx.fillRect(348, 12, 4, 72);   // right
+
+ctx.fillStyle = '#6888b8';
+ctx.font = 'bold 22px "Courier New", monospace';
+ctx.fillText('SCORE', 58, 38);
+ctx.fillStyle = '#f0e060';
+ctx.font = 'bold 38px "Courier New", monospace';
+ctx.fillText('247,830', 52, 76);
+
+// LEVEL badge  (centre)
+ctx.fillStyle = 'rgba(20,40,80,0.7)';
+const hcx = 1920;
+ctx.fillRect(hcx - 260, 8, 520, 80);
+ctx.fillStyle = '#3a5080';
+ctx.fillRect(hcx - 260, 8, 520, 4);
+ctx.fillRect(hcx - 260, 84, 520, 4);
+ctx.fillRect(hcx - 260, 8, 4, 80);
+ctx.fillRect(hcx + 256, 8, 4, 80);
+
+ctx.fillStyle = '#8ab0e0';
+ctx.font = 'bold 20px "Courier New", monospace';
+ctx.textAlign = 'center';
+ctx.fillText('▸  STAGE SELECT  ◂', hcx, 34);
+ctx.fillStyle = '#f0f8ff';
+ctx.font = 'bold 40px "Courier New", monospace';
+ctx.fillText('TORONTO CITY', hcx, 76);
+ctx.textAlign = 'left';
+
+// LIVES panel (right)
+ctx.fillStyle = 'rgba(20,40,80,0.7)';
+ctx.fillRect(3460, 12, 348, 72);
+ctx.fillStyle = '#3a5080';
+ctx.fillRect(3460, 12, 348, 4);
+ctx.fillRect(3460, 80, 348, 4);
+ctx.fillRect(3460, 12, 4, 72);
+ctx.fillRect(3804, 12, 4, 72);
+
+ctx.fillStyle = '#6888b8';
+ctx.font = 'bold 22px "Courier New", monospace';
+ctx.fillText('LIVES', 3488, 38);
+ctx.fillStyle = '#e04040';
+ctx.font = 'bold 42px "Courier New", monospace';
+ctx.fillText('♥ ♥ ♥', 3484, 76);
+
+// ── bottom HUD ────────────────────────────────────
+ctx.fillStyle = '#3a5080';
+ctx.fillRect(0, 2060, 3840, 4);
+
+// EXP bar (left)
+ctx.fillStyle = 'rgba(20,40,80,0.7)';
+ctx.fillRect(32, 2072, 540, 52);
+ctx.fillStyle = '#6888b8';
+ctx.font = 'bold 20px "Courier New", monospace';
+ctx.fillText('EXP', 48, 2094);
+ctx.fillStyle = '#1a2840';
+ctx.fillRect(100, 2078, 458, 30);
+ctx.fillStyle = '#4090e0';
+ctx.fillRect(100, 2078, Math.round(458 * 0.73), 30);
+ctx.fillStyle = '#60b0ff';
+ctx.fillRect(100, 2078, Math.round(458 * 0.73), 6);
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 20px "Courier New", monospace';
+ctx.textAlign = 'center';
+ctx.fillText('LV.12  73%', 330, 2099);
+ctx.textAlign = 'left';
+
+// MAP indicator (centre bottom)
+ctx.fillStyle = 'rgba(20,40,80,0.7)';
+ctx.fillRect(hcx - 180, 2072, 360, 52);
+ctx.fillStyle = '#6888b8';
+ctx.font = 'bold 20px "Courier New", monospace';
+ctx.textAlign = 'center';
+ctx.fillText('◀  LAKE ONTARIO  ▶', hcx, 2092);
+ctx.fillStyle = '#90c8f0';
+ctx.font = 'bold 24px "Courier New", monospace';
+ctx.fillText('ZONE: WATERFRONT', hcx, 2116);
+ctx.textAlign = 'left';
+
+// TIME panel (right bottom)
+ctx.fillStyle = 'rgba(20,40,80,0.7)';
+ctx.fillRect(3268, 2072, 540, 52);
+ctx.fillStyle = '#6888b8';
+ctx.font = 'bold 20px "Courier New", monospace';
+ctx.fillText('TIME', 3288, 2094);
+ctx.fillStyle = '#f0e060';
+ctx.font = 'bold 32px "Courier New", monospace';
+ctx.fillText('02:34:17', 3348, 2112);
+
+// ── Pixel corner decorations ──────────────────────
+function cornerBracket(x, y, flip) {
+  ctx.fillStyle = '#3a5080';
+  const s = flip ? -1 : 1;
+  ctx.fillRect(x, y, s*32, 8);
+  ctx.fillRect(x, y, 8, s*32);
+}
+cornerBracket(48, 108, 1);
+cornerBracket(3792, 108, -1);
+cornerBracket(48, 2052, -1);
+cornerBracket(3792, 2052, 1);
+
+// ── CN Tower landmark label ───────────────────────
+const cnPx = CN_X * S;
+const cnLabelY = (HORIZON - 245) * S;
+ctx.fillStyle = 'rgba(8,12,28,0.75)';
+ctx.fillRect(cnPx - 80, cnLabelY - 36, 180, 34);
+ctx.fillStyle = '#f0e060';
+ctx.font = 'bold 22px "Courier New", monospace';
+ctx.fillText('▲ CN TOWER', cnPx - 72, cnLabelY - 14);
+// Dashed line down to tower
+ctx.setLineDash([8, 6]);
+ctx.strokeStyle = '#f0e06088';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.moveTo(cnPx, cnLabelY);
+ctx.lineTo(cnPx, (HORIZON - 241) * S);
+ctx.stroke();
+ctx.setLineDash([]);
+
+// Rogers Centre label
+const rcPx = 88 * S;
+const rcLabelY = (HORIZON - 35) * S;
+ctx.fillStyle = 'rgba(8,12,28,0.75)';
+ctx.fillRect(rcPx - 110, rcLabelY - 36, 230, 34);
+ctx.fillStyle = '#80d8f0';
+ctx.font = 'bold 20px "Courier New", monospace';
+ctx.fillText('⬡ ROGERS CENTRE', rcPx - 102, rcLabelY - 14);
+
+// ── Mini-map (bottom right corner indicator) ──────
+const mmX = 3640, mmY = 2088, mmW = 100, mmH = 48;
+ctx.fillStyle = 'rgba(10,18,40,0.85)';
+ctx.fillRect(mmX, mmY, mmW, mmH);
+ctx.fillStyle = '#3a5080';
+ctx.strokeRect(mmX, mmY, mmW, mmH);
+// Water line in minimap
+ctx.fillStyle = '#0e2040';
+ctx.fillRect(mmX, mmY + Math.round(mmH * 0.71), mmW, Math.round(mmH * 0.29));
+// CN tower dot
+ctx.fillStyle = '#f0e060';
+ctx.fillRect(mmX + 26, mmY + 8, 3, 10);
+// Player cursor
+ctx.fillStyle = '#ff5050';
+ctx.fillRect(mmX + 50, mmY + mmH - 14, 6, 6);
+ctx.fillStyle = '#6888b8';
+ctx.font = '14px "Courier New", monospace';
+ctx.textAlign = 'center';
+ctx.fillText('MAP', mmX + mmW/2, mmY + mmH + 18);
+ctx.textAlign = 'left';
+
+// ── Floating pixel-art coins (gamified) ───────────
+function drawCoin(cx, cy, sz, lit) {
+  ctx.fillStyle = lit ? '#f8d840' : '#c8a020';
+  ctx.beginPath();
+  ctx.arc(cx, cy, sz, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = lit ? '#fef060' : '#e0b830';
+  ctx.beginPath();
+  ctx.arc(cx - sz*0.25, cy - sz*0.25, sz*0.45, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#a87818';
+  ctx.font = `bold ${sz}px "Courier New",monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('$', cx, cy + 2);
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+}
+drawCoin(3740, 200, 22, true);
+drawCoin(3780, 210, 20, false);
+drawCoin(3760, 190, 18, true);
+ctx.fillStyle = '#f0e060';
+ctx.font = 'bold 28px "Courier New", monospace';
+ctx.fillText('+350', 3680, 246);
+
+// ── Pixel font title watermark ────────────────────
+ctx.globalAlpha = 0.12;
+ctx.fillStyle = '#4080c0';
+ctx.font = 'bold 320px "Courier New", monospace';
+ctx.textAlign = 'center';
+ctx.fillText('TO', 1920, 1400);
+ctx.globalAlpha = 1.0;
+ctx.textAlign = 'left';
+
+console.log('✅ Pixel Toronto 4K rendered!');
+</script>
+</body>
+</html>

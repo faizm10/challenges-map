@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Toronto — Explore Neighbourhoods</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ──────────────────────────────────────── */
+:root {
+  --bg:              #F2EEE8;
+  --bg-2:            #EDE8E0;
+  --card-bg:         #FAF6F0;
+  --brown:           #3E2723;
+  --brown-2:         #6D4C41;
+  --brown-3:         #A1887F;
+  --green:           #3A4D39;
+  --amber:           #C28A52;
+  --amber-light:     #D4A06A;
+  --amber-dim:       rgba(194,138,82,0.15);
+
+  /* dark glass panel */
+  --dark-bg:         #1C1916;
+  --dark-surface:    rgba(30,25,20,0.94);
+  --dark-surface-2:  rgba(42,35,28,0.7);
+  --dark-text:       #EDE8E2;
+  --dark-muted:      #9C9186;
+  --dark-border:     rgba(80,68,54,0.5);
+
+  --font-sans:  'Space Grotesk', system-ui, sans-serif;
+  --font-serif: 'Fraunces', Georgia, serif;
+
+  --radius-card: 24px;
+  --radius-btn:  9999px;
+  --radius-modal: 24px;
+
+  --shadow-card:       4px 8px 28px rgba(62,39,35,0.14), 0 1px 0 rgba(255,255,255,0.9) inset;
+  --shadow-card-hover: 6px 20px 52px rgba(62,39,35,0.24), 0 1px 0 rgba(255,255,255,0.9) inset;
+  --shadow-modal:      0 32px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+
+/* ── RESET ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: var(--font-sans); }
+body { background: var(--bg); color: var(--brown); -webkit-tap-highlight-color: transparent; }
+
+/* ── BACKGROUND CANVAS ───────────────────────────── */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: 0;
+  width: 100%; height: 100%;
+}
+
+/* Paper noise texture overlay */
+#bg-canvas::after { content: ''; }
+.noise-overlay {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  mix-blend-mode: multiply;
+}
+
+/* Subtle vignette */
+.vignette {
+  position: fixed; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(62,39,35,0.12) 100%);
+}
+
+/* ── TOP NAV ─────────────────────────────────────── */
+#top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 60px; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(242,238,232,0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(62,39,35,0.08);
+}
+.nav-logo {
+  font-family: var(--font-serif);
+  font-size: 18px; font-weight: 600;
+  color: var(--brown);
+  letter-spacing: -0.3px;
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-logo span { color: var(--amber); }
+.nav-eyebrow {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.12em;
+  color: var(--brown-3); text-transform: uppercase;
+}
+.nav-back-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 500; color: var(--brown-2);
+  background: none; border: none; cursor: pointer;
+  padding: 6px 12px; border-radius: var(--radius-btn);
+  transition: background 0.18s, color 0.18s;
+}
+.nav-back-btn:hover { background: rgba(62,39,35,0.07); color: var(--brown); }
+
+/* ── BOARD ───────────────────────────────────────── */
+#board {
+  position: fixed; inset: 60px 0 0 0;
+  z-index: 10; overflow: hidden;
+}
+
+/* Heading */
+#board-heading {
+  position: absolute; top: 32px; left: 50%;
+  transform: translateX(-50%);
+  text-align: center; pointer-events: none; white-space: nowrap;
+  z-index: 5;
+}
+#board-heading h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 400; font-style: italic;
+  color: var(--brown); letter-spacing: -0.3px;
+  margin-bottom: 4px;
+}
+#board-heading p {
+  font-size: 12px; font-weight: 400;
+  color: var(--brown-3); letter-spacing: 0.05em;
+}
+
+/* SVG connector paths */
+#paths-svg {
+  position: absolute; inset: 0; z-index: 3;
+  pointer-events: none; overflow: visible;
+}
+
+/* ── CARD WRAP ───────────────────────────────────── */
+.card-wrap {
+  position: absolute;
+  transform: rotate(var(--rot));
+  transform-origin: center center;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.34,1.5,0.64,1),
+              filter 0.25s ease;
+  will-change: transform;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+  z-index: 4;
+}
+.card-wrap:hover {
+  transform: rotate(calc(var(--rot) * 0.15)) translateY(-14px) scale(1.04);
+  z-index: 15;
+  filter: drop-shadow(0 18px 36px rgba(62,39,35,0.22));
+}
+.card-wrap.visited .card::after {
+  content: '✓';
+  position: absolute; top: 8px; right: 8px;
+  width: 22px; height: 22px;
+  background: var(--green); color: #fff;
+  font-size: 11px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans); font-weight: 600;
+  box-shadow: 0 2px 6px rgba(58,77,57,0.35);
+}
+
+/* ── POLAROID CARD ───────────────────────────────── */
+.card {
+  width: 182px;
+  background: var(--card-bg);
+  padding: 9px 9px 0 9px;
+  box-shadow: var(--shadow-card);
+  border-radius: 3px;
+  position: relative;
+}
+.card-photo {
+  width: 100%; height: 130px;
+  overflow: hidden; position: relative;
+  border-radius: 2px;
+}
+.card-footer {
+  padding: 10px 6px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.card-label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--brown); text-align: center;
+}
+.card-sublabel {
+  font-size: 9px; font-weight: 400;
+  color: var(--brown-3); letter-spacing: 0.05em;
+}
+
+/* ── CARD PHOTO ILLUSTRATIONS ────────────────────── */
+/* Harbourfront — night harbour, CN Tower silhouette */
+.photo-harbourfront {
+  background: linear-gradient(180deg, #1a2e4a 0%, #1e3a5e 35%, #162840 60%, #0e1e30 100%);
+}
+.photo-harbourfront .stars {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 14%, rgba(220,235,255,0.8) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 30% 8%,  rgba(200,218,255,0.7) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 18%,rgba(215,230,255,0.8) 0%,transparent 100%),
+    radial-gradient(1px 1px   at 78% 10%, rgba(230,240,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 88% 25%, rgba(210,225,255,0.7) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 20% 30%,rgba(200,218,255,0.6) 0%,transparent 100%),
+    radial-gradient(1px 1px   at 67% 22%, rgba(225,238,255,0.7) 0%, transparent 100%);
+}
+.photo-harbourfront .water {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 36%;
+  background: linear-gradient(180deg, #0e2038 0%, #08142a 100%);
+  clip-path: polygon(0 25%, 100% 0, 100% 100%, 0 100%);
+}
+.photo-harbourfront .tower {
+  position: absolute; bottom: 34%;
+  left: calc(50% - 2px); width: 4px; height: 60%;
+  background: linear-gradient(180deg, #9aa4b8, #6878a0);
+}
+.photo-harbourfront .pod {
+  position: absolute; bottom: 67%;
+  left: calc(50% - 12px); width: 24px; height: 10px;
+  background: linear-gradient(180deg, #5a6a98, #384868);
+  border-radius: 3px;
+}
+.photo-harbourfront .antenna {
+  position: absolute; bottom: 83%;
+  left: calc(50% - 1px); width: 2px; height: 18%;
+  background: linear-gradient(180deg, #a0b0c8, #7080a8);
+}
+.photo-harbourfront .beacon {
+  position: absolute; bottom: 90%;
+  left: calc(50% - 3px); width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #e84020;
+  box-shadow: 0 0 8px #e84020, 0 0 16px rgba(232,64,32,0.4);
+  animation: blink 2s ease-in-out infinite;
+}
+.photo-harbourfront .glow {
+  position: absolute; bottom: 32%; left: 0; right: 0; height: 32%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(40,80,160,0.22) 0%, transparent 70%);
+}
+.photo-harbourfront .reflection {
+  position: absolute; bottom: 0; left: calc(50% - 2px); width: 3px; height: 32%;
+  background: linear-gradient(180deg, rgba(90,106,152,0.5), transparent);
+  filter: blur(1px);
+}
+
+/* Kensington — warm market, awnings */
+.photo-kensington {
+  background: #180c04;
+  overflow: hidden;
+}
+.photo-kensington .sky {
+  position: absolute; top: 0; left: 0; right: 0; height: 50%;
+  background: linear-gradient(180deg, #3a2010 0%, #5a3018 60%, #7a4828 100%);
+}
+.photo-kensington .awnings {
+  position: absolute; top: 0; left: 0; right: 0; height: 48%;
+  background: repeating-linear-gradient(90deg,
+    #b83810 0px, #b83810 22px,
+    #d85e20 22px, #d85e20 44px,
+    #c04818 44px, #c04818 66px,
+    #e07028 66px, #e07028 88px,
+    #a83008 88px, #a83008 110px,
+    #cc5818 110px, #cc5818 132px
+  );
+  clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+}
+.photo-kensington .trim {
+  position: absolute; top: 42%; left: 0; right: 0; height: 14px;
+  background: repeating-linear-gradient(90deg,
+    #e8c820 0px, #e8c820 11px,
+    #c8900c 11px, #c8900c 22px);
+  opacity: 0.85;
+}
+.photo-kensington .lights {
+  position: absolute; top: 10%; left: 0; right: 0;
+  display: flex; justify-content: space-around; padding: 0 8px;
+}
+.photo-kensington .lights i {
+  display: block; width: 4px; height: 4px; border-radius: 50%;
+  background: #ffe040;
+  box-shadow: 0 0 5px #ffe040, 0 0 10px rgba(255,185,20,0.6);
+}
+.photo-kensington .street {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 48%;
+  background: repeating-linear-gradient(90deg,
+    #1c1006 0px, #1c1006 12px,
+    #221408 12px, #221408 24px);
+}
+.photo-kensington .buildings {
+  position: absolute; bottom: 12%; left: 5%; right: 5%;
+  display: flex; gap: 3px; align-items: flex-end;
+}
+.photo-kensington .buildings div {
+  flex: 1; background: #180c04;
+  border-top: 1.5px solid #3a200c;
+}
+
+/* Union Station — grand arched hall */
+.photo-union {
+  background: linear-gradient(180deg, #180e06 0%, #261808 60%, #140a04 100%);
+}
+.photo-union .beam {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 55%; height: 100%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,195,75,0.13) 0%, transparent 65%);
+}
+.photo-union .columns {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg,
+    transparent 0px, transparent 27px,
+    rgba(100,70,25,0.28) 27px, rgba(100,70,25,0.28) 29px
+  );
+}
+.photo-union .arches {
+  position: absolute; bottom: 14%; left: 4%; right: 4%;
+  display: flex; gap: 4px;
+}
+.photo-union .arch {
+  flex: 1; height: 58px;
+  border: 1.5px solid rgba(210,155,55,0.45);
+  border-bottom: none;
+  border-radius: 50% 50% 0 0;
+  background: rgba(255,190,70,0.05);
+  position: relative;
+}
+.photo-union .arch::after {
+  content: '';
+  position: absolute; inset: 5px; bottom: 0;
+  border: 1px solid rgba(210,155,55,0.2);
+  border-bottom: none;
+  border-radius: 50% 50% 0 0;
+}
+.photo-union .floor {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 16%;
+  background: linear-gradient(180deg, #321c0a, #1a0e04);
+}
+
+/* CN Tower — night sky */
+.photo-cntower {
+  background: linear-gradient(180deg, #060810 0%, #0a0e1c 45%, #0e1428 70%, #060a14 100%);
+}
+.photo-cntower .stars {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 10% 10%, rgba(200,220,255,0.75) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 32%  6%, rgba(215,230,255,0.65) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 58% 15%, rgba(195,215,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 80%  8%, rgba(220,235,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 90% 22%, rgba(210,228,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 22% 28%, rgba(200,218,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 70% 20%, rgba(218,232,255,0.65) 0%, transparent 100%),
+    radial-gradient(1px 1px   at 45% 26%, rgba(228,240,255,0.6) 0%, transparent 100%);
+}
+.photo-cntower .glow {
+  position: absolute; bottom: 22%; left: 0; right: 0; height: 36%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(45,80,170,0.22) 0%, transparent 70%);
+}
+.photo-cntower .city {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 26%;
+  background: repeating-linear-gradient(90deg,
+    #0c1020 0px, #0c1020 9px, #0a0d1a 9px, #0a0d1a 18px);
+}
+.photo-cntower .shaft {
+  position: absolute; bottom: 24%; left: calc(50% - 3px);
+  width: 6px; height: 65%;
+  background: linear-gradient(180deg, #8892a8, #585e78);
+}
+.photo-cntower .pod {
+  position: absolute; bottom: 60%; left: calc(50% - 14px);
+  width: 28px; height: 12px;
+  background: linear-gradient(180deg, #5868a0, #384060);
+  border-radius: 3px;
+  box-shadow: 0 0 14px rgba(88,104,160,0.6);
+}
+.photo-cntower .ant {
+  position: absolute; bottom: 78%; left: calc(50% - 1.5px);
+  width: 3px; height: 22%;
+  background: linear-gradient(180deg, #a0aec0, #6878a0);
+}
+.photo-cntower .beacon {
+  position: absolute; bottom: 89%; left: calc(50% - 4px);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #e83818;
+  box-shadow: 0 0 10px #e83818, 0 0 22px rgba(232,56,24,0.45);
+  animation: blink 2s ease-in-out infinite;
+}
+
+/* Financial District — locked */
+.photo-financial {
+  background: linear-gradient(180deg, #050508 0%, #0a0a10 50%, #060608 100%);
+}
+.photo-financial .grid {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg,
+    transparent 0px, transparent 20px,
+    rgba(50,70,110,0.18) 20px, rgba(50,70,110,0.18) 22px
+  ),
+  repeating-linear-gradient(0deg,
+    transparent 0px, transparent 16px,
+    rgba(50,70,110,0.18) 16px, rgba(50,70,110,0.18) 18px
+  );
+}
+.photo-financial .buildings {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  display: flex; align-items: flex-end; gap: 4px; padding: 0 8px;
+}
+.photo-financial .buildings div {
+  flex: 1;
+  background: linear-gradient(180deg, #1a2040, #0e1428);
+  position: relative; overflow: hidden;
+}
+.photo-financial .buildings div::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg,
+    transparent 0px, transparent 7px,
+    rgba(60,100,160,0.18) 7px, rgba(60,100,160,0.18) 8px
+  );
+}
+.photo-financial .dim {
+  position: absolute; inset: 0;
+  background: rgba(4,4,10,0.55);
+}
+.photo-financial .lock-icon {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 26px;
+}
+
+/* Locked dim */
+.card-wrap[data-locked="true"] .card-photo { filter: grayscale(0.2) brightness(0.9); }
+
+/* ── CONNECTOR PATHS ─────────────────────────────── */
+.connector {
+  fill: none;
+  stroke: var(--brown-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 10;
+  opacity: 0.4;
+}
+
+/* ── OVERLAY ─────────────────────────────────────── */
+#overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: transparent;
+  pointer-events: none;
+  transition: background 0.35s ease, backdrop-filter 0.35s ease;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+}
+#overlay.active {
+  background: rgba(30,20,12,0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: all;
+}
+
+/* ── MODAL ───────────────────────────────────────── */
+#modal {
+  position: fixed; left: 50%; z-index: 310;
+  width: min(460px, 94vw);
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-modal) var(--radius-modal) 18px 18px;
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+  pointer-events: none;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  /* Mobile: slide from bottom */
+  bottom: calc(-100vh);
+  transform: translateX(-50%);
+  transition: bottom 0.4s cubic-bezier(0.32,1.1,0.6,1),
+              opacity 0.32s ease,
+              transform 0.4s cubic-bezier(0.32,1.1,0.6,1);
+  opacity: 0;
+}
+#modal.open {
+  bottom: 12px;
+  opacity: 1;
+  pointer-events: all;
+}
+/* Desktop: centered scale-in */
+@media (min-width: 600px) and (min-height: 560px) {
+  #modal {
+    bottom: auto;
+    top: 50%;
+    border-radius: var(--radius-modal);
+    transform: translate(-50%, -50%) scale(0.9);
+    transition: opacity 0.3s ease, transform 0.36s cubic-bezier(0.32,1.1,0.6,1);
+  }
+  #modal.open {
+    transform: translate(-50%, -50%) scale(1);
+    bottom: auto; opacity: 1;
+  }
+}
+
+/* Drag handle */
+.modal-handle {
+  width: 36px; height: 4px;
+  background: var(--dark-border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+
+/* Modal photo */
+.modal-photo {
+  width: 100%; height: 180px;
+  position: relative; overflow: hidden; margin-top: 8px;
+}
+
+/* Close button */
+.modal-close {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--dark-text); font-size: 13px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.18s;
+  font-family: var(--font-sans);
+}
+.modal-close:hover { background: rgba(255,255,255,0.14); }
+
+/* Modal body */
+.modal-body { padding: 22px 22px 24px; }
+
+.modal-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px; border-radius: var(--radius-btn);
+  margin-bottom: 10px;
+}
+.modal-tag.open-tag {
+  color: rgba(90,200,130,0.9);
+  background: rgba(90,200,130,0.1);
+  border: 1px solid rgba(90,200,130,0.18);
+}
+.modal-tag.locked-tag {
+  color: rgba(180,160,100,0.8);
+  background: rgba(180,160,100,0.08);
+  border: 1px solid rgba(180,160,100,0.16);
+}
+
+.modal-name {
+  font-family: var(--font-serif);
+  font-size: 26px; font-weight: 600;
+  color: var(--dark-text);
+  letter-spacing: -0.3px;
+  line-height: 1.15;
+  margin-bottom: 8px;
+}
+.modal-desc {
+  font-size: 13px; line-height: 1.7;
+  color: var(--dark-muted);
+  margin-bottom: 18px;
+  font-weight: 400;
+}
+
+/* Highlights */
+.modal-highlights {
+  display: flex; flex-direction: column; gap: 7px;
+  margin-bottom: 20px;
+}
+.highlight-item {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: rgba(237,232,226,0.75);
+}
+.highlight-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--amber); flex-shrink: 0;
+}
+
+/* Divider */
+.modal-divider {
+  height: 1px; background: var(--dark-border);
+  margin: 18px 0;
+}
+
+/* Enter button */
+.modal-btn {
+  width: 100%; padding: 14px 20px;
+  border: none; border-radius: var(--radius-btn);
+  font-family: var(--font-sans); font-size: 14px; font-weight: 600;
+  cursor: pointer; letter-spacing: 0.01em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: filter 0.2s, transform 0.15s, opacity 0.2s;
+  position: relative; overflow: hidden;
+}
+.modal-btn.primary {
+  background: var(--amber);
+  color: #1c1410;
+}
+.modal-btn.primary::after {
+  content: '';
+  position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transition: left 0.4s ease;
+}
+.modal-btn.primary:hover::after { left: 140%; }
+.modal-btn.primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.modal-btn.primary:active { transform: translateY(0); filter: brightness(0.96); }
+.modal-btn.disabled {
+  background: var(--dark-surface-2);
+  color: rgba(156,145,134,0.5);
+  border: 1px solid var(--dark-border);
+  cursor: not-allowed;
+}
+.modal-btn.disabled:hover { filter: none; transform: none; }
+
+/* ── TOAST ───────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 400;
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  backdrop-filter: blur(20px);
+  color: var(--dark-text);
+  padding: 12px 20px;
+  font-size: 12px; font-weight: 500;
+  border-radius: var(--radius-btn);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── RIPPLE ──────────────────────────────────────── */
+.ripple {
+  position: fixed; z-index: 350; border-radius: 50%;
+  border: 1.5px solid rgba(60,120,220,0.5);
+  pointer-events: none;
+  animation: rippleAnim 0.9s ease-out forwards;
+}
+@keyframes rippleAnim {
+  from { width: 16px; height: 16px; opacity: 0.7; margin-left: -8px; margin-top: -8px; }
+  to   { width: 110px; height: 110px; opacity: 0; margin-left: -55px; margin-top: -55px; }
+}
+
+/* ── ANIMATIONS ──────────────────────────────────── */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+@keyframes shake {
+  0%,100%{ transform: rotate(var(--rot)) translateX(0); }
+  18%{ transform: rotate(var(--rot)) translateX(-9px); }
+  36%{ transform: rotate(var(--rot)) translateX(9px); }
+  54%{ transform: rotate(var(--rot)) translateX(-6px); }
+  72%{ transform: rotate(var(--rot)) translateX(6px); }
+  88%{ transform: rotate(var(--rot)) translateX(-2px); }
+}
+.card-wrap.shaking { animation: shake 0.5s ease; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-wrap { animation: fadeUp 0.5s ease both; }
+.card-wrap:nth-child(1) { animation-delay: 0.05s; }
+.card-wrap:nth-child(2) { animation-delay: 0.12s; }
+.card-wrap:nth-child(3) { animation-delay: 0.19s; }
+.card-wrap:nth-child(4) { animation-delay: 0.26s; }
+.card-wrap:nth-child(5) { animation-delay: 0.33s; }
+
+/* ── RESPONSIVE ──────────────────────────────────── */
+@media (max-width: 520px) {
+  .card { width: 150px; }
+  .card-photo { height: 108px; }
+  .card-label { font-size: 8px; }
+  #board-heading h1 { font-size: 17px; }
+  #board-heading p { font-size: 10px; }
+  .nav-eyebrow { display: none; }
+  #top-nav { padding: 0 14px; }
+}
+@media (max-width: 380px) {
+  .card { width: 132px; }
+  .card-photo { height: 96px; }
+  .nav-logo { font-size: 15px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="noise-overlay"></div>
+<div class="vignette"></div>
+
+<!-- Nav -->
+<nav id="top-nav">
+  <div class="nav-logo">Toronto <span>Quest</span></div>
+  <span class="nav-eyebrow">Neighbourhood Explorer</span>
+  <button class="nav-back-btn">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Back
+  </button>
+</nav>
+
+<!-- Board -->
+<div id="board">
+
+  <div id="board-heading">
+    <h1>Choose a neighbourhood</h1>
+    <p>Tap a card to explore</p>
+  </div>
+
+  <!-- SVG connector paths (drawn by JS) -->
+  <svg id="paths-svg"></svg>
+
+  <!-- Harbourfront -->
+  <div class="card-wrap" data-zone="harbourfront" data-locked="false"
+       style="--rot:-7deg; left:5%; top:42%;">
+    <div class="card">
+      <div class="card-photo photo-harbourfront">
+        <div class="stars"></div>
+        <div class="glow"></div>
+        <div class="water"></div>
+        <div class="tower"></div>
+        <div class="pod"></div>
+        <div class="antenna"></div>
+        <div class="beacon"></div>
+        <div class="reflection"></div>
+      </div>
+      <div class="card-footer">
+        <span class="card-label">Harbourfront</span>
+        <span class="card-sublabel">Waterfront</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kensington -->
+  <div class="card-wrap" data-zone="kensington" data-locked="false"
+       style="--rot:5deg; left:22%; top:14%;">
+    <div class="card">
+      <div class="card-photo photo-kensington">
+        <div class="sky"></div>
+        <div class="awnings"></div>
+        <div class="trim"></div>
+        <div class="lights">
+          <i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="street"></div>
+        <div class="buildings">
+          <div style="height:52px"></div>
+          <div style="height:66px"></div>
+          <div style="height:48px"></div>
+          <div style="height:60px"></div>
+          <div style="height:56px"></div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="card-label">Kensington</span>
+        <span class="card-sublabel">Market District</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Union Station -->
+  <div class="card-wrap" data-zone="union" data-locked="false"
+       style="--rot:-3deg; left:41%; top:48%;">
+    <div class="card">
+      <div class="card-photo photo-union">
+        <div class="beam"></div>
+        <div class="columns"></div>
+        <div class="arches">
+          <div class="arch"></div>
+          <div class="arch"></div>
+          <div class="arch"></div>
+          <div class="arch"></div>
+          <div class="arch"></div>
+        </div>
+        <div class="floor"></div>
+      </div>
+      <div class="card-footer">
+        <span class="card-label">Union Station</span>
+        <span class="card-sublabel">Transit Hub</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CN Tower -->
+  <div class="card-wrap" data-zone="cntower" data-locked="false"
+       style="--rot:4deg; left:59%; top:8%;">
+    <div class="card">
+      <div class="card-photo photo-cntower">
+        <div class="stars"></div>
+        <div class="glow"></div>
+        <div class="city"></div>
+        <div class="shaft"></div>
+        <div class="pod"></div>
+        <div class="ant"></div>
+        <div class="beacon"></div>
+      </div>
+      <div class="card-footer">
+        <span class="card-label">CN Tower</span>
+        <span class="card-sublabel">Landmark</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Financial District — locked -->
+  <div class="card-wrap" data-zone="financial" data-locked="true"
+       style="--rot:-5deg; left:70%; top:42%;">
+    <div class="card">
+      <div class="card-photo photo-financial">
+        <div class="grid"></div>
+        <div class="buildings">
+          <div style="height:88px"></div>
+          <div style="height:112px"></div>
+          <div style="height:74px"></div>
+          <div style="height:100px"></div>
+          <div style="height:88px"></div>
+        </div>
+        <div class="dim"></div>
+        <div class="lock-icon">🔒</div>
+      </div>
+      <div class="card-footer">
+        <span class="card-label">Financial Dist.</span>
+        <span class="card-sublabel">Coming soon</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /board -->
+
+<!-- Overlay -->
+<div id="overlay"></div>
+
+<!-- Modal -->
+<div id="modal">
+  <div class="modal-handle"></div>
+  <button class="modal-close" id="modal-close">✕</button>
+  <div class="modal-photo" id="modal-photo"></div>
+  <div class="modal-body">
+    <div id="modal-tag" class="modal-tag"></div>
+    <h2 class="modal-name" id="modal-name"></h2>
+    <p class="modal-desc" id="modal-desc"></p>
+    <div class="modal-highlights" id="modal-highlights"></div>
+    <div class="modal-divider"></div>
+    <button class="modal-btn" id="modal-btn"></button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════
+//  DATA
+// ════════════════════════════════════════════════
+const ZONES = {
+  harbourfront: {
+    name: 'Harbourfront',
+    sublabel: 'Waterfront District',
+    desc: "Walk the lakefront boardwalk, catch a ferry to the Toronto Islands, and watch the sun dip behind the skyline from the water's edge.",
+    highlights: ['Ferry to Toronto Islands', 'Harbourfront Centre & galleries', 'Sunset skyline views'],
+    photoBg: 'linear-gradient(180deg,#0e1e38 0%,#182e50 40%,#102038 70%,#081428 100%)',
+    tag: 'Open',
+  },
+  kensington: {
+    name: 'Kensington Market',
+    sublabel: 'Market District',
+    desc: "Toronto's most eclectic neighbourhood — vintage boutiques, street murals, global street food, and a creative energy unlike anywhere else in the city.",
+    highlights: ['Vintage & thrift shopping', 'Global street food', 'Weekend pedestrian Sundays'],
+    photoBg: 'linear-gradient(135deg,#200e04 0%,#321808 50%,#1a0c04 100%)',
+    tag: 'Open',
+  },
+  union: {
+    name: 'Union Station',
+    sublabel: 'Transit Hub',
+    desc: 'The grand Beaux-Arts gateway to the city. Beneath its soaring Great Hall, over 65 million travellers pass through each year.',
+    highlights: ['Great Hall & heritage architecture', 'GO, TTC & Via Rail connections', 'PATH underground access'],
+    photoBg: 'linear-gradient(180deg,#160e06 0%,#241808 50%,#120c04 100%)',
+    tag: 'Open',
+  },
+  cntower: {
+    name: 'CN Tower',
+    sublabel: 'Landmark',
+    desc: "Standing at 553m, Canada's most recognisable landmark pierces the clouds above downtown. Glass floors, outdoor SkyTerrace, and 360° dining.",
+    highlights: ['LookOut Level at 346m', 'Glass Floor experience', '360 The Restaurant'],
+    photoBg: 'linear-gradient(180deg,#040810 0%,#080c1c 50%,#060a14 100%)',
+    tag: 'Open',
+  },
+  financial: {
+    name: 'Financial District',
+    sublabel: 'Coming Soon',
+    desc: "The glass towers of Bay Street are opening up. Explore underground PATH connections, rooftop terraces, and the city's economic heartbeat.",
+    highlights: ['Underground PATH network', 'Bay Street architecture tours', 'Rooftop access — coming soon'],
+    photoBg: 'linear-gradient(180deg,#060608 0%,#0a0a14 50%,#060608 100%)',
+    tag: 'Locked',
+    locked: true,
+  },
+};
+
+// ════════════════════════════════════════════════
+//  BACKGROUND CANVAS — warm isometric city
+// ════════════════════════════════════════════════
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx    = bgCanvas.getContext('2d');
+
+function drawBg() {
+  bgCanvas.width  = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+  const ctx = bgCtx, W = bgCanvas.width, H = bgCanvas.height;
+
+  // Base warm cream
+  ctx.fillStyle = '#F2EEE8';
+  ctx.fillRect(0,0,W,H);
+
+  // Subtle grid (like the site's background-image grid)
+  ctx.save();
+  ctx.globalAlpha = 0.028;
+  ctx.strokeStyle = '#3E2723';
+  ctx.lineWidth = 0.8;
+  const gs = 30;
+  for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.restore();
+
+  // Isometric city in warm sandstone tones
+  function isoBlock(col, row, w, d, h, top, left, right) {
+    const ox = W * 0.5 + (col - row) * 38;
+    const oy = H * 0.64 + (col + row) * 19;
+    const tw = w * 38, td = d * 38, th = h * 19;
+    ctx.fillStyle = top;
+    ctx.beginPath();
+    ctx.moveTo(ox,        oy-th);
+    ctx.lineTo(ox+tw,     oy-th-td*0.5);
+    ctx.lineTo(ox+tw-td,  oy-th-td);
+    ctx.lineTo(ox-td,     oy-th-td*0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = left;
+    ctx.beginPath();
+    ctx.moveTo(ox-td, oy-th-td*0.5);
+    ctx.lineTo(ox,    oy-th);
+    ctx.lineTo(ox,    oy);
+    ctx.lineTo(ox-td, oy-td*0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = right;
+    ctx.beginPath();
+    ctx.moveTo(ox+tw,    oy-th-td*0.5);
+    ctx.lineTo(ox+tw-td, oy-th-td);
+    ctx.lineTo(ox+tw-td, oy-td);
+    ctx.lineTo(ox+tw,    oy-td*0.5);
+    ctx.closePath(); ctx.fill();
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  const blds = [
+    [-5,0,2,2,5, '#D4B080','#B08850','#906830'],
+    [-3,1,1,1,8, '#CCA870','#A07838','#806018'],
+    [-4,2,2,2,4, '#D0AE78','#A88448','#887028'],
+    [-2,0,1,1,10,'#C8A060','#9C7030','#7C5010'],
+    [-1,2,2,2,6, '#CCA058','#A07830','#806020'],
+    [0,-1,1,1,7, '#D4B878','#AC8848','#8C6828'],
+    [1,1,2,1,5,  '#C8A060','#9C7030','#7C5010'],
+    [2,0,1,2,9,  '#CCA060','#9A7028','#7C5818'],
+    [3,1,1,1,4,  '#D4AC68','#A87838','#886028'],
+    [-6,1,1,1,3, '#D0B870','#A47838','#846828'],
+    [-3,-1,2,1,6,'#CCAA68','#9C7438','#806030'],
+    [0,2,1,2,8,  '#C8A050','#9C7028','#7E5818'],
+    [4,0,2,1,5,  '#D4B068','#A87838','#8A6428'],
+    [-8,3,16,1,0.2,'#C0A880','#B09070','#A08060'],
+    [-1,-3,16,1,0.2,'#C0A880','#B09070','#A08060'],
+  ];
+  for (const [c,r,w,d,h,t,l,ri] of blds) isoBlock(c,r,w,d,h,t,l,ri);
+
+  // Trees
+  function isoTree(c, r) {
+    const ox = W*0.5 + (c-r)*38;
+    const oy = H*0.64 + (c+r)*19;
+    ctx.fillStyle = '#7A9858'; ctx.beginPath(); ctx.arc(ox,oy-20,11,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#608040'; ctx.beginPath(); ctx.arc(ox-4,oy-18,9,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#8CAC68'; ctx.beginPath(); ctx.arc(ox+3,oy-23,7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6A5038'; ctx.fillRect(ox-2,oy-10,4,14);
+  }
+  [[-2,3],[1,-2],[3,2],[-4,0],[-1,1],[2,-1],[0,3],[-3,-2],[4,1]].forEach(([c,r])=>isoTree(c,r));
+  ctx.restore();
+
+  // Radial gradient overlays (site-style warm tint)
+  const g1 = ctx.createRadialGradient(W*0.15, H*0.1, 0, W*0.15, H*0.1, W*0.5);
+  g1.addColorStop(0, 'rgba(194,138,82,0.06)');
+  g1.addColorStop(1, 'transparent');
+  ctx.fillStyle = g1; ctx.fillRect(0,0,W,H);
+
+  const g2 = ctx.createRadialGradient(W*0.88, H*0.9, 0, W*0.88, H*0.9, W*0.55);
+  g2.addColorStop(0, 'rgba(255,255,255,0.07)');
+  g2.addColorStop(1, 'transparent');
+  ctx.fillStyle = g2; ctx.fillRect(0,0,W,H);
+
+  // Bottom fade so cards read clearly
+  const gFade = ctx.createLinearGradient(0, H*0.55, 0, H);
+  gFade.addColorStop(0, 'transparent');
+  gFade.addColorStop(1, 'rgba(242,238,232,0.35)');
+  ctx.fillStyle = gFade; ctx.fillRect(0,0,W,H);
+}
+
+drawBg();
+window.addEventListener('resize', () => { drawBg(); drawPaths(); });
+
+// ════════════════════════════════════════════════
+//  CONNECTOR PATHS
+// ════════════════════════════════════════════════
+function drawPaths() {
+  const svg  = document.getElementById('paths-svg');
+  const bw   = document.getElementById('board').offsetWidth;
+  const bh   = document.getElementById('board').offsetHeight;
+  svg.setAttribute('viewBox', `0 0 ${bw} ${bh}`);
+  svg.setAttribute('width', bw);
+  svg.setAttribute('height', bh);
+
+  const wraps = document.querySelectorAll('.card-wrap');
+  const centres = [...wraps].map(w => {
+    const r = w.getBoundingClientRect();
+    const br = document.getElementById('board').getBoundingClientRect();
+    return { x: r.left - br.left + r.width/2, y: r.top - br.top + r.height/2 };
+  });
+
+  svg.innerHTML = '';
+  const pairs = [[0,1],[1,2],[2,3],[3,4]];
+  for (const [a, b] of pairs) {
+    const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const mx = (centres[a].x + centres[b].x) / 2;
+    const my = (centres[a].y + centres[b].y) / 2 - 30;
+    p.setAttribute('d',
+      `M ${centres[a].x} ${centres[a].y} Q ${mx} ${my} ${centres[b].x} ${centres[b].y}`
+    );
+    p.setAttribute('class','connector');
+    svg.appendChild(p);
+  }
+}
+window.addEventListener('load', () => setTimeout(drawPaths, 100));
+
+// ════════════════════════════════════════════════
+//  MODAL
+// ════════════════════════════════════════════════
+const modal   = document.getElementById('modal');
+const overlay = document.getElementById('overlay');
+let activeZone = null;
+
+function openModal(zoneId) {
+  const z = ZONES[zoneId];
+  activeZone = zoneId;
+
+  // Photo
+  const photo = document.getElementById('modal-photo');
+  photo.style.background = z.photoBg;
+  // Reuse the card illustration inside the modal
+  const cardWrap = document.querySelector(`[data-zone="${zoneId}"]`);
+  const photoEl  = cardWrap.querySelector('.card-photo');
+  photo.innerHTML = photoEl.innerHTML;
+  photo.className = 'modal-photo ' + photoEl.className.replace('card-photo','');
+
+  // Tag
+  const tag = document.getElementById('modal-tag');
+  if (z.locked) {
+    tag.textContent = '🔒  Coming Soon';
+    tag.className = 'modal-tag locked-tag';
+  } else {
+    tag.textContent = '● Open';
+    tag.className = 'modal-tag open-tag';
+  }
+
+  document.getElementById('modal-name').textContent = z.name;
+  document.getElementById('modal-desc').textContent = z.desc;
+
+  // Highlights
+  document.getElementById('modal-highlights').innerHTML =
+    z.highlights.map(h => `
+      <div class="highlight-item">
+        <span class="highlight-dot"></span>
+        <span>${h}</span>
+      </div>`).join('');
+
+  // Button
+  const btn = document.getElementById('modal-btn');
+  if (z.locked) {
+    btn.textContent = 'Launching Soon';
+    btn.className = 'modal-btn disabled';
+  } else {
+    btn.innerHTML = `Explore ${z.name} <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    btn.className = 'modal-btn primary';
+  }
+
+  overlay.classList.add('active');
+  requestAnimationFrame(() => modal.classList.add('open'));
+}
+
+function closeModal() {
+  modal.classList.remove('open');
+  overlay.classList.remove('active');
+  activeZone = null;
+}
+
+// ════════════════════════════════════════════════
+//  ZONE EFFECTS (subtle, atmospheric)
+// ════════════════════════════════════════════════
+function triggerEffect(zoneId, cardEl) {
+  const rect = cardEl.getBoundingClientRect();
+  const cx = rect.left + rect.width  / 2;
+  const cy = rect.top  + rect.height / 2;
+
+  if (zoneId === 'harbourfront') {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        const r = document.createElement('div');
+        r.className = 'ripple';
+        r.style.cssText = `left:${cx}px; top:${cy}px; animation-delay:${i*0.18}s;`;
+        document.body.appendChild(r);
+        setTimeout(() => r.remove(), 1100);
+      }, i * 160);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ════════════════════════════════════════════════
+//  CARD INTERACTIONS
+// ════════════════════════════════════════════════
+document.querySelectorAll('.card-wrap').forEach(wrap => {
+  const zoneId = wrap.dataset.zone;
+  const locked = wrap.dataset.locked === 'true';
+
+  function onInteract(e) {
+    e.stopPropagation();
+
+    if (locked) {
+      wrap.classList.remove('shaking');
+      void wrap.offsetWidth;
+      wrap.classList.add('shaking');
+      wrap.addEventListener('animationend', () => wrap.classList.remove('shaking'), { once: true });
+      showToast('Financial District is coming soon.');
+      return;
+    }
+
+    triggerEffect(zoneId, wrap);
+    openModal(zoneId);
+  }
+
+  wrap.addEventListener('click', onInteract);
+  wrap.addEventListener('touchend', e => { e.preventDefault(); onInteract(e); }, { passive: false });
+});
+
+// Close handlers
+overlay.addEventListener('click', closeModal);
+document.getElementById('modal-close').addEventListener('click', e => { e.stopPropagation(); closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// Button
+document.getElementById('modal-btn').addEventListener('click', () => {
+  if (!activeZone || ZONES[activeZone].locked) return;
+  showToast(`Opening ${ZONES[activeZone].name}…`);
+  closeModal();
+});
+
+// Touch swipe-down to close
+let touchY0 = 0;
+modal.addEventListener('touchstart', e => { touchY0 = e.touches[0].clientY; }, { passive: true });
+modal.addEventListener('touchend',   e => { if (e.changedTouches[0].clientY - touchY0 > 60) closeModal(); }, { passive: true });
+</script>
+</body>
+</html>
