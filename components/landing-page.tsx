@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ArrowRight,
   Camera,
   Flag,
   Laugh,
@@ -18,7 +17,6 @@ import {
 import { useEffect, useState } from "react";
 
 import { AnimatedCityMap } from "@/components/animated-city-map";
-import { ComingSoonWaitlistForm } from "@/components/coming-soon-waitlist-form";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +29,6 @@ type LandingPageProps = {
   mapTeams: Array<
     Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color">
   >;
-  /** When false, keeps `initialData` only (e.g. static marketing mock; no `/api/public/leaderboard` polling). */
   useLiveLeaderboardPoll?: boolean;
 };
 
@@ -76,23 +73,6 @@ const challengeCards = [
   },
 ];
 
-const testimonials = [
-  {
-    quote:
-      "Best night in Toronto. It felt like the city had turned into a multiplayer level.",
-    author: "Maya, Team Captain",
-  },
-  {
-    quote: "Half scavenger hunt, half street film, all adrenaline.",
-    author: "Jordan, HQ",
-  },
-  {
-    quote:
-      "It felt like a real-life game with just enough chaos to stay unforgettable.",
-    author: "Alex, First to Union",
-  },
-];
-
 const teamMapPositions = [
   { x: 20, y: 16 },
   { x: 28, y: 28 },
@@ -101,26 +81,13 @@ const teamMapPositions = [
   { x: 72, y: 18 },
 ];
 
-function SectionReveal({
-  children,
-  className,
-  id,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  id?: string;
-}) {
+function PixelDivider() {
   return (
-    <motion.section
-      id={id}
-      className={className}
-      initial={{ opacity: 0, y: 30 }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      viewport={{ once: true, amount: 0.22 }}
-      whileInView={{ opacity: 1, y: 0 }}
-    >
-      {children}
-    </motion.section>
+    <div className="flex items-center justify-center gap-1 py-6">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-2 w-2 bg-foreground" />
+      ))}
+    </div>
   );
 }
 
@@ -152,366 +119,317 @@ export function LandingPage({
   }));
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#070607] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.1),transparent_22%),radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(255,255,255,0.015),transparent_18%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
-
-      <header className="sticky top-0 z-50 border-b border-white/8 bg-[#090809]/72 backdrop-blur-xl">
-        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-4 md:grid-cols-[1fr_auto_1fr] md:items-center md:px-6">
-          <Link className="flex items-center gap-3 md:justify-self-start" href="/">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/95 font-serif text-xl text-black shadow-[0_0_30px_rgba(249,115,22,0.24)]">
-              U
-            </span>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/38">
-                Toronto Team City Challenge
-              </div>
-              <div className="text-sm font-medium text-white">Converge</div>
+    <main className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b-3 border-foreground bg-primary">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3">
+          <Link className="flex items-center gap-2" href="/">
+            <div className="flex h-8 w-8 items-center justify-center border-2 border-primary-foreground bg-secondary">
+              <span className="font-pixel text-xs text-secondary-foreground">C</span>
             </div>
+            <span className="font-pixel text-[10px] text-primary-foreground uppercase">
+              Converge
+            </span>
           </Link>
 
-          <nav className="hidden items-center gap-7 text-sm text-white/52 md:flex">
-            <a href="#how-it-works" className="transition hover:text-white">
-              How it works
-            </a>
-            <a href="#live-map" className="transition hover:text-white">
-              Live map
-            </a>
-            <a href="#challenges" className="transition hover:text-white">
-              Challenges
-            </a>
-            <a href="#finale" className="transition hover:text-white">
-              Finale
-            </a>
-          </nav>
-
-          <div className="hidden md:block" aria-hidden />
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/team">Sign In</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/team">Sign Up</Link>
+            </Button>
+          </div>
         </div>
       </header>
 
-      <section className="relative mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-7xl items-center px-4 py-16 md:px-6 md:py-24">
-        <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div className="relative z-10">
-            <motion.div
-              animate={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 28 }}
-              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      {/* Hero */}
+      <section className="mx-auto w-full max-w-2xl px-4 pt-8 pb-6">
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 16 }}
+          transition={{ duration: 0.4 }}
+          className="text-center"
+        >
+          {/* Pixel art city silhouette */}
+          <div className="mx-auto mb-6 flex justify-center">
+            <svg
+              viewBox="0 0 160 60"
+              className="w-48 text-foreground"
+              fill="currentColor"
             >
-              <Badge className="mb-6 border-orange-400/18 bg-orange-500/8 px-4 py-1.5 text-orange-100/90">
-                Premium team city challenge
-              </Badge>
-              <h1 className="max-w-4xl font-serif text-5xl leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-8xl">
-                Converge on the city.
-              </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-white/54 sm:text-xl">
-                Four teams. Live HQ prompts. Checkpoints, proof, and cinematic
-                city movement built for a premium Toronto night out.
-              </p>
-            </motion.div>
-
-            <motion.div
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-10 flex flex-col gap-4 sm:flex-row sm:flex-wrap"
-              initial={{ opacity: 0, y: 24 }}
-              transition={{
-                duration: 0.7,
-                delay: 0.12,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <Button
-                asChild
-                className="h-12 rounded-full bg-orange-500 px-8 text-sm font-semibold text-black hover:bg-orange-400"
-              >
-                <a href="#waitlist">Join waitlist</a>
-              </Button>
-            </motion.div>
-
-            <motion.div
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-12 grid max-w-3xl gap-4 sm:grid-cols-3"
-              initial={{ opacity: 0, y: 24 }}
-              transition={{
-                duration: 0.7,
-                delay: 0.22,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              {[
-                { label: "Team Origins", value: "4 across Toronto" },
-                { label: "Challenge Style", value: "Live, social, cinematic" },
-                { label: "Finish Point", value: "Union Station" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5 backdrop-blur-md"
-                >
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-white/34">
-                    {item.label}
-                  </div>
-                  <div className="mt-3 text-lg font-semibold text-white">
-                    {item.value}
-                  </div>
-                </div>
-              ))}
-            </motion.div>
+              <rect x="10" y="30" width="8" height="30" />
+              <rect x="12" y="24" width="4" height="6" />
+              <rect x="22" y="20" width="12" height="40" />
+              <rect x="26" y="14" width="4" height="6" />
+              <rect x="38" y="35" width="8" height="25" />
+              <rect x="50" y="10" width="14" height="50" />
+              <rect x="54" y="4" width="6" height="6" />
+              <rect x="68" y="25" width="10" height="35" />
+              <rect x="82" y="15" width="12" height="45" />
+              <rect x="86" y="8" width="4" height="7" />
+              <rect x="98" y="32" width="8" height="28" />
+              <rect x="110" y="22" width="10" height="38" />
+              <rect x="124" y="28" width="8" height="32" />
+              <rect x="136" y="18" width="14" height="42" />
+              <rect x="140" y="12" width="6" height="6" />
+              <rect x="0" y="58" width="160" height="2" />
+            </svg>
           </div>
 
-          <motion.div
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="relative"
-            initial={{ opacity: 0, scale: 0.96, y: 24 }}
-            transition={{
-              duration: 0.8,
-              delay: 0.12,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-          >
-            <div className="absolute -left-10 top-16 h-36 w-36 rounded-full bg-orange-500/12 blur-3xl" />
-            <div className="absolute -right-8 bottom-12 h-40 w-40 rounded-full bg-white/4 blur-3xl" />
-            <Card className="relative overflow-hidden rounded-[36px] border-white/8 !bg-[#161214]/88 p-0 shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
-              <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.05),transparent_36%),radial-gradient(circle_at_72%_18%,rgba(249,115,22,0.12),transparent_24%)]" />
-              <div className="relative p-6 sm:p-8">
-                <div className="mb-8 flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.22em] text-white/30">
-                      Mission pulse
-                    </div>
-                    <div className="mt-2 text-2xl font-semibold text-white">
-                      The next Converge starts soon.
-                    </div>
-                  </div>
-                  <Badge
-                    className="border-white/8 bg-white/6 text-white/76"
-                    variant="secondary"
-                  >
-                    Premium chaos
-                  </Badge>
-                </div>
+          <Badge variant="secondary" className="mb-4 inline-flex">
+            Toronto City Challenge
+          </Badge>
 
-                <CountdownTimer />
+          <h1 className="font-pixel text-2xl leading-relaxed text-foreground sm:text-3xl">
+            CONVERGE
+          </h1>
+          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-muted-foreground">
+            Four teams. Live HQ prompts. Checkpoints, proof, and cinematic
+            city movement built for a premium Toronto night out.
+          </p>
 
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-[28px] border border-white/8 bg-black/16 p-5">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-white/52">
-                      <Users className="h-4 w-4 text-orange-300" />
-                      Live team selection
-                    </div>
-                    <div className="grid gap-2">
-                      {animatedTeams.slice(0, 3).map((team) => (
-                        <div
-                          key={team.id}
-                          className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span
-                              className="h-3 w-3 rounded-full"
-                              style={{ backgroundColor: team.color }}
-                            />
-                            <span className="text-sm text-white">
-                              {team.teamName}
-                            </span>
-                          </div>
-                          <span className="text-xs uppercase tracking-[0.18em] text-white/28">
-                            Ready
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[28px] border border-white/8 bg-black/16 p-5">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-white/52">
-                      <Sparkles className="h-4 w-4 text-orange-300" />
-                      HQ challenge cadence
-                    </div>
-                    <div className="space-y-3">
-                      {[
-                        "Drop 01 · Icebreaker",
-                        "Drop 02 · Social",
-                        "Drop 03 · Cinematic",
-                      ].map((item, index) => (
-                        <motion.div
-                          key={item}
-                          animate={{ opacity: [0.55, 1, 0.55] }}
-                          className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-white/68"
-                          transition={{
-                            duration: 2.6,
-                            delay: index * 0.35,
-                            repeat: Number.POSITIVE_INFINITY,
-                          }}
-                        >
-                          {item}
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        </div>
-
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#070607]" />
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Button asChild size="lg">
+              <Link href="/team">Sign In</Link>
+            </Button>
+            <Button asChild size="lg" variant="secondary">
+              <Link href="/team">Sign Up</Link>
+            </Button>
+          </div>
+        </motion.div>
       </section>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-24 px-4 pb-24 md:px-6">
-        <SectionReveal id="waitlist" className="scroll-mt-28">
-          <Card className="border-white/10 bg-white/[0.045] p-8 backdrop-blur-md md:p-10">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-              Early access
-            </p>
-            <h2 className="mt-3 font-serif text-3xl font-medium tracking-tight text-white sm:text-4xl">
-              Join the waitlist
-            </h2>
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/58">
-              Be first to know when Converge opens to the public — we&apos;ll email you when the live
-              experience goes wide.
-            </p>
-            <ComingSoonWaitlistForm />
-          </Card>
-        </SectionReveal>
-
-        <SectionReveal id="how-it-works" className="scroll-mt-28">
-          <div className="mb-8 max-w-3xl">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-              How it works
-            </p>
-            <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-              A city walk turned into a live social game.
-            </h2>
+      {/* Countdown */}
+      <section className="mx-auto w-full max-w-2xl px-4 py-6">
+        <Card className="p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-foreground" />
+            <span className="font-pixel text-[10px] uppercase text-foreground">
+              Next Event
+            </span>
           </div>
+          <CountdownTimer />
+        </Card>
+      </section>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              return (
-                <motion.div
-                  key={step.title}
-                  className="group rounded-[30px] border border-white/10 bg-white/[0.045] p-6 backdrop-blur-md"
-                  initial={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.55, delay: index * 0.08 }}
-                  viewport={{ once: true }}
-                  whileHover={{ y: -6 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                >
-                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/12 text-orange-300 transition group-hover:bg-orange-500/20">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">
-                    Step {index + 1}
-                  </div>
-                  <h3 className="mt-3 text-2xl font-semibold text-white">
-                    {step.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-7 text-white/58">
-                    {step.copy}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </SectionReveal>
+      <PixelDivider />
 
-        <SectionReveal id="live-map" className="scroll-mt-28">
-          <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-                Live map
-              </p>
-              <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-                Watch four teams move through Toronto toward one final
-                convergence.
-              </h2>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Badge
-                className="border-white/10 bg-white/6 px-4 py-2 text-white/80"
-                variant="secondary"
+      {/* How It Works */}
+      <section id="how-it-works" className="mx-auto w-full max-w-2xl px-4 py-6 scroll-mt-16">
+        <h2 className="mb-6 font-pixel text-base text-foreground uppercase text-center">
+          How It Works
+        </h2>
+
+        <div className="space-y-3">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <motion.div
+                key={step.title}
+                initial={{ opacity: 0, x: -12 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: index * 0.08 }}
               >
-                {data.event.total_challenges
-                  ? `${data.event.released_count}/${data.event.total_challenges} challenges released`
-                  : "No challenges live yet"}
-              </Badge>
-              <Badge
-                className="border-white/10 bg-white/6 px-4 py-2 text-white/80"
-                variant="secondary"
-              >
-                {data.event.finish_point}
-              </Badge>
-            </div>
-          </div>
-
-          <AnimatedCityMap
-            teams={animatedTeams}
-            leaderboard={data.leaderboard}
-          />
-        </SectionReveal>
-
-        <SectionReveal id="challenges" className="scroll-mt-28">
-          <div className="mb-8 max-w-3xl">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-orange-300">
-              Challenge design
-            </p>
-            <h2 className="font-serif text-4xl leading-tight sm:text-5xl">
-              Built for cinematic moments, social risk, and controlled chaos.
-            </h2>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-3">
-            {challengeCards.map((card, index) => {
-              const Icon = card.icon;
-              return (
-                <motion.div
-                  key={card.title}
-                  className="rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.03] p-6 backdrop-blur-md"
-                  initial={{ opacity: 0, y: 24 }}
-                  transition={{ duration: 0.55, delay: index * 0.08 }}
-                  viewport={{ once: true }}
-                  whileHover={{
-                    y: -8,
-                    rotateX: 4,
-                    rotateY: index === 1 ? 0 : index % 2 === 0 ? -3 : 3,
-                  }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                >
-                  <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-orange-500/10 text-orange-300">
-                    <Icon className="h-6 w-6" />
+                <Card className="flex items-start gap-4 p-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center border-2 border-foreground bg-secondary">
+                    <span className="font-pixel text-xs text-secondary-foreground">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
                   </div>
-                  <h3 className="text-2xl font-semibold text-white">
-                    {card.title}
-                  </h3>
-                  <p className="mt-4 text-sm leading-7 text-white/58">
-                    {card.copy}
-                  </p>
-                </motion.div>
-              );
-            })}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0 text-foreground" />
+                      <h3 className="font-pixel text-[10px] uppercase text-foreground">
+                        {step.title}
+                      </h3>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      {step.copy}
+                    </p>
+                  </div>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      <PixelDivider />
+
+      {/* Teams */}
+      <section className="mx-auto w-full max-w-2xl px-4 py-6">
+        <h2 className="mb-6 font-pixel text-base text-foreground uppercase text-center">
+          Teams
+        </h2>
+
+        <Card className="p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-foreground" />
+            <span className="font-pixel text-[10px] uppercase text-foreground">
+              Active Squads
+            </span>
           </div>
-        </SectionReveal>
-        <SectionReveal>
-          <div className="rounded-[40px] border border-white/10 bg-white/[0.045] px-6 py-10 text-center sm:px-10 sm:py-14">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">
-              Start your own Converge
-            </p>
-            <h2 className="mx-auto max-w-4xl font-serif text-4xl leading-tight sm:text-5xl lg:text-6xl">
-              Build a night people will talk about the whole ride home.
-            </h2>
-            <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/58">
-              We&apos;re opening the full experience soon. Join the waitlist and we&apos;ll email you
-              when Converge goes public.
-            </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-              <Button
-                asChild
-                className="h-12 rounded-full bg-orange-500 px-8 text-sm font-semibold text-black hover:bg-orange-400"
+          <div className="space-y-2">
+            {animatedTeams.map((team) => (
+              <div
+                key={team.id}
+                className="flex items-center justify-between border-2 border-foreground bg-gb-lightest px-3 py-2"
               >
-                <a href="#waitlist">Join waitlist</a>
-              </Button>
-            </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="h-3 w-3 border border-foreground"
+                    style={{ backgroundColor: team.color }}
+                  />
+                  <span className="text-sm text-foreground">
+                    {team.teamName}
+                  </span>
+                </div>
+                <span className="font-pixel text-[8px] uppercase text-muted-foreground">
+                  Ready
+                </span>
+              </div>
+            ))}
           </div>
-        </SectionReveal>
-      </div>
+        </Card>
+      </section>
+
+      <PixelDivider />
+
+      {/* Live Map */}
+      <section id="live-map" className="mx-auto w-full max-w-2xl px-4 py-6 scroll-mt-16">
+        <h2 className="mb-4 font-pixel text-base text-foreground uppercase text-center">
+          Live Map
+        </h2>
+        <div className="flex flex-wrap justify-center gap-2 mb-4">
+          <Badge variant="secondary">
+            {data.event.total_challenges
+              ? `${data.event.released_count}/${data.event.total_challenges} challenges`
+              : "No challenges yet"}
+          </Badge>
+          <Badge variant="secondary">
+            {data.event.finish_point}
+          </Badge>
+        </div>
+
+        <AnimatedCityMap
+          teams={animatedTeams}
+          leaderboard={data.leaderboard}
+        />
+      </section>
+
+      <PixelDivider />
+
+      {/* Quest Board */}
+      <section id="challenges" className="mx-auto w-full max-w-2xl px-4 py-6 scroll-mt-16">
+        <h2 className="mb-6 font-pixel text-base text-foreground uppercase text-center">
+          Quest Board
+        </h2>
+
+        <div className="space-y-3">
+          {challengeCards.map((card, index) => {
+            const Icon = card.icon;
+            return (
+              <motion.div
+                key={card.title}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: index * 0.08 }}
+              >
+                <Card className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center border-2 border-foreground bg-primary">
+                      <Icon className="h-5 w-5 text-primary-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-pixel text-[10px] uppercase text-foreground">
+                        {card.title}
+                      </h3>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                        {card.copy}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      <PixelDivider />
+
+      {/* Leaderboard Preview */}
+      <section className="mx-auto w-full max-w-2xl px-4 py-6">
+        <h2 className="mb-6 font-pixel text-base text-foreground uppercase text-center">
+          Leaderboard
+        </h2>
+        <Card className="p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-foreground" />
+            <span className="font-pixel text-[10px] uppercase text-foreground">
+              Rankings
+            </span>
+          </div>
+          <div className="space-y-2">
+            {data.leaderboard.map((team, index) => (
+              <div
+                key={team.team_id}
+                className="flex items-center justify-between border-2 border-foreground bg-gb-lightest px-3 py-2"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-pixel text-xs text-foreground">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-sm text-foreground">
+                    {team.team_name}
+                  </span>
+                </div>
+                <span className="font-pixel text-xs text-foreground">
+                  {team.total_points} pts
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </section>
+
+      <PixelDivider />
+
+      {/* Final CTA */}
+      <section className="mx-auto w-full max-w-2xl px-4 py-8 pb-16">
+        <Card className="bg-primary p-8 text-center">
+          <h2 className="font-pixel text-sm uppercase text-primary-foreground leading-relaxed">
+            Ready to Play?
+          </h2>
+          <p className="mx-auto mt-4 max-w-sm text-xs leading-5 text-primary-foreground/80">
+            Join the next Converge. Race through Toronto with your squad.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Button asChild size="lg" variant="secondary">
+              <Link href="/team">Sign In</Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              className="border-primary-foreground bg-gb-lightest text-foreground shadow-[3px_3px_0px_0px_var(--primary-foreground)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
+            >
+              <Link href="/team">Sign Up</Link>
+            </Button>
+          </div>
+        </Card>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t-3 border-foreground bg-primary px-4 py-4">
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="font-pixel text-[8px] uppercase text-primary-foreground">
+            Converge Toronto 2026
+          </span>
+        </div>
+      </footer>
     </main>
   );
 }

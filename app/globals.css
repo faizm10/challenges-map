@@ -3,6 +3,7 @@
 @theme inline {
   --font-sans: var(--font-space-grotesk);
   --font-serif: var(--font-fraunces);
+  --font-pixel: var(--font-pixel);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -20,42 +21,41 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-gb-darkest: #0f380f;
+  --color-gb-dark: #306230;
+  --color-gb-medium: #8bac0f;
+  --color-gb-light: #9bbc0f;
+  --color-gb-lightest: #e0f8cf;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
 }
 
 :root {
-  /* Deep warm-charcoal base for a richer dark theme without going pure black */
-  --background: oklch(0.145 0.008 38);
-  --foreground: oklch(0.94 0.008 70);
+  --background: #e0f8cf;
+  --foreground: #0f380f;
 
-  /* Slightly lifted surfaces with low chroma for subtle premium depth */
-  --card: oklch(0.185 0.009 38 / 88%);
-  --card-foreground: oklch(0.94 0.008 70);
-  --popover: oklch(0.175 0.009 38);
-  --popover-foreground: oklch(0.94 0.008 70);
+  --card: #c4e8a2;
+  --card-foreground: #0f380f;
+  --popover: #d2f0b8;
+  --popover-foreground: #0f380f;
 
-  /* Softer amber-orange accent: refined highlight, less loud than before */
-  --primary: oklch(0.69 0.12 52);
-  --primary-foreground: oklch(0.17 0.008 38);
+  --primary: #306230;
+  --primary-foreground: #e0f8cf;
 
-  /* Neutral secondary/accent surfaces with warm undertones */
-  --secondary: oklch(0.24 0.008 38);
-  --secondary-foreground: oklch(0.92 0.008 70);
-  --accent: oklch(0.25 0.01 40);
-  --accent-foreground: oklch(0.93 0.008 70);
+  --secondary: #8bac0f;
+  --secondary-foreground: #0f380f;
+  --accent: #9bbc0f;
+  --accent-foreground: #0f380f;
 
-  /* Muted tones stay readable, warmer, and less flat gray */
-  --muted: oklch(0.215 0.007 40);
-  --muted-foreground: oklch(0.72 0.01 62);
+  --muted: #b8d88a;
+  --muted-foreground: #306230;
 
-  /* Barely-there borders and a toned-down focus ring */
-  --border: oklch(0.285 0.007 42);
-  --input: oklch(0.285 0.007 42);
-  --ring: oklch(0.63 0.1 52);
-  --radius: 1rem;
+  --border: #306230;
+  --input: #306230;
+  --ring: #0f380f;
+  --radius: 0px;
 }
 
 * {
@@ -64,30 +64,47 @@
 
 body {
   @apply bg-background text-foreground min-h-screen;
-  background-image:
-    radial-gradient(circle at top left, rgb(216 95 58 / 0.12), transparent 22%),
-    radial-gradient(circle at bottom right, rgb(255 255 255 / 0.04), transparent 22%),
-    linear-gradient(180deg, #0a090a 0%, #121011 100%);
+  background-color: #e0f8cf;
+  image-rendering: pixelated;
 }
 
+/* Scanline overlay for retro CRT feel */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgb(31 36 48 / 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(31 36 48 / 0.03) 1px, transparent 1px);
-  background-size: 30px 30px;
-  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.7), transparent 85%);
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(15, 56, 15, 0.03) 3px,
+    rgba(15, 56, 15, 0.03) 4px
+  );
+  z-index: 9999;
 }
 
 html {
   scroll-behavior: smooth;
 }
 
+/* Pixel panel — replaces glass-panel */
+.pixel-panel {
+  background-color: var(--card);
+  border: 3px solid var(--foreground);
+  box-shadow: 4px 4px 0px 0px var(--foreground);
+}
+
+/* Keep glass-panel as alias for pixel-panel during migration */
 .glass-panel {
-  @apply border-white/8 bg-card/90 shadow-[0_24px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl;
+  background-color: var(--card);
+  border: 3px solid var(--foreground);
+  box-shadow: 4px 4px 0px 0px var(--foreground);
+}
+
+/* Pixel font utility */
+.font-pixel {
+  font-family: var(--font-pixel), monospace;
 }
 
 @layer base {

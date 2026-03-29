@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Space_Grotesk } from "next/font/google";
+import { Fraunces, Press_Start_2P, Space_Grotesk } from "next/font/google";
 
 import "@/app/globals.css";
 import { ToasterProvider } from "@/components/ui/toaster";
@@ -12,6 +12,12 @@ const spaceGrotesk = Space_Grotesk({
 const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-fraunces",
+});
+
+const pressStart2P = Press_Start_2P({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-pixel",
 });
 
 export const metadata: Metadata = {
@@ -55,7 +61,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${fraunces.variable} font-sans antialiased`}>
+      <body className={`${spaceGrotesk.variable} ${fraunces.variable} ${pressStart2P.variable} font-sans antialiased`}>
         <ToasterProvider>{children}</ToasterProvider>
       </body>
     </html>
