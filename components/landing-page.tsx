@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DEFAULT_DEV_GAME_SLUG } from "@/lib/config";
 import type { PublicLeaderboardResponse, TeamSeed } from "@/lib/types";
 
 type LandingPageProps = {
@@ -111,6 +112,7 @@ export function LandingPage({
       </div>
 
       <div className="relative z-10">
+
         <section className="mx-auto w-full max-w-2xl px-4 pt-8 pb-6">
           <motion.div
             animate={{ opacity: 1, y: 0 }}
@@ -224,23 +226,41 @@ export function LandingPage({
         <section className="mx-auto w-full max-w-2xl px-4 py-8 pb-16">
           <Card className="bg-primary p-8 text-center">
             <h2 className="font-pixel text-sm uppercase text-primary-foreground leading-relaxed">
-              Ready to Play?
+              Ready to play or run HQ?
             </h2>
             <p className="mx-auto mt-4 max-w-sm text-xs leading-5 text-primary-foreground/80">
-              Join the next Converge. Race through Toronto with your squad.
+              Teams: enter the link your organizer sent, then sign in. Organizers: create an account and
+              set up your event URL.
             </p>
-            <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Button asChild size="lg" variant="secondary">
-                <Link href="/team">Sign In</Link>
+            <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:justify-center">
+              <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
+                <Link href="/join">Join your event</Link>
               </Button>
               <Button
                 asChild
                 size="lg"
-                className="border-primary-foreground bg-[#e6d3b5] text-[#5a3c2a] shadow-[3px_3px_0px_0px_var(--primary-foreground)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
+                className="w-full border-primary-foreground bg-[#e6d3b5] text-[#5a3c2a] shadow-[3px_3px_0px_0px_var(--primary-foreground)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] sm:w-auto"
               >
-                <Link href="/team">Sign Up</Link>
+                <Link href="/signup">Host an event</Link>
               </Button>
             </div>
+            <p className="mt-4 flex flex-col items-center gap-2 text-center sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-4 sm:gap-y-1">
+              <Link
+                href="/organizer/login?next=%2Fe%2Fcreate"
+                className="font-pixel text-[9px] uppercase tracking-wider text-primary-foreground/90 underline-offset-4 hover:underline"
+              >
+                Organizer log in
+              </Link>
+              <span className="hidden text-primary-foreground/40 sm:inline" aria-hidden>
+                ·
+              </span>
+              <Link
+                href={`/e/${DEFAULT_DEV_GAME_SLUG}/leaderboard`}
+                className="font-pixel text-[9px] uppercase tracking-wider text-primary-foreground/90 underline-offset-4 hover:underline"
+              >
+                Live leaderboard
+              </Link>
+            </p>
           </Card>
         </section>
 

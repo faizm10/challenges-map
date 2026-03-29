@@ -23,7 +23,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 import { DASHBOARD_POLL_MS, subscribeWhileVisible } from "@/lib/client-poll";
 import { Textarea } from "@/components/ui/textarea";
-import { DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS, MAX_CHALLENGES, UNION_STATION } from "@/lib/config";
+import {
+  DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+  MAX_CHALLENGES,
+  UNION_STATION,
+} from "@/lib/config";
 import type { AdminCheckinFeedItem, AdminGameResponse, TeamCheckpoint, TeamChallengeStatus } from "@/lib/types";
 
 function formatCoordinate(value: number | null | undefined) {
@@ -141,10 +145,13 @@ const CHECKIN_MESSAGES = [
   { title: "hey adelynn 🙌", description: "faiz popping in to check in on you" },
 ];
 
-export function AdminDashboard() {
+export function AdminDashboard({ gameSlug }: { gameSlug: string }) {
   const [game, setGame] = useState<AdminGameResponse | null>(null);
   const [adminName, setAdminName] = useState("");
   const [pin, setPin] = useState("");
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamPin, setNewTeamPin] = useState("");
+  const [teamFormError, setTeamFormError] = useState("");
   const [error, setError] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [openCheckpointByTeam, setOpenCheckpointByTeam] = useState<Record<number, string | null>>({});
@@ -153,7 +160,7 @@ export function AdminDashboard() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showCredentials, setShowCredentials] = useState(false);
   const [credCurrentPin, setCredCurrentPin] = useState("");
-  const [credNewName, setCredNewName] = useState("HQ Admin");
+  const [credNewName, setCredNewName] = useState("");
   const [credNewPin, setCredNewPin] = useState("");
   const [credConfirmPin, setCredConfirmPin] = useState("");
   const [credError, setCredError] = useState("");
@@ -247,7 +254,7 @@ export function AdminDashboard() {
     try {
       await api("/api/auth/admin", {
         method: "POST",
-        body: JSON.stringify({ name: adminName, pin }),
+        body: JSON.stringify({ gameSlug, name: adminName, pin }),
       });
       setAdminName("");
       setPin("");
@@ -266,6 +273,26 @@ export function AdminDashboard() {
       setGame(null);
     } finally {
       setPendingAction((current) => (current === "logout" ? null : current));
+    }
+  }
+
+  async function onCreateTeam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTeamFormError("");
+    setPendingAction("add-team");
+    try {
+      await api("/api/admin/teams", {
+        method: "POST",
+        body: JSON.stringify({ teamName: newTeamName, pin: newTeamPin }),
+      });
+      setNewTeamName("");
+      setNewTeamPin("");
+      await loadGame();
+      toast({ title: "Team added", description: "They can sign in from the team link.", variant: "success" });
+    } catch (nextError) {
+      setTeamFormError(nextError instanceof Error ? nextError.message : "Unable to add team.");
+    } finally {
+      setPendingAction((current) => (current === "add-team" ? null : current));
     }
   }
 
@@ -348,78 +375,125 @@ export function AdminDashboard() {
 
   if (!game) {
     return (
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:py-7 md:px-6 md:py-8">
-        <Card className="grid gap-6 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:grid-cols-[1fr_360px] lg:items-start">
-          <div className="space-y-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              HQ Admin
-            </p>
-            <h1 className="max-w-[10ch] font-serif text-4xl leading-none text-white sm:text-6xl">
-              Control the chaos.
+      <main className="relative flex min-h-screen w-full flex-col lg:flex-row">
+        <style>{`
+          @keyframes reg-fadein { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+          @keyframes reg-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+          .reg-form { animation: reg-fadein 0.5s ease forwards; }
+          .reg-dot { animation: reg-blink 1.4s step-end infinite; }
+        `}</style>
+
+        {/* Left: Toronto city image panel */}
+        <div
+          className="relative flex min-h-[40vh] flex-col justify-between p-8 lg:min-h-screen lg:w-[58%] lg:p-14"
+          style={{
+            backgroundImage: "url('/images/landing/u1194229659_generate_a_pixel_gamified_toronto_landscape_pictu_eacc8824-0c44-43d2-a4cf-3af8d79357b3_0.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          {/* Dark gradient: strong bottom so text reads, light in middle to show city */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#090809]/70 via-[#090809]/30 to-[#090809]/85" />
+          {/* Right fade so it bleeds into the form panel */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#090809]/60 lg:to-[#090809]" />
+
+          {/* Top: brand */}
+          <div className="relative z-10">
+            <p className="text-xs uppercase tracking-[0.35em] text-orange-500">Converge</p>
+          </div>
+
+          {/* Bottom: headline */}
+          <div className="relative z-10 space-y-4">
+            <p className="text-xs uppercase tracking-[0.25em] text-orange-400">HQ Command</p>
+            <h1 className="text-4xl leading-tight text-[#e6d5b8] sm:text-5xl lg:text-6xl">
+              Control<br />the chaos.
             </h1>
-            <p className="max-w-2xl text-base leading-7 text-white/58">
-              HQ unlocks the Converge control room, edits challenges, reviews media,
-              verifies check-ins, and keeps the leaderboard moving in real time.
+            <p className="max-w-xs text-sm leading-6 text-[#e6d5b8]/55">
+              Release challenges, verify check-ins, review media, and keep the
+              Converge leaderboard accurate in real time.
             </p>
             <Button
               asChild
-              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="mt-2 border border-[#e6d5b8]/20 bg-transparent text-[#e6d5b8]/50 hover:bg-[#e6d5b8]/8 hover:text-[#e6d5b8]"
               variant="secondary"
             >
-              <Link href="/leaderboard">Back to Leaderboard</Link>
+              <Link href={`/e/${gameSlug}/leaderboard`}>← Back to Leaderboard</Link>
             </Button>
           </div>
+        </div>
 
-          <Card className="rounded-[28px] border-white/8 bg-white/[0.04] p-5 text-white">
-            <CardHeader className="p-0">
-              <CardTitle className="text-2xl text-white">HQ Unlock</CardTitle>
-              <CardDescription className="text-white/48">
-                Admin name and PIN only. No public access to Converge controls.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0 pt-5">
-              <form className="space-y-4" onSubmit={onLogin}>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-white/72">Admin name</label>
-                  <Input
-                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                    type="text"
-                    value={adminName}
-                    onChange={(event) => setAdminName(event.target.value)}
-                    placeholder="Enter access name"
-                    required
-                  />
+        {/* Right: Registration form panel */}
+        <div className="relative flex flex-1 flex-col items-center justify-center bg-[#090809] px-8 py-14 lg:px-14">
+          {/* Subtle top-right decoration */}
+          <div className="absolute right-6 top-6 flex items-center gap-2">
+            <span className="reg-dot inline-block h-2 w-2 bg-orange-500" />
+            <span className="text-xs uppercase tracking-widest text-[#e6d5b8]/25">Restricted</span>
+          </div>
+
+          <div className="reg-form w-full max-w-[360px] space-y-8">
+            {/* Form header */}
+            <div className="space-y-1 border-l-2 border-orange-500 pl-4">
+              <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Registration</p>
+              <h2 className="text-3xl text-[#e6d5b8]">HQ Access</h2>
+              <p className="text-xs text-[#e6d5b8]/40">Admin credentials only. No public access.</p>
+            </div>
+
+            <form className="space-y-5" onSubmit={onLogin}>
+              <div className="space-y-1.5">
+                <label className="block text-xs uppercase tracking-widest text-[#e6d5b8]/45">
+                  Admin Name
+                </label>
+                <Input
+                  className="border border-[#e6d5b8]/12 bg-[#e6d5b8]/4 text-[#e6d5b8] placeholder:text-[#e6d5b8]/20 focus:border-orange-500 focus:ring-0"
+                  type="text"
+                  value={adminName}
+                  onChange={(event) => setAdminName(event.target.value)}
+                  placeholder="Enter admin name"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs uppercase tracking-widest text-[#e6d5b8]/45">
+                  PIN
+                </label>
+                <Input
+                  className="border border-[#e6d5b8]/12 bg-[#e6d5b8]/4 tracking-widest text-[#e6d5b8] placeholder:text-[#e6d5b8]/20 focus:border-orange-500 focus:ring-0"
+                  type="password"
+                  value={pin}
+                  onChange={(event) => setPin(event.target.value)}
+                  placeholder="••••••"
+                  required
+                />
+              </div>
+
+              {error ? (
+                <div className="border-l-2 border-red-500 bg-red-500/8 px-3 py-2">
+                  <p className="text-xs text-red-400">{error}</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-white/72">Enter admin PIN</label>
-                  <Input
-                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                    type="password"
-                    value={pin}
-                    onChange={(event) => setPin(event.target.value)}
-                    placeholder="Enter access code"
-                    required
-                  />
-                </div>
-                <Button
-                  className="w-full bg-orange-500 text-black hover:bg-orange-400"
-                  disabled={pendingAction === "login"}
-                  type="submit"
-                >
-                  {pendingAction === "login" ? (
-                    <>
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Unlock HQ Dashboard"
-                  )}
-                </Button>
-                {error ? <p className="text-sm text-red-400">{error}</p> : null}
-              </form>
-            </CardContent>
-          </Card>
-        </Card>
+              ) : null}
+
+              <Button
+                className="w-full border border-orange-500 bg-orange-500 text-black hover:bg-orange-400 hover:border-orange-400 disabled:opacity-50"
+                disabled={pendingAction === "login"}
+                type="submit"
+              >
+                {pendingAction === "login" ? (
+                  <span className="flex items-center gap-2">
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Verifying...
+                  </span>
+                ) : (
+                  "Register & Enter HQ"
+                )}
+              </Button>
+            </form>
+
+            <p className="text-center text-xs uppercase tracking-wider text-[#e6d5b8]/18">
+              Converge — HQ access only
+            </p>
+          </div>
+        </div>
       </main>
     );
   }
@@ -447,7 +521,7 @@ export function AdminDashboard() {
               className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
               variant="secondary"
             >
-              <Link href="/leaderboard">Leaderboard</Link>
+              <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
             </Button>
             <Button
               className="w-full bg-red-500/90 text-white hover:bg-red-500 sm:w-auto"
@@ -460,8 +534,8 @@ export function AdminDashboard() {
                     await api("/api/admin/reset", { method: "POST" });
                     await loadGame();
                   },
-                  "Game reset",
-                  "Challenges, submissions, media, and check-ins are back to the initial state."
+                  "Event reset",
+                  "Challenges, submissions, media, and check-ins cleared for this event. Teams and PINs are unchanged."
                 )
               }
             >
@@ -491,6 +565,54 @@ export function AdminDashboard() {
             </Button>
           </div>
         </div>
+
+        {game.teams.length === 0 ? (
+          <div className="rounded-[24px] border border-amber-400/30 bg-amber-500/10 p-5">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-200">
+              Step 1 — Teams
+            </p>
+            <h2 className="mb-2 text-lg font-semibold text-white">Add your first team</h2>
+            <p className="mb-4 text-sm text-white/60">
+              Create a team name and PIN so players can sign in at the team dashboard URL for this
+              event. Add more teams anytime before you publish challenges.
+            </p>
+            <form className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end" onSubmit={onCreateTeam}>
+              <div className="min-w-0 flex-1 space-y-2">
+                <label className="text-xs font-medium text-white/60">Team name</label>
+                <Input
+                  className="border-white/10 bg-white/5 text-white"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  placeholder="e.g. Team North"
+                  required
+                />
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <label className="text-xs font-medium text-white/60">Team PIN</label>
+                <Input
+                  className="border-white/10 bg-white/5 text-white"
+                  type="password"
+                  value={newTeamPin}
+                  onChange={(e) => setNewTeamPin(e.target.value)}
+                  placeholder="PIN for team login"
+                  required
+                />
+              </div>
+              <Button
+                className="bg-orange-500 text-black hover:bg-orange-400"
+                disabled={pendingAction === "add-team"}
+                type="submit"
+              >
+                {pendingAction === "add-team" ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Add team"
+                )}
+              </Button>
+            </form>
+            {teamFormError ? <p className="mt-2 text-sm text-red-400">{teamFormError}</p> : null}
+          </div>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-[24px] border border-white/8 bg-white/[0.06] p-4 backdrop-blur-md">

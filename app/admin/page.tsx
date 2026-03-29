@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { AdminDashboard } from "@/components/admin-dashboard";
+import { DEFAULT_DEV_GAME_SLUG } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -10,5 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function AdminPage() {
-  return <AdminDashboard />;
+  redirect(`/e/${DEFAULT_DEV_GAME_SLUG}/admin`);
 }

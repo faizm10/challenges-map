@@ -19,30 +19,46 @@ function formatOrdinal(rank: number) {
 
 export function LivePodiumLeaderboard({
   initialData,
+  eventSlug,
 }: {
   initialData: PublicLeaderboardResponse;
+  eventSlug: string;
 }) {
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
     return subscribeWhileVisible(async () => {
-      const response = await fetch("/api/public/leaderboard", { cache: "no-store" });
+      const response = await fetch(
+        `/api/public/leaderboard?slug=${encodeURIComponent(eventSlug)}`,
+        { cache: "no-store" }
+      );
       if (!response.ok) return;
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
     }, PUBLIC_POLL_MS);
-  }, []);
+  }, [eventSlug]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-2xl flex-col px-4 py-5 md:px-6 md:py-8">
         <div className="space-y-4">
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/">
-              <ArrowLeft className="h-4 w-4" />
-              Home
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/">
+                <ArrowLeft className="h-4 w-4" />
+                Home
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/join">Join event</Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost">
+              <Link href={`/e/${eventSlug}/team`}>Team</Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost">
+              <Link href={`/e/${eventSlug}/admin`}>HQ</Link>
+            </Button>
+          </div>
 
           <div>
             <div className="mb-3 inline-flex items-center gap-2 border-2 border-foreground bg-secondary px-3 py-1.5 font-pixel text-[8px] uppercase text-secondary-foreground">
@@ -53,7 +69,7 @@ export function LivePodiumLeaderboard({
               Standings
             </h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Real-time team order for Converge. Rankings and points update automatically.
+              Real-time team order for {data.event.title}. Rankings and points update automatically.
             </p>
           </div>
         </div>

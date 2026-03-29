@@ -293,7 +293,7 @@ function getPlatformPermissionCopy(platform: LocationPlatform, status: LocationP
   };
 }
 
-export function TeamDashboard() {
+export function TeamDashboard({ gameSlug }: { gameSlug: string }) {
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
   const [teamName, setTeamName] = useState("");
   const [pin, setPin] = useState("");
@@ -597,7 +597,7 @@ export function TeamDashboard() {
     try {
       await api("/api/auth/team", {
         method: "POST",
-        body: JSON.stringify({ name: teamName, pin }),
+        body: JSON.stringify({ gameSlug, name: teamName, pin }),
       });
       setTeamName("");
       setPin("");
@@ -1013,78 +1013,98 @@ export function TeamDashboard() {
 
   if (!dashboard) {
     return (
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 md:px-6 md:py-8">
-        <Card className="grid gap-6 border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:grid-cols-[1fr_360px] lg:items-start">
-          <div className="space-y-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
-              Team Access
-            </p>
-            <h1 className="max-w-[10ch] font-serif text-4xl leading-none text-white sm:text-6xl">
+      <main
+        className="relative flex min-h-screen w-full flex-col items-center justify-center"
+        style={{
+          backgroundImage: "url('/images/landing/u1194229659_generate_a_pixel_gamified_toronto_landscape_pictu_208a8505-04d8-407f-a202-6ea78d2f3571_3.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center bottom",
+        }}
+      >
+        <style>{`
+          @keyframes signin-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+          @keyframes signin-fadein { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+          .signin-card { animation: signin-fadein 0.5s ease forwards; }
+        `}</style>
+
+        {/* Layered overlay: dark top, lighter mid so city shows through, dark bottom */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#090809]/90 via-[#090809]/55 to-[#090809]/95" />
+
+        <div className="relative z-10 flex w-full flex-col items-center px-4 py-12">
+          {/* Brand */}
+          <div className="signin-card mb-10 text-center">
+            <p className="text-xs uppercase tracking-[0.35em] text-orange-500">Converge</p>
+            <h1 className="mt-3 text-5xl leading-none text-[#e6d5b8] sm:text-6xl">Sign In</h1>
+            <p className="mt-3 text-sm text-[#e6d5b8]/50">
               Your route. Your challenge queue.
-            </h1>
-            <p className="max-w-2xl text-base leading-7 text-white/58">
-              Enter your team name and PIN to unlock your Converge dashboard, check-ins,
-              media uploads, proof-note submissions, and live standings.
             </p>
-            <Button
-              asChild
-              className="border-white/10 bg-white/5 text-white hover:bg-white/10"
-              variant="secondary"
-            >
-              <Link href="/leaderboard">Back to Leaderboard</Link>
-            </Button>
           </div>
 
-          <Card className="rounded-[28px] border-white/8 bg-white/[0.04] p-5 text-white">
-            <CardHeader className="p-0">
-              <CardTitle className="text-2xl text-white">Team Unlock</CardTitle>
-              <CardDescription className="text-white/48">
-                One team name and PIN unlock one Converge dashboard.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0 pt-5">
-              <form className="space-y-4" onSubmit={onLogin}>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-white/72">Team name</label>
-                  <Input
-                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                    type="text"
-                    value={teamName}
-                    onChange={(event) => setTeamName(event.target.value)}
-                    placeholder="Enter access name"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-white/72">Enter team PIN</label>
-                  <Input
-                    className="border-white/10 bg-white/5 text-white placeholder:text-white/28"
-                    type="password"
-                    value={pin}
-                    onChange={(event) => setPin(event.target.value)}
-                    placeholder="Enter access code"
-                    required
-                  />
-                </div>
-                <Button
-                  className="w-full bg-orange-500 text-black hover:bg-orange-400"
-                  disabled={isSigningIn}
-                  type="submit"
-                >
-                  {isSigningIn ? (
-                    <>
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Unlock Team Dashboard"
-                  )}
-                </Button>
-                {error ? <p className="text-sm text-red-400">{error}</p> : null}
-              </form>
-            </CardContent>
-          </Card>
-        </Card>
+          {/* Form card */}
+          <div
+            className="signin-card w-full max-w-[360px] border-2 border-[#e6d5b8]/15 bg-[#090809]/88 p-7"
+            style={{ backdropFilter: "blur(12px)", animationDelay: "0.1s", opacity: 0 }}
+          >
+            <form className="space-y-5" onSubmit={onLogin}>
+              <div className="space-y-1.5">
+                <label className="block text-xs uppercase tracking-widest text-[#e6d5b8]/50">
+                  Team Name
+                </label>
+                <Input
+                  className="border border-[#e6d5b8]/15 bg-[#e6d5b8]/5 text-[#e6d5b8] placeholder:text-[#e6d5b8]/20 focus:border-orange-500 focus:ring-0"
+                  type="text"
+                  value={teamName}
+                  onChange={(event) => setTeamName(event.target.value)}
+                  placeholder="Enter your team name"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs uppercase tracking-widest text-[#e6d5b8]/50">
+                  PIN
+                </label>
+                <Input
+                  className="border border-[#e6d5b8]/15 bg-[#e6d5b8]/5 tracking-widest text-[#e6d5b8] placeholder:text-[#e6d5b8]/20 focus:border-orange-500 focus:ring-0"
+                  type="password"
+                  value={pin}
+                  onChange={(event) => setPin(event.target.value)}
+                  placeholder="••••••"
+                  required
+                />
+              </div>
+
+              {error ? (
+                <p className="text-xs text-red-400">{error}</p>
+              ) : null}
+
+              <Button
+                className="w-full border border-orange-500 bg-orange-500 text-black hover:bg-orange-400 hover:border-orange-400 disabled:opacity-50"
+                disabled={isSigningIn}
+                type="submit"
+              >
+                {isSigningIn ? (
+                  <span className="flex items-center gap-2">
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Signing in...
+                  </span>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-5 border-t border-[#e6d5b8]/10 pt-5">
+              <Button
+                asChild
+                className="w-full border border-[#e6d5b8]/12 bg-transparent text-[#e6d5b8]/45 hover:bg-[#e6d5b8]/5 hover:text-[#e6d5b8]"
+                variant="secondary"
+              >
+                <Link href="/leaderboard">← Back to Leaderboard</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
@@ -1142,7 +1162,7 @@ export function TeamDashboard() {
               className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
               variant="secondary"
             >
-              <Link href="/leaderboard">Leaderboard</Link>
+              <Link href={`/e/${gameSlug}/leaderboard`}>Leaderboard</Link>
             </Button>
             <Button
               className="w-full text-white/72 hover:bg-white/6 hover:text-white sm:w-auto"

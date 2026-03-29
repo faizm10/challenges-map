@@ -16,19 +16,27 @@ type PublicLeaderboardProps = {
   mapTeams: Array<
     Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color" | "routeLine" | "coordinates">
   >;
+  eventSlug?: string;
 };
 
-export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardProps) {
+export function PublicLeaderboard({
+  initialData,
+  mapTeams,
+  eventSlug = "converge",
+}: PublicLeaderboardProps) {
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
     return subscribeWhileVisible(async () => {
-      const response = await fetch("/api/public/leaderboard", { cache: "no-store" });
+      const response = await fetch(
+        `/api/public/leaderboard?slug=${encodeURIComponent(eventSlug)}`,
+        { cache: "no-store" }
+      );
       if (!response.ok) return;
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
     }, PUBLIC_POLL_MS);
-  }, []);
+  }, [eventSlug]);
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-4 sm:py-7 md:px-6 md:py-8">
@@ -62,10 +70,10 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
             className="w-full border-border bg-card text-foreground hover:bg-gb-lightest sm:w-auto"
             variant="secondary"
           >
-            <Link href="/team">Team Login</Link>
+            <Link href={`/e/${eventSlug}/team`}>Team Login</Link>
           </Button>
           <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-secondary sm:w-auto">
-            <Link href="/admin">HQ Admin</Link>
+            <Link href={`/e/${eventSlug}/admin`}>HQ Admin</Link>
           </Button>
         </div>
       </Card>

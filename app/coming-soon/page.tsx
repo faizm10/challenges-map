@@ -51,11 +51,11 @@ export default function ComingSoonPage() {
           </p>
           <ComingSoonWaitlistForm />
           <p className="mt-6 text-center text-sm text-white/40">
-            Teams and organizers can still use{" "}
-            <Link className="text-orange-400/90 underline-offset-4 hover:underline" href="/team">
-              team login
-            </Link>
-            .
+            Teams and organizers can still{" "}
+            <Link className="text-orange-400/90 underline-offset-4 hover:underline" href="/join">
+              join an event
+            </Link>{" "}
+            (team or HQ).
           </p>
         </Card>
       </section>

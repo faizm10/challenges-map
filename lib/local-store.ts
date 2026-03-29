@@ -1,6 +1,7 @@
 import {
   CHALLENGE_SUBMISSION_RANK_POINTS,
   DEFAULT_CHECKPOINT_UNLOCK_RADIUS_METERS,
+  LOCAL_FALLBACK_GAME_ID,
   TEAM_SEED,
   UNION_STATION,
 } from "@/lib/config";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/seed";
 
 type AccessCredential = {
+  game_id: number;
   role: "admin" | "team";
   display_name: string;
   pin: string;
@@ -84,6 +86,7 @@ function cloneState(): LocalState {
     nextChallengeId: 1,
     teamScores: TEAM_SCORE_ROWS.map((score) => ({ ...score })),
     accessCredentials: ACCESS_SEED.map((credential) => ({
+      game_id: LOCAL_FALLBACK_GAME_ID,
       role: credential.role as AccessCredential["role"],
       display_name: credential.display_name,
       pin: credential.pin,
@@ -98,6 +101,11 @@ function getState() {
   }
 
   return global.__raceToUnionLocalState;
+}
+
+export function getLocalTeamsForGameId(gameId: number): Team[] {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
+  return getState().teams.map((t) => ({ ...t }));
 }
 
 function getMilestones(entry: {
@@ -287,7 +295,7 @@ function deriveVisibleChallengeIds(teamId: number) {
       .map((item) => Number(item.challenge_id))
   );
 
-  const releasedChallenges = getLocalChallenges(false);
+  const releasedChallenges = getLocalChallenges(LOCAL_FALLBACK_GAME_ID, false);
   const submittedChallengeIds = new Set(
     state.teamChallengeStatus
       .filter((item) => item.team_id === teamId && item.status === "submitted")
@@ -520,16 +528,23 @@ function deriveCheckpoints(teamId: number): TeamCheckpoint[] {
   return checkpoints;
 }
 
-export function findLocalCredential(role: "admin" | "team", name: string, pin: string) {
+export function findLocalCredential(
+  gameId: number,
+  role: "admin" | "team",
+  name: string,
+  pin: string
+) {
   return getState().accessCredentials.find(
     (credential) =>
+      credential.game_id === gameId &&
       credential.role === role &&
       credential.display_name === name &&
       credential.pin === pin
   );
 }
 
-export function getLocalChallenges(includeHidden = true): Challenge[] {
+export function getLocalChallenges(gameId: number, includeHidden = true): Challenge[] {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
   const rows = getState().challenges
     .filter((challenge) => includeHidden || Boolean(challenge.is_released))
     .sort((a, b) => a.challenge_order - b.challenge_order);
@@ -541,7 +556,8 @@ export function getLocalChallenges(includeHidden = true): Challenge[] {
   }));
 }
 
-export function getLocalCheckins(teamId: number): TeamCheckin[] {
+export function getLocalCheckins(gameId: number, teamId: number): TeamCheckin[] {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
   return getState()
     .teamCheckins
     .filter((item) => item.team_id === teamId)
@@ -549,13 +565,15 @@ export function getLocalCheckins(teamId: number): TeamCheckin[] {
     .map((item) => ({ ...item }));
 }
 
-export function getLocalLatestLocations(): TeamLatestLocation[] {
+export function getLocalLatestLocations(gameId: number): TeamLatestLocation[] {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
   return getState().teams
     .map((team) => deriveTeamLatestLocation(team.id))
     .filter(Boolean) as TeamLatestLocation[];
 }
 
-export function getLocalRecentCheckins(): AdminCheckinFeedItem[] {
+export function getLocalRecentCheckins(gameId: number): AdminCheckinFeedItem[] {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
   const state = getState();
 
   return state.teamCheckins
@@ -606,7 +624,8 @@ export function getLocalRecentCheckins(): AdminCheckinFeedItem[] {
     });
 }
 
-export function getLocalLeaderboard(): LeaderboardEntry[] {
+export function getLocalLeaderboard(gameId: number): LeaderboardEntry[] {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return [];
   const state = getState();
   const releasedChallenges = state.challenges.filter((challenge) => Boolean(challenge.is_released));
   const releasedCount = releasedChallenges.length;
@@ -669,13 +688,14 @@ export function getLocalLeaderboard(): LeaderboardEntry[] {
   return scored.map(({ entry }, index) => ({ ...entry, leaderboard_rank: index + 1 }));
 }
 
-export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | null {
+export function getLocalTeamDashboard(gameId: number, teamId: number): TeamDashboardResponse | null {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return null;
   const state = getState();
   const team = state.teams.find((item) => item.id === teamId);
   if (!team) return null;
   const visibleChallengeIds = deriveVisibleChallengeIds(teamId);
 
-  const challenges = getLocalChallenges(false).map((challenge) => {
+  const challenges = getLocalChallenges(gameId, false).map((challenge) => {
     const status = state.teamChallengeStatus.find(
       (item) => item.team_id === teamId && item.challenge_id === challenge.id
     );
@@ -714,7 +734,7 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
     };
   });
 
-  const leaderboard = getLocalLeaderboard();
+  const leaderboard = getLocalLeaderboard(gameId);
   const teamStats = leaderboard.find((item) => item.id === teamId);
   if (!teamStats) return null;
 
@@ -722,7 +742,7 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
     team,
     challenges,
     checkpoints: deriveCheckpoints(teamId),
-    checkins: getLocalCheckins(teamId),
+    checkins: getLocalCheckins(gameId, teamId),
     latestLocation: deriveTeamLatestLocation(teamId),
     teamStats,
     leaderboard,
@@ -740,19 +760,30 @@ export function getLocalTeamDashboard(teamId: number): TeamDashboardResponse | n
   };
 }
 
-export function getLocalAdminGame(): AdminGameResponse {
+export function getLocalAdminGame(gameId: number): AdminGameResponse {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) {
+    return {
+      challenges: [],
+      teams: [],
+      latestLocations: [],
+      teamRoutes: [],
+      recentCheckins: [],
+      leaderboard: [],
+      pins: { admin_hint: "Local fallback unavailable for this event", team_pin_count: 0 },
+    };
+  }
   const state = getState();
   return {
-    challenges: getLocalChallenges(true),
+    challenges: getLocalChallenges(gameId, true),
     teams: state.teams
-      .map((team) => getLocalTeamDashboard(team.id))
+      .map((team) => getLocalTeamDashboard(gameId, team.id))
       .filter(Boolean) as TeamDashboardResponse[],
-    latestLocations: getLocalLatestLocations(),
+    latestLocations: getLocalLatestLocations(gameId),
     teamRoutes: state.teams
       .map((team) => deriveAdminTeamRoute(team.id))
       .filter(Boolean) as AdminTeamRoute[],
-    recentCheckins: getLocalRecentCheckins(),
-    leaderboard: getLocalLeaderboard(),
+    recentCheckins: getLocalRecentCheckins(gameId),
+    leaderboard: getLocalLeaderboard(gameId),
     pins: {
       admin_hint: "Using local fallback store",
       team_pin_count: state.teams.length,
@@ -760,7 +791,8 @@ export function getLocalAdminGame(): AdminGameResponse {
   };
 }
 
-export function updateLocalChallenge(challengeId: number, title: string, text: string) {
+export function updateLocalChallenge(gameId: number, challengeId: number, title: string, text: string) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return;
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.title = title.slice(0, 120);
@@ -768,9 +800,11 @@ export function updateLocalChallenge(challengeId: number, title: string, text: s
 }
 
 export function updateLocalChallengePrompts(
+  gameId: number,
   challengeId: number,
   prompts: TeamChallengePrompt[]
 ) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return;
   const state = getState();
   state.teamChallengePrompts = state.teamChallengePrompts.filter(
     (entry) => entry.challenge_id !== challengeId
@@ -785,11 +819,15 @@ export function updateLocalChallengePrompts(
 }
 
 export function createLocalChallenge(
+  gameId: number,
   title: string,
   text: string,
   expectedLocation: string,
   allowMediaUpload: boolean
 ) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) {
+    throw new Error("Local fallback only supports the default dev game.");
+  }
   const state = getState();
   const id = state.nextChallengeId++;
   const challengeOrder = state.challenges.length + 1;
@@ -847,22 +885,34 @@ export function createLocalChallenge(
   return { ...challenge, kind };
 }
 
-export function updateLocalChallengeExpectedLocation(challengeId: number, expectedLocation: string) {
+export function updateLocalChallengeExpectedLocation(
+  gameId: number,
+  challengeId: number,
+  expectedLocation: string
+) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return;
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.expected_location = expectedLocation.slice(0, 160);
 }
 
-export function updateLocalChallengeMediaToggle(challengeId: number, allowMediaUpload: boolean) {
+export function updateLocalChallengeMediaToggle(
+  gameId: number,
+  challengeId: number,
+  allowMediaUpload: boolean
+) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return;
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.allow_media_upload = allowMediaUpload ? 1 : 0;
 }
 
 export function updateLocalChallengeCheckpoints(
+  gameId: number,
   challengeId: number,
   checkpoints: TeamChallengeCheckpoint[]
 ) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return;
   const state = getState();
   state.teamChallengeCheckpoints = state.teamChallengeCheckpoints.filter(
     (entry) => entry.challenge_id !== challengeId
@@ -877,20 +927,27 @@ export function updateLocalChallengeCheckpoints(
   );
 }
 
-export function updateLocalChallengeRelease(challengeId: number, isReleased: boolean) {
+export function updateLocalChallengeRelease(
+  gameId: number,
+  challengeId: number,
+  isReleased: boolean
+) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return;
   const challenge = getState().challenges.find((item) => item.id === challengeId);
   if (!challenge) return;
   challenge.is_released = isReleased ? 1 : 0;
 }
 
-export function releaseAllLocalChallenges() {
+export function releaseAllLocalChallenges(gameId: number) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return;
   const state = getState();
   for (const challenge of state.challenges) {
     challenge.is_released = 1;
   }
 }
 
-export function deleteLocalChallenge(challengeId: number) {
+export function deleteLocalChallenge(gameId: number, challengeId: number) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return false;
   const state = getState();
   const challengeIndex = state.challenges.findIndex((item) => item.id === challengeId);
   if (challengeIndex === -1) {
@@ -1059,14 +1116,16 @@ export function createLocalCheckin(input: {
   }
 
   if (input.checkinType === "challenge") {
-    const challenge = getLocalChallenges(true).find((item) => item.id === input.challengeId) ?? null;
+    const challenge =
+      getLocalChallenges(LOCAL_FALLBACK_GAME_ID, true).find((item) => item.id === input.challengeId) ??
+      null;
     if (!challenge) {
       throw new Error("Challenge was not found.");
     }
     if (challenge.kind === "game_long") {
       throw new Error("Challenge 1 unlocks from the start check-in and does not use a checkpoint.");
     }
-    const previousChallenge = getLocalChallenges(true).find(
+    const previousChallenge = getLocalChallenges(LOCAL_FALLBACK_GAME_ID, true).find(
       (item) => item.challenge_order === challenge.challenge_order - 1
     );
     if (previousChallenge) {
@@ -1211,14 +1270,18 @@ export function updateLocalTeamCredentials(teamId: number, teamName: string, pin
   credential.pin = cleanPin.slice(0, 120);
 }
 
-export function isLocalChallengeReleased(challengeId: number) {
+export function isLocalChallengeReleased(gameId: number, challengeId: number) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) return false;
   return Boolean(getState().challenges.find((item) => item.id === challengeId)?.is_released);
 }
 
-export function resetLocalState() {
+export function resetLocalState(gameId: number) {
+  if (gameId !== LOCAL_FALLBACK_GAME_ID) {
+    return { challenges: [] as Challenge[], leaderboard: [] as LeaderboardEntry[] };
+  }
   global.__raceToUnionLocalState = cloneState();
   return {
-    challenges: getLocalChallenges(true),
-    leaderboard: getLocalLeaderboard(),
+    challenges: getLocalChallenges(gameId, true),
+    leaderboard: getLocalLeaderboard(gameId),
   };
 }

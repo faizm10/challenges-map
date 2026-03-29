@@ -23,6 +23,7 @@ export async function PATCH(
       : "pending";
 
   await reviewTeamChallenge(
+    session.gameId,
     Number(teamId),
     Number(challengeId),
     reviewStatus,
@@ -30,5 +31,5 @@ export async function PATCH(
     "HQ Admin"
   );
 
-  return NextResponse.json({ ok: true, game: await getAdminGame() });
+  return NextResponse.json({ ok: true, game: await getAdminGame(session.gameId) });
 }

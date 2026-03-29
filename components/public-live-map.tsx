@@ -18,6 +18,7 @@ import type { PublicMapResponse } from "@/lib/types";
 
 type PublicLiveMapProps = {
   initialData: PublicMapResponse;
+  eventSlug: string;
 };
 
 function formatCoordinate(value: number) {
@@ -94,7 +95,7 @@ function MapAutoFit({ points }: { points: Array<[number, number]> }) {
   return null;
 }
 
-export function PublicLiveMap({ initialData }: PublicLiveMapProps) {
+export function PublicLiveMap({ initialData, eventSlug }: PublicLiveMapProps) {
   const [data, setData] = useState(initialData);
   const [isFeedOpen, setIsFeedOpen] = useState(false);
 
@@ -103,9 +104,12 @@ export function PublicLiveMap({ initialData }: PublicLiveMapProps) {
 
     const load = async () => {
       try {
-        const response = await fetch("/api/public/map", {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/public/map?slug=${encodeURIComponent(eventSlug)}`,
+          {
+            cache: "no-store",
+          }
+        );
         if (!response.ok) return;
         const next = (await response.json()) as PublicMapResponse;
         if (!cancelled) {
@@ -124,7 +128,7 @@ export function PublicLiveMap({ initialData }: PublicLiveMapProps) {
       cancelled = true;
       unsubscribe();
     };
-  }, []);
+  }, [eventSlug]);
 
   const allMapPoints = useMemo(() => {
     const points: Array<[number, number]> = [[data.union.longitude, data.union.latitude]];

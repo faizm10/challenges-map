@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "next build",
     "coords": "node scripts/set-team-start-coordinates.mjs",
-    "storage:buckets": "node scripts/create-storage-buckets.mjs"
+    "storage:buckets": "node scripts/create-storage-buckets.mjs",
+    "seed:mock": "node scripts/seed-mock-game.mjs"
   },
   "repository": {
     "type": "git",

@@ -36,6 +36,7 @@ export async function PATCH(
 
   try {
     await updateChallenge(
+      session.gameId,
       Number(id),
       body?.title ?? "",
       body?.text ?? "",
@@ -46,7 +47,6 @@ export async function PATCH(
         promptText: prompt.promptText ?? "",
       })),
       (body?.checkpoints ?? []).map((checkpoint) => ({
-        // FormData-backed values arrive as strings in practice.
         teamId: Number(checkpoint.teamId),
         checkpointLabel: checkpoint.checkpointLabel ?? "",
         checkpointAddress: checkpoint.checkpointAddress ?? "",
@@ -71,7 +71,7 @@ export async function PATCH(
     throw error;
   }
 
-  return NextResponse.json({ ok: true, challenges: await getChallenges(true) });
+  return NextResponse.json({ ok: true, challenges: await getChallenges(session.gameId, true) });
 }
 
 export async function DELETE(
@@ -86,7 +86,7 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    await deleteChallenge(Number(id));
+    await deleteChallenge(session.gameId, Number(id));
   } catch (error) {
     if (isGameError(error)) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -94,5 +94,5 @@ export async function DELETE(
     throw error;
   }
 
-  return NextResponse.json({ ok: true, challenges: await getChallenges(true) });
+  return NextResponse.json({ ok: true, challenges: await getChallenges(session.gameId, true) });
 }

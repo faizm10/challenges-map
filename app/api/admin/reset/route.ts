@@ -9,5 +9,5 @@ export async function POST() {
     return NextResponse.json({ error: "Admin access required." }, { status: 401 });
   }
 
-  return NextResponse.json({ ok: true, ...(await resetGame()) });
+  return NextResponse.json({ ok: true, ...(await resetGame(session.gameId)) });
 }
