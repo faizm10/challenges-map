@@ -86,6 +86,17 @@ html {
   scroll-behavior: smooth;
 }
 
+@keyframes wrapped-card-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(34px) scale(0.96);
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
 /* Pixel panel — replaces glass-panel */
 .pixel-panel {
   background-color: var(--card);
