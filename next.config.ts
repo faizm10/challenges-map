@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  typedRoutes: true,
+  // Dynamic `/e/[slug]/...` URLs are not representable in generated static route types.
+  typedRoutes: false,
 };
 
 export default nextConfig;

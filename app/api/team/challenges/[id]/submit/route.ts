@@ -19,7 +19,7 @@ export async function POST(
 
   const { id } = await params;
   const challengeId = Number(id);
-  if (!(await isChallengeReleased(challengeId))) {
+  if (!(await isChallengeReleased(session.gameId, challengeId))) {
     return NextResponse.json({ error: "Challenge is not available." }, { status: 404 });
   }
 
@@ -36,6 +36,7 @@ export async function POST(
 
   try {
     await updateTeamChallengeSubmission(
+      session.gameId,
       session.teamId,
       challengeId,
       body?.proofNote ?? "",
@@ -60,6 +61,6 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    dashboard: await getTeamDashboard(session.teamId),
+    dashboard: await getTeamDashboard(session.gameId, session.teamId),
   });
 }

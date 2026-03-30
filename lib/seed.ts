@@ -2,11 +2,18 @@ import type { Challenge, Team, TeamScore } from "@/lib/types";
 
 import { TEAM_SEED } from "@/lib/config";
 
+/**
+ * Local fallback + default `converge` dev seed. Matches rows you can put in
+ * `access_credentials` for game slug `converge` when mirroring production.
+ */
+export const DEMO_CONVERGE_HQ_DISPLAY_NAME = "HQ Admin";
+export const DEMO_CONVERGE_HQ_PIN = "UNIONHQ2026";
+
 export const ACCESS_SEED = [
   {
     role: "admin",
-    display_name: "HQ Admin",
-    pin: "UNIONHQ2026",
+    display_name: DEMO_CONVERGE_HQ_DISPLAY_NAME,
+    pin: DEMO_CONVERGE_HQ_PIN,
     team_id: null,
   },
   ...TEAM_SEED.map((team) => ({

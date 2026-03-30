@@ -2,13 +2,12 @@ import crypto from "node:crypto";
 
 import { cookies } from "next/headers";
 
-import { ACTIVE_TEAM_IDS, COOKIE_NAME, SESSION_SECRET } from "@/lib/config";
-import type { SessionRole } from "@/lib/types";
+import { COOKIE_NAME, SESSION_SECRET } from "@/lib/config";
+import { verifyTeamBelongsToGame } from "@/lib/team-session-guard";
 
-type SessionPayload = {
-  role: SessionRole;
-  teamId?: number;
-};
+export type SessionPayload =
+  | { role: "admin"; gameId: number }
+  | { role: "team"; gameId: number; teamId: number };
 
 function sign(value: string) {
   return crypto
@@ -30,7 +29,16 @@ function decode(value: string): SessionPayload | null {
   }
 
   try {
-    return JSON.parse(Buffer.from(base, "base64url").toString("utf8")) as SessionPayload;
+    const parsed = JSON.parse(Buffer.from(base, "base64url").toString("utf8")) as SessionPayload;
+    if (parsed.role === "admin" && typeof parsed.gameId === "number") return parsed;
+    if (
+      parsed.role === "team" &&
+      typeof parsed.gameId === "number" &&
+      typeof parsed.teamId === "number"
+    ) {
+      return parsed;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -43,6 +51,20 @@ export async function getSession() {
 }
 
 export async function setSession(payload: SessionPayload) {
+  if (payload.role === "admin") {
+    if (payload.gameId == null || !Number.isFinite(payload.gameId)) {
+      throw new Error("Admin session requires a valid gameId.");
+    }
+  } else {
+    if (
+      payload.gameId == null ||
+      !Number.isFinite(payload.gameId) ||
+      payload.teamId == null ||
+      !Number.isFinite(payload.teamId)
+    ) {
+      throw new Error("Team session requires valid gameId and teamId.");
+    }
+  }
   const store = await cookies();
   store.set(COOKIE_NAME, encode(payload), {
     httpOnly: true,
@@ -60,12 +82,15 @@ export async function clearSession() {
 
 export async function requireAdminSession() {
   const session = await getSession();
-  return session?.role === "admin" ? session : null;
+  if (session?.role !== "admin") return null;
+  return session;
 }
 
 export async function requireTeamSession() {
   const session = await getSession();
-  return session?.role === "team" && session.teamId && ACTIVE_TEAM_IDS.includes(session.teamId)
-    ? session
-    : null;
+  if (session?.role !== "team" || session.teamId == null || session.gameId == null) {
+    return null;
+  }
+  const ok = await verifyTeamBelongsToGame(session.gameId, session.teamId);
+  return ok ? session : null;
 }

@@ -23,11 +23,13 @@ export function AnimatedCityMap({
   leaderboard,
 }: AnimatedCityMapProps) {
   return (
-    <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#09090b] p-6 shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_55%,rgba(249,115,22,0.18),transparent_18%),radial-gradient(circle_at_15%_10%,rgba(255,255,255,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_40%)]" />
-      <div className="relative z-10 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))]">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:48px_48px] opacity-35" />
+    <div className="relative overflow-hidden border-3 border-foreground bg-gb-lightest p-4 shadow-[4px_4px_0px_0px_var(--foreground)]">
+      <div className="relative z-10 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        {/* Map area */}
+        <div className="relative min-h-[360px] overflow-hidden border-2 border-foreground bg-background">
+          {/* Pixel grid overlay */}
+          <div className="absolute inset-0 bg-[linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] bg-[size:48px_48px] opacity-20" />
+
           <svg
             className="absolute inset-0 h-full w-full"
             fill="none"
@@ -39,8 +41,8 @@ export function AnimatedCityMap({
                 d={`M ${team.mapPosition.x} ${team.mapPosition.y} Q ${(team.mapPosition.x + unionPoint.x) / 2} ${(team.mapPosition.y + unionPoint.y) / 2 - 10} ${unionPoint.x} ${unionPoint.y}`}
                 stroke={team.color}
                 strokeDasharray="3 3"
-                strokeOpacity="0.5"
-                strokeWidth="0.55"
+                strokeOpacity="0.7"
+                strokeWidth="0.8"
               />
             ))}
           </svg>
@@ -53,7 +55,7 @@ export function AnimatedCityMap({
                   top: [`${team.mapPosition.y}%`, `${unionPoint.y}%`],
                   scale: [1, 1.15, 0.95],
                 }}
-                className="absolute -ml-2.5 -mt-2.5 h-5 w-5 rounded-full border-2 border-white shadow-[0_0_24px_rgba(255,255,255,0.2)]"
+                className="absolute -ml-2 -mt-2 h-4 w-4 border-2 border-foreground"
                 style={{ backgroundColor: team.color }}
                 transition={{
                   duration: 5.8 + index * 0.45,
@@ -63,8 +65,8 @@ export function AnimatedCityMap({
                 }}
               />
               <motion.div
-                animate={{ opacity: [0.4, 1, 0.4], scale: [0.9, 1.08, 0.9] }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70"
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 font-pixel text-[7px] uppercase text-foreground"
                 style={{
                   left: `${team.mapPosition.x}%`,
                   top: `${team.mapPosition.y - 6}%`,
@@ -79,69 +81,70 @@ export function AnimatedCityMap({
             </div>
           ))}
 
+          {/* Union finish point */}
           <motion.div
-            animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }}
+            animate={{ scale: [1, 1.06, 1], opacity: [0.8, 1, 0.8] }}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${unionPoint.x}%`, top: `${unionPoint.y}%` }}
             transition={{ duration: 2.8, repeat: Number.POSITIVE_INFINITY }}
           >
-            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-orange-400/50 bg-orange-500/15 text-center shadow-[0_0_80px_rgba(249,115,22,0.3)] backdrop-blur-sm">
+            <div className="flex h-16 w-16 items-center justify-center border-2 border-foreground bg-secondary text-center">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-orange-200/70">
+                <div className="font-pixel text-[6px] uppercase text-secondary-foreground">
                   Finish
                 </div>
-                <div className="mt-1 font-serif text-lg text-white">Union</div>
+                <div className="font-pixel text-[8px] text-secondary-foreground mt-1">Union</div>
               </div>
             </div>
           </motion.div>
 
-          <div className="absolute bottom-5 left-5 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 backdrop-blur-md">
-            <div className="text-[10px] uppercase tracking-[0.24em] text-white/45">
+          {/* Info box */}
+          <div className="absolute bottom-3 left-3 border-2 border-foreground bg-card px-3 py-2">
+            <div className="font-pixel text-[7px] uppercase text-muted-foreground">
               Toronto race grid
             </div>
-            <div className="mt-2 text-sm text-white/75">
-              5 origin points. 1 final convergence.
+            <div className="mt-1 text-xs text-foreground">
+              5 origins. 1 convergence.
             </div>
           </div>
         </div>
 
-        <div className="space-y-3">
+        {/* Leaderboard sidebar */}
+        <div className="space-y-2">
           {leaderboard.map((team, index) => (
             <motion.div
               key={team.id}
-              className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4 backdrop-blur-md"
-              initial={{ opacity: 0, y: 18 }}
-              transition={{ duration: 0.45, delay: index * 0.05 }}
+              className="border-2 border-foreground bg-card p-3"
+              initial={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.35, delay: index * 0.05 }}
               viewport={{ once: true, amount: 0.35 }}
-              whileHover={{ y: -4, scale: 1.01 }}
               whileInView={{ opacity: 1, y: 0 }}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/60">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="border border-foreground bg-gb-lightest px-2 py-0.5 font-pixel text-[8px] uppercase text-foreground">
                       #{team.leaderboard_rank}
                     </span>
                     <span
-                      className="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-black"
+                      className="h-3 w-3 border border-foreground"
                       style={{ backgroundColor: team.color }}
-                    >
-                      {team.badge_label}
-                    </span>
+                    />
                   </div>
-                  <h3 className="text-lg font-semibold text-white">{team.team_name}</h3>
-                  <p className="text-sm text-white/50">{team.start_location_name}</p>
+                  <h3 className="font-pixel text-[10px] uppercase text-foreground">{team.team_name}</h3>
+                  <p className="text-xs text-muted-foreground">{team.start_location_name}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-semibold text-white">{team.total_points}</div>
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">
-                    points
+                  <div className="font-pixel text-sm text-foreground">{team.total_points}</div>
+                  <div className="font-pixel text-[7px] uppercase text-muted-foreground">
+                    pts
                   </div>
                 </div>
               </div>
-              <div className="mt-4 h-2.5 rounded-full bg-white/8">
+              {/* Progress bar */}
+              <div className="mt-2 h-2 border border-foreground bg-gb-lightest">
                 <motion.div
-                  className="h-2.5 rounded-full"
+                  className="h-full"
                   initial={{ width: 0 }}
                   style={{ backgroundColor: team.color }}
                   transition={{ duration: 0.9, delay: 0.2 + index * 0.08 }}

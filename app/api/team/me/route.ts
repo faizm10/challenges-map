@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: "Team access required." }, { status: 401 });
   }
 
-  const dashboard = await getTeamDashboard(session.teamId);
+  const dashboard = await getTeamDashboard(session.gameId, session.teamId);
   if (!dashboard) {
     return NextResponse.json({ error: "Team not found." }, { status: 404 });
   }

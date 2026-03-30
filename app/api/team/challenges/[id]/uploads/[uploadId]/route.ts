@@ -15,10 +15,15 @@ export async function DELETE(
   const { id, uploadId } = await params;
 
   try {
-    await deleteTeamChallengeMedia(session.teamId, Number(id), Number(uploadId));
+    await deleteTeamChallengeMedia(
+      session.gameId,
+      session.teamId,
+      Number(id),
+      Number(uploadId)
+    );
     return NextResponse.json({
       ok: true,
-      dashboard: await getTeamDashboard(session.teamId),
+      dashboard: await getTeamDashboard(session.gameId, session.teamId),
     });
   } catch (error) {
     if (isGameError(error)) {

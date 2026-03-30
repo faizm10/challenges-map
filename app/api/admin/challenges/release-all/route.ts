@@ -10,8 +10,8 @@ export async function PATCH() {
   }
 
   try {
-    await releaseAllChallenges();
-    return NextResponse.json({ ok: true, challenges: await getChallenges(true) });
+    await releaseAllChallenges(session.gameId);
+    return NextResponse.json({ ok: true, challenges: await getChallenges(session.gameId, true) });
   } catch (error) {
     if (isGameError(error)) {
       return NextResponse.json({ error: error.message }, { status: error.status });

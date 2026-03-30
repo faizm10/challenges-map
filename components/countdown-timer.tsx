@@ -37,22 +37,22 @@ export function CountdownTimer() {
 
   const units = [
     { label: "Days", value: remaining.days },
-    { label: "Hours", value: remaining.hours },
-    { label: "Minutes", value: remaining.minutes },
-    { label: "Seconds", value: remaining.seconds },
+    { label: "Hrs", value: remaining.hours },
+    { label: "Min", value: remaining.minutes },
+    { label: "Sec", value: remaining.seconds },
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid grid-cols-4 gap-2">
       {units.map((unit) => (
         <div
           key={unit.label}
-          className="rounded-2xl border border-white/8 bg-black/18 px-3 py-4 text-center backdrop-blur-sm"
+          className="border-2 border-foreground bg-gb-lightest px-2 py-3 text-center shadow-[2px_2px_0px_0px_var(--foreground)]"
         >
-          <div className="text-2xl font-semibold text-white/96 sm:text-3xl">
+          <div className="font-pixel text-lg text-foreground sm:text-xl">
             {String(unit.value).padStart(2, "0")}
           </div>
-          <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/32 sm:text-xs">
+          <div className="mt-1 font-pixel text-[7px] uppercase text-muted-foreground">
             {unit.label}
           </div>
         </div>

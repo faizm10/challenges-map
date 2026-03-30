@@ -16,41 +16,49 @@ type PublicLeaderboardProps = {
   mapTeams: Array<
     Pick<TeamSeed, "id" | "teamName" | "startLocationName" | "color" | "routeLine" | "coordinates">
   >;
+  eventSlug?: string;
 };
 
-export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardProps) {
+export function PublicLeaderboard({
+  initialData,
+  mapTeams,
+  eventSlug = "converge",
+}: PublicLeaderboardProps) {
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
     return subscribeWhileVisible(async () => {
-      const response = await fetch("/api/public/leaderboard", { cache: "no-store" });
+      const response = await fetch(
+        `/api/public/leaderboard?slug=${encodeURIComponent(eventSlug)}`,
+        { cache: "no-store" }
+      );
       if (!response.ok) return;
       const next = (await response.json()) as PublicLeaderboardResponse;
       setData(next);
     }, PUBLIC_POLL_MS);
-  }, []);
+  }, [eventSlug]);
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-4 sm:py-7 md:px-6 md:py-8">
-      <Card className="grid gap-6 border-white/8 bg-[#120f10]/88 p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:grid-cols-[1fr_auto] lg:items-start lg:p-7">
+      <Card className="grid gap-6 p-5 lg:grid-cols-[1fr_auto] lg:items-start lg:p-7">
         <div className="space-y-4">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+          <p className="font-pixel text-[10px] uppercase tracking-[0.18em] text-primary">
             Live Leaderboard
           </p>
-          <h1 className="max-w-[10ch] font-serif text-4xl leading-none text-white sm:text-5xl md:text-6xl">
+          <h1 className="font-pixel max-w-[10ch] text-4xl uppercase leading-none text-foreground sm:text-5xl md:text-6xl">
             Converge
           </h1>
-          <p className="max-w-2xl text-sm leading-7 text-white/58 sm:text-base">
+          <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             A Toronto team city challenge where live HQ prompts, checkpoints, media
             proof, and team movement reshape the standings in real time.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Badge className="border-white/10 bg-white/8 text-white/80" variant="secondary">
+            <Badge className="border-border bg-gb-lightest text-foreground" variant="secondary">
               {data.event.total_challenges
                 ? `${data.event.released_count}/${data.event.total_challenges} challenges released`
                 : "No challenges created yet"}
             </Badge>
-            <Badge className="border-white/10 bg-white/8 text-white/70" variant="secondary">
+            <Badge className="border-border bg-gb-lightest text-muted-foreground" variant="secondary">
               {data.event.finish_point}
             </Badge>
           </div>
@@ -59,13 +67,13 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
           <Button
             asChild
-            className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
+            className="w-full border-border bg-card text-foreground hover:bg-gb-lightest sm:w-auto"
             variant="secondary"
           >
-            <Link href="/team">Team Login</Link>
+            <Link href={`/e/${eventSlug}/team`}>Team Login</Link>
           </Button>
-          <Button asChild className="w-full bg-orange-500 text-black hover:bg-orange-400 sm:w-auto">
-            <Link href="/admin">HQ Admin</Link>
+          <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-secondary sm:w-auto">
+            <Link href={`/e/${eventSlug}/admin`}>HQ Admin</Link>
           </Button>
         </div>
       </Card>
@@ -73,20 +81,20 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
       <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4 sm:space-y-5">
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-orange-300">
+            <p className="font-pixel mb-2 text-[10px] uppercase tracking-[0.18em] text-primary">
               Race Map
             </p>
-            <h2 className="font-serif text-2xl text-white sm:text-3xl">
+            <h2 className="font-pixel text-2xl uppercase text-foreground sm:text-3xl">
               Team routes converging on Union
             </h2>
           </div>
           <RaceMap teams={mapTeams} />
         </div>
 
-        <Card className="border-white/8 bg-[#120f10]/88 text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+        <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-2xl text-white sm:text-3xl">Standings</CardTitle>
-            <CardDescription className="text-white/52">
+            <CardTitle className="font-pixel text-xl uppercase text-foreground sm:text-2xl">Standings</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Rank is based on time-weighted challenge points.
             </CardDescription>
           </CardHeader>
@@ -94,40 +102,40 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
             {data.leaderboard.map((team) => (
               <div
                 key={team.id}
-                className="rounded-[24px] border border-white/8 bg-white/[0.05] p-4 text-white sm:p-5"
+                className="border-2 border-foreground bg-card p-4 shadow-[4px_4px_0px_0px_var(--foreground)] sm:p-5"
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <Badge className="border-white/10 bg-white/8 text-white/82" variant="secondary">
+                      <Badge className="border-border bg-gb-lightest text-foreground" variant="secondary">
                         #{team.leaderboard_rank}
                       </Badge>
                       <Badge
-                        className="border-transparent text-white"
+                        className="border-transparent text-foreground"
                         variant="secondary"
                         style={{ backgroundColor: team.color }}
                       >
                         {team.badge_label}
                       </Badge>
                     </div>
-                    <h3 className="truncate text-lg font-semibold text-white sm:text-xl">
+                    <h3 className="font-pixel truncate text-base uppercase text-foreground sm:text-lg">
                       {team.team_name}
                     </h3>
-                    <p className="text-sm text-white/50">
+                    <p className="text-sm text-muted-foreground">
                       {team.start_location_name} · {team.walk_time}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-2xl font-bold text-white sm:text-3xl">{team.total_points}</p>
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/38">
+                    <p className="font-pixel text-2xl text-foreground sm:text-3xl">{team.total_points}</p>
+                    <p className="font-pixel text-[8px] uppercase tracking-[0.16em] text-muted-foreground">
                       points
                     </p>
                   </div>
                 </div>
 
-                <div className="mb-4 h-2.5 rounded-full bg-white/8">
+                <div className="mb-4 h-2.5 bg-gb-lightest">
                   <div
-                    className="h-2.5 rounded-full transition-all"
+                    className="h-2.5 transition-all"
                     style={{
                       width: `${team.progress_percent}%`,
                       backgroundColor: team.color,
@@ -136,23 +144,23 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
                 </div>
 
                 <div className="mb-4 grid grid-cols-2 gap-2 text-sm sm:gap-3">
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.06] p-3">
-                    <div className="mb-1 flex items-center gap-2 text-white/46">
+                  <div className="border-2 border-foreground bg-card p-3">
+                    <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                       <Footprints className="h-4 w-4" />
-                      <span className="truncate">Points</span>
+                      <span className="font-pixel truncate text-[8px] uppercase">Points</span>
                     </div>
-                    <strong className="text-white">{team.total_points}</strong>
+                    <strong className="text-foreground">{team.total_points}</strong>
                   </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.06] p-3">
-                    <div className="mb-1 text-white/46">Completed</div>
-                    <strong className="text-white">
+                  <div className="border-2 border-foreground bg-card p-3">
+                    <div className="font-pixel mb-1 text-[8px] uppercase text-muted-foreground">Completed</div>
+                    <strong className="text-foreground">
                       {team.completed_count}/{team.total_challenges}
                     </strong>
                   </div>
                 </div>
 
                 <div className="mb-3 flex flex-wrap gap-2">
-                  <Badge className="border-white/10 bg-white/8 text-white/78" variant="secondary">
+                  <Badge className="border-border bg-gb-lightest text-foreground" variant="secondary">
                     {team.completed_count}/{team.total_challenges} complete
                   </Badge>
                 </div>
@@ -165,7 +173,7 @@ export function PublicLeaderboard({ initialData, mapTeams }: PublicLeaderboardPr
                       </Badge>
                     ))
                   ) : (
-                    <p className="text-sm text-white/44">No milestone unlocked yet.</p>
+                    <p className="text-sm text-muted-foreground">No milestone unlocked yet.</p>
                   )}
                 </div>
               </div>

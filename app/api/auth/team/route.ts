@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 
-import { ACTIVE_TEAM_IDS } from "@/lib/config";
+import { DEFAULT_DEV_GAME_SLUG } from "@/lib/config";
+import { displayNamesMatch } from "@/lib/credential-match";
 import { isSupabaseUnavailable } from "@/lib/data-source";
+import { getGameBySlug } from "@/lib/game";
 import { findLocalCredential } from "@/lib/local-store";
 import { supabase } from "@/lib/supabase";
 import { setSession } from "@/lib/session";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as
-    | { name?: string; pin?: string }
+    | { gameSlug?: string; name?: string; pin?: string }
     | null;
+  const gameSlug = (body?.gameSlug ?? DEFAULT_DEV_GAME_SLUG).trim().toLowerCase();
   const name = body?.name?.trim();
   const pin = body?.pin?.trim();
 
@@ -20,25 +23,34 @@ export async function POST(request: Request) {
     );
   }
 
+  const game = await getGameBySlug(gameSlug);
+  if (!game) {
+    return NextResponse.json({ error: "Event not found." }, { status: 404 });
+  }
+
   try {
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from("access_credentials")
-      .select("team_id")
+      .select("team_id, display_name, pin")
       .eq("role", "team")
-      .eq("display_name", name)
-      .eq("pin", pin)
-      .maybeSingle<{ team_id: number | null }>();
+      .eq("game_id", game.id);
 
     if (error) throw error;
-    if (!data?.team_id) {
-      return NextResponse.json({ error: "Invalid team name or PIN." }, { status: 401 });
-    }
-    if (!ACTIVE_TEAM_IDS.includes(Number(data.team_id))) {
+
+    const row = (rows ?? []).find(
+      (r) =>
+        displayNamesMatch(String(r.display_name), name) &&
+        String(r.pin) === pin &&
+        r.team_id != null
+    );
+
+    if (row?.team_id == null) {
       return NextResponse.json({ error: "Invalid team name or PIN." }, { status: 401 });
     }
 
-    await setSession({ role: "team", teamId: Number(data.team_id) });
-    return NextResponse.json({ ok: true, teamId: Number(data.team_id) });
+    const teamId = Number(row.team_id);
+    await setSession({ role: "team", gameId: game.id, teamId });
+    return NextResponse.json({ ok: true, teamId });
   } catch (error) {
     if (!isSupabaseUnavailable(error)) {
       return NextResponse.json(
@@ -47,12 +59,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const localCredential = findLocalCredential("team", name, pin);
+    const localCredential = findLocalCredential(game.id, "team", name, pin);
     if (!localCredential?.team_id) {
       return NextResponse.json({ error: "Invalid team name or PIN." }, { status: 401 });
     }
 
-    await setSession({ role: "team", teamId: Number(localCredential.team_id) });
+    await setSession({
+      role: "team",
+      gameId: game.id,
+      teamId: Number(localCredential.team_id),
+    });
     return NextResponse.json({ ok: true, teamId: Number(localCredential.team_id) });
   }
 }

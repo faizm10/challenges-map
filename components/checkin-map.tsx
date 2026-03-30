@@ -11,29 +11,26 @@ import {
   MarkerPopup,
 } from "@/components/ui/map";
 import { Card } from "@/components/ui/card";
-import { UNION_STATION } from "@/lib/config";
-import type { AdminTeamRoute, TeamLatestLocation } from "@/lib/types";
+import type { AdminTeamRoute, EventFinishDisplay, TeamLatestLocation } from "@/lib/types";
 
 type CheckinMapProps = {
   latestLocations: TeamLatestLocation[];
   teamRoutes: AdminTeamRoute[];
+  eventFinish: EventFinishDisplay;
 };
 
 function formatCoordinate(value: number) {
   return value.toString();
 }
 
-export function CheckinMap({ latestLocations, teamRoutes }: CheckinMapProps) {
+export function CheckinMap({ latestLocations, teamRoutes, eventFinish }: CheckinMapProps) {
   return (
     <Card className="overflow-hidden border-white/8 bg-[#120f10]/88 p-0">
       <div className="h-[320px] w-full sm:h-[380px] lg:h-[420px]">
         <Map center={[-79.3842, 43.6515]} zoom={12.6}>
           <MapControls />
 
-          <MapMarker
-            latitude={UNION_STATION.coordinates[1]}
-            longitude={UNION_STATION.coordinates[0]}
-          >
+          <MapMarker latitude={eventFinish.latitude} longitude={eventFinish.longitude}>
             <MarkerContent>
               <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-black text-white shadow-lg">
                 <MapPin className="h-4 w-4" />
@@ -41,8 +38,8 @@ export function CheckinMap({ latestLocations, teamRoutes }: CheckinMapProps) {
             </MarkerContent>
             <MarkerPopup>
               <div className="rounded-xl border bg-white px-3 py-2 text-sm shadow-md">
-                <strong>{UNION_STATION.name}</strong>
-                <p className="text-muted-foreground">{UNION_STATION.finishPoint}</p>
+                <strong>{eventFinish.shortName}</strong>
+                <p className="text-muted-foreground">{eventFinish.addressLabel}</p>
               </div>
             </MarkerPopup>
           </MapMarker>

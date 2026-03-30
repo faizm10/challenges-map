@@ -15,6 +15,11 @@ export const UNION_STATION = {
   coordinates: [-79.3807, 43.6453] as [number, number],
 };
 
+/**
+ * Dev/demo seed only: used by `lib/seed.ts`, scripts, and the local in-memory fallback for the
+ * default game (`DEFAULT_DEV_GAME_SLUG` / `LOCAL_FALLBACK_GAME_ID`). Production tenants define
+ * teams via the admin API, not this array.
+ */
 export const TEAM_SEED: TeamSeed[] = [
   {
     id: 1,
@@ -146,4 +151,22 @@ export const TEAM_SEED: TeamSeed[] = [
   },
 ];
 
+/** Team IDs used only for the default dev/local fallback game (`LOCAL_FALLBACK_GAME_ID`). */
 export const ACTIVE_TEAM_IDS = TEAM_SEED.map((team) => team.id);
+
+/** Local in-memory store and offline fallback only support this single game id. */
+export const LOCAL_FALLBACK_GAME_ID = 1;
+
+/** Default slug for legacy redirects and seed data (matches migration default row). */
+export const DEFAULT_DEV_GAME_SLUG = "converge";
+
+/**
+ * Server-only env name: if value is `"true"` or `"1"`, `/e/admin` and `POST /api/games` work without
+ * admin sign-in (local QA only). Never enable in production.
+ */
+export const ALLOW_ANONYMOUS_GAME_CREATE_ENV = "ALLOW_ANONYMOUS_GAME_CREATE" as const;
+
+export function allowAnonymousGameCreateFromEnv() {
+  const v = process.env[ALLOW_ANONYMOUS_GAME_CREATE_ENV];
+  return v === "true" || v === "1";
+}

@@ -15,12 +15,13 @@ export async function POST(request: Request) {
 
   try {
     await createChallenge(
+      session.gameId,
       body?.title ?? "",
       body?.text ?? "",
       body?.expectedLocation ?? "",
       body?.allowMediaUpload ?? true
     );
-    return NextResponse.json({ ok: true, challenges: await getChallenges(true) });
+    return NextResponse.json({ ok: true, challenges: await getChallenges(session.gameId, true) });
   } catch (error) {
     if (isGameError(error)) {
       return NextResponse.json({ error: error.message }, { status: error.status });

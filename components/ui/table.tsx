@@ -3,14 +3,14 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
-  return <table className={cn("w-full caption-bottom text-sm", className)} {...props} />;
+  return <table className={cn("w-full caption-bottom text-sm border-2 border-foreground", className)} {...props} />;
 }
 
 export function TableHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("[&_tr]:border-b", className)} {...props} />;
+  return <thead className={cn("bg-primary text-primary-foreground [&_tr]:border-b-2 [&_tr]:border-foreground", className)} {...props} />;
 }
 
 export function TableBody({
@@ -25,7 +25,7 @@ export function TableRow({
   ...props
 }: React.HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={cn("border-b border-border/80 transition-colors", className)} {...props} />
+    <tr className={cn("border-b-2 border-foreground transition-colors hover:bg-gb-lightest", className)} {...props} />
   );
 }
 
@@ -36,7 +36,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        "h-12 px-4 text-left align-middle text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground",
+        "h-10 px-3 text-left align-middle font-pixel text-[10px] uppercase tracking-wider text-primary-foreground",
         className
       )}
       {...props}
@@ -48,5 +48,5 @@ export function TableCell({
   className,
   ...props
 }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("p-4 align-middle", className)} {...props} />;
+  return <td className={cn("p-3 align-middle", className)} {...props} />;
 }

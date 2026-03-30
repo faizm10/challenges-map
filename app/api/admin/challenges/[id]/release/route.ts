@@ -14,11 +14,11 @@ export async function PATCH(
 
   const { id } = await params;
   const body = (await request.json().catch(() => null)) as { isReleased?: boolean } | null;
-  await updateChallengeRelease(Number(id), Boolean(body?.isReleased));
+  await updateChallengeRelease(session.gameId, Number(id), Boolean(body?.isReleased));
 
   return NextResponse.json({
     ok: true,
-    challenges: await getChallenges(true),
-    leaderboard: await getLeaderboard(),
+    challenges: await getChallenges(session.gameId, true),
+    leaderboard: await getLeaderboard(session.gameId),
   });
 }
