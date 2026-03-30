@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { AdminGamesHub } from "@/components/admin-games-hub";
-import { listGameSummaries } from "@/lib/game";
+import { listGameSummariesForOwnerCredential } from "@/lib/game";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminHubPage() {
-  const games = await listGameSummaries();
+  const session = await getSession();
+  if (session?.role !== "admin" || session.ownerCredentialId == null) {
+    redirect("/organizer/login?next=%2Fe%2Fadmin");
+  }
+  const games = await listGameSummariesForOwnerCredential(Number(session.ownerCredentialId));
   return <AdminGamesHub initialGames={games} />;
 }

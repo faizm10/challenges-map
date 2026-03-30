@@ -41,9 +41,9 @@ export function SignupClient({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <main className="relative flex min-h-screen w-full flex-col lg:flex-row">
+    <main className="relative flex min-h-[100dvh] w-full flex-col overflow-y-auto lg:min-h-screen lg:flex-row">
       <div
-        className="relative flex min-h-[40vh] flex-col justify-between p-8 lg:min-h-screen lg:w-[58%] lg:p-14"
+        className="relative flex h-[clamp(180px,33dvh,320px)] flex-col justify-between p-[clamp(14px,2.6dvh,28px)] lg:min-h-screen lg:h-auto lg:w-[58%] lg:p-14"
         style={{
           backgroundImage:
             "url('/images/landing/u1194229659_generate_a_pixel_gamified_toronto_landscape_pictu_208a8505-04d8-407f-a202-6ea78d2f3571_3.png')",
@@ -56,9 +56,9 @@ export function SignupClient({ nextPath }: { nextPath: string }) {
         <div className="relative z-10">
           <p className="text-xs uppercase tracking-[0.35em] text-[#7dd3fc]">Converge</p>
         </div>
-        <div className="relative z-10 space-y-4">
+        <div className="relative z-10 space-y-2 lg:space-y-4">
           <p className="text-xs uppercase tracking-[0.25em] text-[#38bdf8]">Host Setup</p>
-          <h1 className="text-4xl leading-tight text-[#e0f2fe] sm:text-5xl lg:text-6xl">
+          <h1 className="text-[clamp(2.1rem,8vw,3.75rem)] leading-[0.95] text-[#e0f2fe]">
             Build
             <br />
             the race.
@@ -66,14 +66,16 @@ export function SignupClient({ nextPath }: { nextPath: string }) {
         </div>
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center bg-[#08131d] px-8 py-14 lg:px-14">
-        <div className="w-full max-w-[420px] space-y-8">
+      <div className="relative flex flex-1 flex-col items-center justify-start bg-[#08131d] px-[clamp(14px,4vw,28px)] py-[clamp(14px,2.4dvh,26px)] lg:justify-center lg:px-14 lg:py-14">
+        <div className="w-full max-w-[420px] space-y-[clamp(14px,2.1dvh,28px)]">
           <div className="space-y-1 border-l-2 border-[#38bdf8] pl-4">
             <p className="text-xs uppercase tracking-[0.25em] text-[#38bdf8]">Organizer Sign Up</p>
-            <h2 className="text-3xl text-[#e0f2fe]">Create access</h2>
+            <h2 className="text-[clamp(1.9rem,7vw,2.5rem)] leading-none text-[#e0f2fe]">
+              Create access
+            </h2>
           </div>
 
-          <form className="space-y-5" onSubmit={onSubmit}>
+          <form className="space-y-[clamp(12px,1.9dvh,20px)]" onSubmit={onSubmit}>
             <div className="space-y-1.5">
               <label className="block text-xs uppercase tracking-widest text-[#bae6fd]/70">
                 Organizer Name
@@ -122,7 +124,7 @@ export function SignupClient({ nextPath }: { nextPath: string }) {
             </Button>
             <p className="text-center text-sm text-[#bae6fd]/70">
               Already have an account?{" "}
-              <Link className="underline underline-offset-4 hover:text-[#e0f2fe]" href="/organizer/login?next=%2Fe%2Fcreate">
+              <Link className="underline underline-offset-4 hover:text-[#e0f2fe]" href="/organizer/login?next=%2Fe%2Fadmin">
                 Sign in
               </Link>
             </p>

@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 export default async function AdminHubLayout({ children }: { children: ReactNode }) {
   if (!allowAnonymousGameCreateFromEnv()) {
     const session = await getSession();
-    if (session?.role !== "admin") {
-      redirect("/e/converge/admin");
+    if (session?.role !== "admin" || session.ownerCredentialId == null) {
+      redirect("/organizer/login?next=%2Fe%2Fadmin");
     }
   }
   return children;

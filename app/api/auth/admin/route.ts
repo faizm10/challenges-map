@@ -6,7 +6,7 @@ import { isSupabaseUnavailable } from "@/lib/data-source";
 import { getGameBySlug } from "@/lib/game";
 import { findLocalCredential } from "@/lib/local-store";
 import { supabase } from "@/lib/supabase";
-import { setSession } from "@/lib/session";
+import { getSession, setSession } from "@/lib/session";
 
 function hqMismatchHint(gameSlug: string) {
   return `This URL only checks the admin row in access_credentials for event slug "${gameSlug}". Names and PINs from another event will not work — use that event's /e/your-slug/admin link (organizers see the slug when they create the event).`;
@@ -56,7 +56,14 @@ export async function POST(request: Request) {
       );
     }
 
-    await setSession({ role: "admin", gameId: game.id });
+    const currentSession = await getSession();
+    await setSession({
+      role: "admin",
+      gameId: game.id,
+      ...(currentSession?.role === "admin" && currentSession.ownerCredentialId != null
+        ? { ownerCredentialId: currentSession.ownerCredentialId }
+        : {}),
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (!isSupabaseUnavailable(error)) {
@@ -77,7 +84,14 @@ export async function POST(request: Request) {
       );
     }
 
-    await setSession({ role: "admin", gameId: game.id });
+    const currentSession = await getSession();
+    await setSession({
+      role: "admin",
+      gameId: game.id,
+      ...(currentSession?.role === "admin" && currentSession.ownerCredentialId != null
+        ? { ownerCredentialId: currentSession.ownerCredentialId }
+        : {}),
+    });
     return NextResponse.json({ ok: true, fallback: true });
   }
 }

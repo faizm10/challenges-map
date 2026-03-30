@@ -18,7 +18,7 @@ export function JoinClient() {
     setError("");
 
     if (!/^\d{6}$/.test(eventPin)) {
-      setError("Enter a valid 6-digit game PIN from your organizer.");
+      setError("Enter a valid 6-digit game PIN from your organizer to join the game.");
       return;
     }
 
@@ -49,9 +49,9 @@ export function JoinClient() {
   }
 
   return (
-    <main className="relative flex min-h-screen w-full flex-col lg:flex-row">
+    <main className="relative flex min-h-[100dvh] w-full flex-col overflow-y-auto lg:min-h-screen lg:flex-row">
       <div
-        className="relative flex min-h-[40vh] flex-col justify-between p-8 lg:min-h-screen lg:w-[58%] lg:p-14"
+        className="relative flex h-[clamp(180px,33dvh,320px)] flex-col justify-between p-[clamp(14px,2.6dvh,28px)] lg:min-h-screen lg:h-auto lg:w-[58%] lg:p-14"
         style={{
           backgroundImage:
             "url('/images/landing/u1194229659_generate_a_pixel_gamified_toronto_landscape_pictu_208a8505-04d8-407f-a202-6ea78d2f3571_3.png')",
@@ -66,31 +66,31 @@ export function JoinClient() {
           <p className="text-xs uppercase tracking-[0.35em] text-[#f2c39b]">Converge</p>
         </div>
 
-        <div className="relative z-10 space-y-4">
+        <div className="relative z-10 space-y-2 lg:space-y-4">
           <p className="text-xs uppercase tracking-[0.25em] text-[#ffd8b7]">Team Entry</p>
-          <h1 className="text-4xl leading-tight text-[#e6d5b8] sm:text-5xl lg:text-6xl">
+          <h1 className="text-[clamp(2.1rem,8vw,3.75rem)] leading-[0.95] text-[#e6d5b8]">
             Enter
             <br />
             the race.
           </h1>
-          <p className="max-w-xs text-sm leading-6 text-[#e6d5b8]/58">
-            Use your organizer&apos;s 6-digit game PIN to access team sign-in and start your city run.
+          <p className="max-w-xs text-xs leading-5 text-[#e6d5b8]/58 lg:text-sm lg:leading-6">
+            Use your organizer&apos;s 6-digit game PIN to access game sign-in and start your city run.
           </p>
         </div>
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center bg-[#090809] px-8 py-14 lg:px-14">
-        <div className="w-full max-w-[420px] space-y-8">
-          <div className="space-y-1 border-l-2 border-[#f2c39b] pl-4">
+      <div className="relative flex flex-1 flex-col items-center justify-start bg-[#090809] px-[clamp(14px,4vw,28px)] py-[clamp(14px,2.4dvh,26px)] lg:justify-center lg:px-14 lg:py-14">
+        <div className="w-full max-w-[420px] space-y-[clamp(14px,2.1dvh,28px)]">
+          <div className="space-y-1 border-l-2 border-[#f2c39b] pl-3 lg:pl-4">
             <p className="text-xs uppercase tracking-[0.25em] text-[#f2c39b]">Join</p>
-            <h2 className="text-3xl text-[#e6d5b8]">Game PIN</h2>
+            <h2 className="text-[clamp(1.9rem,7vw,2.5rem)] leading-none text-[#e6d5b8]">Game PIN</h2>
             <p className="text-xs text-[#e6d5b8]/42">
-              Enter the 6-digit PIN from your organizer.
+              Enter the 6-digit PIN from your organizer to join the game.
             </p>
           </div>
 
           <Card className="border border-[#e6d5b8]/10 bg-[#0f0c0d]">
-            <CardContent className="space-y-6 p-6">
+            <CardContent className="space-y-4 p-4 lg:space-y-6 lg:p-6">
               <div className="space-y-2">
                 
                 <input
@@ -106,7 +106,7 @@ export function JoinClient() {
                 />
                 <button
                   type="button"
-                  className="grid w-full grid-cols-6 gap-2"
+                  className="grid w-full grid-cols-6 gap-1.5 lg:gap-2"
                   onClick={() => pinInputRef.current?.focus()}
                 >
                   {[...Array(6)].map((_, index) => {
@@ -115,7 +115,7 @@ export function JoinClient() {
                     return (
                       <span
                         key={index}
-                        className={`flex h-12 items-center justify-center border text-lg ${
+                        className={`flex h-10 items-center justify-center border text-base lg:h-12 lg:text-lg ${
                           active
                             ? "border-[#f2c39b] bg-[#e6d3b5] text-[#5a3c2a]"
                             : "border-[#e6d5b8]/20 bg-[#e6d5b8]/5 text-[#e6d5b8]"
@@ -139,7 +139,7 @@ export function JoinClient() {
                 disabled={loading}
                 onClick={goTeam}
               >
-                {loading ? "Checking PIN..." : "Team sign in"}
+                {loading ? "Checking PIN..." : "Sign in to Game"}
               </Button>
               
                             <Button asChild className="w-full" type="button" variant="secondary">

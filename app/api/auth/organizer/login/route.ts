@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     | { gameSlug?: string; name?: string; pin?: string }
     | null;
 
-  const gameSlug = (body?.gameSlug ?? DEFAULT_DEV_GAME_SLUG).trim().toLowerCase();
+  const gameSlug = DEFAULT_DEV_GAME_SLUG;
   const name = body?.name?.trim();
   const pin = body?.pin?.trim();
 
@@ -40,8 +40,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid organizer name or PIN." }, { status: 401 });
     }
 
-    await setSession({ role: "admin", gameId: game.id });
-    return NextResponse.json({ ok: true });
+    await setSession({
+      role: "admin",
+      gameId: game.id,
+      ownerCredentialId: Number(data.id),
+    });
+    return NextResponse.json({ ok: true, ownerCredentialId: Number(data.id) });
   } catch (error) {
     if (!isSupabaseUnavailable(error)) {
       return NextResponse.json(
@@ -59,4 +63,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, fallback: true });
   }
 }
-

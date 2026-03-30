@@ -19,18 +19,20 @@ export async function POST(request: Request) {
     | null;
 
   try {
+    let organizerOwnerCredentialId: number | null = null;
     if (!allowAnonymousGameCreateFromEnv()) {
       const admin = await requireAdminSession();
-      if (!admin) {
+      if (!admin || admin.ownerCredentialId == null) {
         return NextResponse.json(
           {
             error:
-              "Admin sign-in required before creating a new event.",
-            code: "ADMIN_REQUIRED",
+              "Organizer sign-in required before creating a new event.",
+            code: "ORGANIZER_REQUIRED",
           },
           { status: 401 }
         );
       }
+      organizerOwnerCredentialId = Number(admin.ownerCredentialId);
     }
 
     const created = await createGameWithAdmin({
@@ -38,13 +40,20 @@ export async function POST(request: Request) {
       name: body?.name ?? "",
       adminDisplayName: body?.adminDisplayName ?? "",
       adminPin: body?.adminPin ?? "",
+      organizerId: organizerOwnerCredentialId,
       finishPointLabel: body?.finishPointLabel,
       finishShortName: body?.finishShortName,
       finishLatitude: body?.finishLatitude,
       finishLongitude: body?.finishLongitude,
     });
 
-    await setSession({ role: "admin", gameId: created.id });
+    await setSession({
+      role: "admin",
+      gameId: created.id,
+      ...(organizerOwnerCredentialId != null
+        ? { ownerCredentialId: organizerOwnerCredentialId }
+        : {}),
+    });
 
     return NextResponse.json({ ok: true, slug: created.slug, gameId: created.id });
   } catch (error) {

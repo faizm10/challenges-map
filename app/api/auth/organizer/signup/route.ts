@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     | { gameSlug?: string; name?: string; pin?: string }
     | null;
 
-  const gameSlug = (body?.gameSlug ?? DEFAULT_DEV_GAME_SLUG).trim().toLowerCase();
+  const gameSlug = DEFAULT_DEV_GAME_SLUG;
   const name = body?.name?.trim();
   const pin = body?.pin?.trim();
 
@@ -41,18 +41,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: insertError } = await supabase.from("access_credentials").insert({
-      game_id: game.id,
-      role: "admin",
-      display_name: name,
-      pin,
-      team_id: null,
-    });
+    const { data: createdCredential, error: insertError } = await supabase
+      .from("access_credentials")
+      .insert({
+        game_id: game.id,
+        role: "admin",
+        display_name: name,
+        pin,
+        team_id: null,
+      })
+      .select("id")
+      .single<{ id: number }>();
 
     if (insertError) throw insertError;
 
-    await setSession({ role: "admin", gameId: game.id });
-    return NextResponse.json({ ok: true });
+    await setSession({
+      role: "admin",
+      gameId: game.id,
+      ownerCredentialId: Number(createdCredential.id),
+    });
+    return NextResponse.json({ ok: true, ownerCredentialId: Number(createdCredential.id) });
   } catch (error) {
     if (isSupabaseUnavailable(error)) {
       return NextResponse.json(
@@ -67,4 +75,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

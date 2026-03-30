@@ -6,7 +6,7 @@ import { COOKIE_NAME, SESSION_SECRET } from "@/lib/config";
 import { verifyTeamBelongsToGame } from "@/lib/team-session-guard";
 
 export type SessionPayload =
-  | { role: "admin"; gameId: number }
+  | { role: "admin"; gameId: number; ownerCredentialId?: number }
   | { role: "team"; gameId: number; teamId: number };
 
 function sign(value: string) {
@@ -30,7 +30,13 @@ function decode(value: string): SessionPayload | null {
 
   try {
     const parsed = JSON.parse(Buffer.from(base, "base64url").toString("utf8")) as SessionPayload;
-    if (parsed.role === "admin" && typeof parsed.gameId === "number") return parsed;
+    if (
+      parsed.role === "admin" &&
+      typeof parsed.gameId === "number" &&
+      (parsed.ownerCredentialId === undefined || typeof parsed.ownerCredentialId === "number")
+    ) {
+      return parsed;
+    }
     if (
       parsed.role === "team" &&
       typeof parsed.gameId === "number" &&
@@ -54,6 +60,12 @@ export async function setSession(payload: SessionPayload) {
   if (payload.role === "admin") {
     if (payload.gameId == null || !Number.isFinite(payload.gameId)) {
       throw new Error("Admin session requires a valid gameId.");
+    }
+    if (
+      payload.ownerCredentialId !== undefined &&
+      (payload.ownerCredentialId == null || !Number.isFinite(payload.ownerCredentialId))
+    ) {
+      throw new Error("Admin session ownerCredentialId must be a valid number when provided.");
     }
   } else {
     if (

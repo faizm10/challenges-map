@@ -222,6 +222,77 @@ export async function listGameSummaries(): Promise<GameSummary[]> {
   }
 }
 
+export async function listGameSummariesForOwnerCredential(
+  ownerCredentialId: number
+): Promise<GameSummary[]> {
+  try {
+    const [gamesResponse, ownerCredentialResponse] = await Promise.all([
+      supabase.from("games").select("id, slug, name, settings").order("created_at", { ascending: false }),
+      supabase
+        .from("access_credentials")
+        .select("display_name, pin")
+        .eq("id", ownerCredentialId)
+        .eq("role", "admin")
+        .maybeSingle<{ display_name: string; pin: string }>(),
+    ]);
+
+    if (gamesResponse.error) throw gamesResponse.error;
+    if (ownerCredentialResponse.error) throw ownerCredentialResponse.error;
+
+    const ownerDisplayName = ownerCredentialResponse.data?.display_name ?? null;
+    const ownerPin = ownerCredentialResponse.data?.pin ?? null;
+
+    let legacyOwnedGameIds = new Set<number>();
+    if (ownerDisplayName && ownerPin) {
+      const { data: sameCredRows, error: sameCredError } = await supabase
+        .from("access_credentials")
+        .select("game_id")
+        .eq("role", "admin")
+        .eq("display_name", ownerDisplayName)
+        .eq("pin", ownerPin);
+      if (sameCredError) throw sameCredError;
+      legacyOwnedGameIds = new Set(
+        (sameCredRows ?? []).map((row) => Number((row as { game_id: number }).game_id))
+      );
+    }
+
+    const data = gamesResponse.data;
+    return ((data ?? []) as Array<{
+      id: unknown;
+      slug: unknown;
+      name: unknown;
+      settings?: unknown;
+    }>)
+      .filter((row) => {
+        const gameId = Number(row.id);
+        const settings =
+          row.settings && typeof row.settings === "object" && !Array.isArray(row.settings)
+            ? (row.settings as Record<string, unknown>)
+            : null;
+        const owner = settings?.owner_admin_credential_id;
+        return Number(owner) === ownerCredentialId || legacyOwnedGameIds.has(gameId);
+      })
+      .map((row) => ({
+        id: Number(row.id),
+        slug: String(row.slug),
+        name: String(row.name),
+      }));
+  } catch (error) {
+    if (isSupabaseUnavailable(error)) {
+      return ownerCredentialId === 1
+        ? [
+            {
+              id: LOCAL_FALLBACK_GAME_ID,
+              slug: "converge",
+              name: "Converge",
+            },
+          ]
+        : [];
+    }
+    throw error;
+  }
+}
+
 export async function createGameWithAdmin(input: {
   slug: string;
   name: string;
@@ -248,6 +319,9 @@ export async function createGameWithAdmin(input: {
   if (finLat !== null) finish.latitude = finLat;
   if (finLng !== null) finish.longitude = finLng;
   if (Object.keys(finish).length) settings.finish = finish;
+  if (input.organizerId != null && Number.isFinite(input.organizerId)) {
+    settings.owner_admin_credential_id = Number(input.organizerId);
+  }
 
   if (!slug || !EVENT_SLUG_PATTERN.test(slug)) {
     throw new GameError(
